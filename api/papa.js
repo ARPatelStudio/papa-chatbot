@@ -1,9 +1,9 @@
 /**
- * Papa Chatbot - High-Speed Quota-Proof Vercel Serverless Backend (2026 Edition)
+ * Papa Chatbot - High-Speed Quota-Proof Vercel Serverless Backend (2026 Full-Sentence Edition)
  * Features:
- *  1. Smart 5-Key Gemini Parser (Supports comma, space, newline, or GEMINI_KEY_1..5)
- *  2. Multi-Model Rotation (gemini-3.5-flash-lite -> gemini-3.5-flash -> gemini-2.5-flash -> gemini-3.8-flash)
- *  3. Automatic Unlimited Free AI Fallback if all 5 Gemini Keys hit 429 Daily Quota!
+ *  1. Full Hindi Sentence Guarantee (maxOutputTokens: 350 + Complete Sentence Punctuation Enforcer)
+ *  2. 250ms Trailing Audio Silence Cushion (Prevents browser audio player from clipping the last word)
+ *  3. Smart 5-Key Gemini Parser + Multi-Model Rotation + Unlimited Free AI Fallback
  *  4. Bidirectional Ping-Pong Auto-Shift (1->N then N->1) for Gemini & Cartesia
  */
 
@@ -20,7 +20,27 @@ const FATHER_PROMPT =
     "You are a loving, caring Indian father (Papa) talking to your family.\n" +
     "1. FAMILY RECOGNITION: If reference photos of family members are provided, compare the person in the 'CURRENT LIVE CAMERA VIEW' with those reference photos. If they match a registered family member, address them warmly by their name/relation.\n" +
     "2. LIVE VISION ABSORPTION: Also observe their facial expression, clothes, or any object/place shown through the front or back camera and respond naturally.\n" +
-    "3. SCRIPT RULE: ALWAYS write your reply strictly in Devanagari Hindi script (देवनागरी हिंदी) so the Hindi voice clone pronounces every word clearly. Keep your reply to 1 short, affectionate sentence.";
+    "3. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak 1 or 2 complete, meaningful sentences (around 15 to 30 words) and ALWAYS finish your sentence completely with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete or cut off in the middle.";
+
+// Ensures Hindi text always ends cleanly with complete punctuation so Cartesia TTS never cuts off mid-intonation
+function ensureCompleteHindiSentence(rawText) {
+    if (!rawText) return "हाँ बेटा, मैं तुम्हारी बात सुन रहा हूँ।";
+    let text = String(rawText)
+        .replace(/\*+/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    // If the model was somehow cut off after a comma or conjunction at the very end, trim trailing comma
+    text = text.replace(/[,،;:\-–—]+$/, "").trim();
+
+    // Ensure final Hindi punctuation (।, ?, or !) so Cartesia pronounces the last word completely
+    if (!/[।?!.|]$/.test(text)) {
+        text += "।";
+    } else if (text.endsWith(".")) {
+        text = text.slice(0, -1) + "।";
+    }
+    return text;
+}
 
 // Smart Parser: Reads all 5 Gemini keys whether separated by comma, space, newline, or individual env vars
 function getGeminiKeysFromEnv() {
@@ -120,6 +140,7 @@ function shiftPingPongIndex(currentIdx, currentDir, totalLength) {
     return { idx, dir };
 }
 
+// Builds a clean 44-byte RIFF WAV buffer + 250ms trailing silence padding so last word never clips
 function buildWavBufferFromPcm(rawArrayBuffer, sampleRate = 24000) {
     let pcmBytes = new Uint8Array(rawArrayBuffer);
     if (
@@ -136,9 +157,13 @@ function buildWavBufferFromPcm(rawArrayBuffer, sampleRate = 24000) {
     const bitsPerSample = 16;
     const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
     const blockAlign = (numChannels * bitsPerSample) / 8;
-    const dataSize = pcmBytes.byteLength;
 
-    const wavBuffer = new ArrayBuffer(44 + dataSize);
+    // Add 250ms of trailing silence (zero bytes, even-aligned) so browser player never cuts off the end
+    const silenceSamples = Math.floor(sampleRate * 0.25);
+    const silenceBytesLength = silenceSamples * blockAlign;
+    const totalDataSize = pcmBytes.byteLength + silenceBytesLength;
+
+    const wavBuffer = new ArrayBuffer(44 + totalDataSize);
     const view = new DataView(wavBuffer);
 
     const writeStr = (offset, str) => {
@@ -148,7 +173,7 @@ function buildWavBufferFromPcm(rawArrayBuffer, sampleRate = 24000) {
     };
 
     writeStr(0, "RIFF");
-    view.setUint32(4, 36 + dataSize, true);
+    view.setUint32(4, 36 + totalDataSize, true);
     writeStr(8, "WAVE");
     writeStr(12, "fmt ");
     view.setUint32(16, 16, true);
@@ -159,9 +184,12 @@ function buildWavBufferFromPcm(rawArrayBuffer, sampleRate = 24000) {
     view.setUint16(32, blockAlign, true);
     view.setUint16(34, bitsPerSample, true);
     writeStr(36, "data");
-    view.setUint32(40, dataSize, true);
+    view.setUint32(40, totalDataSize, true);
 
-    new Uint8Array(wavBuffer, 44).set(pcmBytes);
+    const targetArray = new Uint8Array(wavBuffer, 44);
+    targetArray.set(pcmBytes, 0);
+    // Remaining silenceBytesLength in targetArray are already 0 (clean silence)
+
     return Buffer.from(wavBuffer);
 }
 
@@ -172,7 +200,7 @@ async function callSingleCartesiaTTS(apiKey, voiceId, text) {
 
     for (const modelId of models) {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 6500);
+        const timer = setTimeout(() => controller.abort(), 9500);
         try {
             const res = await fetch("https://api.cartesia.ai/tts/bytes", {
                 method: "POST",
@@ -226,7 +254,7 @@ async function callSingleCartesiaTTS(apiKey, voiceId, text) {
     return { ok: false, status: lastStatus, error: lastError };
 }
 
-// 🛡️ Unlimited Free Backup AI Generator (Runs automatically if all 5 Gemini keys hit 20/day quota!)
+// Unlimited Free Backup AI Generator (Runs automatically if all 5 Gemini keys hit daily quota)
 async function generateFreeBackupReply(userText, base64Frame, currentFacingMode, savedFaces) {
     let familyHint = "";
     if (currentFacingMode === "user" && Array.isArray(savedFaces) && savedFaces.length > 0) {
@@ -234,7 +262,6 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
         familyHint = `\nRegistered family members in household: ${names}.`;
     }
 
-    // Option A: If user ever adds GROQ_API_KEY in Vercel, use Groq Vision/Llama
     if (process.env.GROQ_API_KEY) {
         try {
             const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -249,7 +276,7 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
                         { role: "system", content: FATHER_PROMPT + familyHint },
                         { role: "user", content: userText }
                     ],
-                    max_tokens: 80,
+                    max_tokens: 280,
                     temperature: 0.65
                 })
             });
@@ -257,7 +284,7 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
             const text = groqData?.choices?.[0]?.message?.content;
             if (groqRes.ok && text) {
                 return {
-                    aiText: text.trim(),
+                    aiText: ensureCompleteHindiSentence(text),
                     geminiKeyUsed: "Backup",
                     modelUsed: "Groq-Llama-3.3"
                 };
@@ -265,8 +292,12 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
         } catch (_) {}
     }
 
-    // Option B: Zero-Key Free Cloud Multimodal AI Fallback (Works 24/7 with no API key required!)
-    const userContent = [{ type: "text", text: `Family member said: "${userText}"` }];
+    const userContent = [
+        {
+            type: "text",
+            text: `Family member said: "${userText}"\n(Reply warmly as Papa in 1-2 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)`
+        }
+    ];
     if (base64Frame) {
         userContent.push({
             type: "image_url",
@@ -275,7 +306,7 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
     }
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), 9000);
     try {
         const freeRes = await fetch("https://text.pollinations.ai/openai", {
             method: "POST",
@@ -296,7 +327,7 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
             const reply = freeData?.choices?.[0]?.message?.content;
             if (reply && reply.trim()) {
                 return {
-                    aiText: reply.trim(),
+                    aiText: ensureCompleteHindiSentence(reply),
                     geminiKeyUsed: "Auto-Backup",
                     modelUsed: "Free-Vision-AI"
                 };
@@ -339,9 +370,10 @@ async function generateGeminiReplyInternal(body) {
         });
     }
 
-    userParts.push({ text: `Family member said: "${userText}"` });
+    userParts.push({
+        text: `Family member said: "${userText}"\n(अपना जवाब हमेशा पूरा लिखें और वाक्य को अधूरा न छोड़ें।)`
+    });
 
-    // Try high-quota models first, then gemini-3.8-flash
     const modelsToTry = [
         "gemini-3.5-flash-lite",
         "gemini-3.5-flash",
@@ -363,11 +395,11 @@ async function generateGeminiReplyInternal(body) {
                 const cacheKey = `${activeKey.slice(-6)}:${modelName}`;
                 const exhaustedUntil = exhaustedModelCache.get(cacheKey) || 0;
                 if (Date.now() < exhaustedUntil) {
-                    continue; // Skip model on cooldown
+                    continue;
                 }
 
                 const controller = new AbortController();
-                const timer = setTimeout(() => controller.abort(), 6500);
+                const timer = setTimeout(() => controller.abort(), 8000);
                 try {
                     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
                     const gRes = await fetch(url, {
@@ -378,7 +410,8 @@ async function generateGeminiReplyInternal(body) {
                             contents: [{ role: "user", parts: userParts }],
                             systemInstruction: { parts: [{ text: FATHER_PROMPT }] },
                             generationConfig: {
-                                maxOutputTokens: 75,
+                                // 350 tokens ensures Devanagari Hindi sentences NEVER get cut off mid-way!
+                                maxOutputTokens: 350,
                                 temperature: 0.65
                             }
                         })
@@ -386,10 +419,16 @@ async function generateGeminiReplyInternal(body) {
                     clearTimeout(timer);
 
                     const data = await gRes.json();
-                    const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (gRes.ok && replyText) {
+                    // Concatenate all text parts in case the model split output across parts
+                    const partsList = data?.candidates?.[0]?.content?.parts || [];
+                    const combinedText = partsList
+                        .map((p) => p.text || "")
+                        .join(" ")
+                        .trim();
+
+                    if (gRes.ok && combinedText) {
                         return {
-                            aiText: replyText.trim(),
+                            aiText: ensureCompleteHindiSentence(combinedText),
                             geminiKeyUsed: keyNum,
                             modelUsed: modelName
                         };
@@ -397,7 +436,6 @@ async function generateGeminiReplyInternal(body) {
 
                     lastError = data?.error?.message || `HTTP ${gRes.status} on ${modelName}`;
 
-                    // If 429 (Quota Exceeded) or 404 (Model not enabled), mark for 20 min cooldown & try next model!
                     if (gRes.status === 429 || gRes.status === 404 || gRes.status === 400) {
                         exhaustedModelCache.set(cacheKey, Date.now() + 20 * 60 * 1000);
                         continue;
@@ -413,14 +451,12 @@ async function generateGeminiReplyInternal(body) {
                 }
             }
 
-            // Ping-Pong shift to next Gemini Key (1->2->3->4->5 then 5->4->3->2->1)
             const shifted = shiftPingPongIndex(geminiKeyIdx, geminiKeyDir, geminiKeys.length);
             geminiKeyIdx = shifted.idx;
             geminiKeyDir = shifted.dir;
         }
     }
 
-    // 🛡️ If all 5 Gemini Keys are quota-exhausted (e.g. same Google project), use Free Backup AI!
     const backupReply = await generateFreeBackupReply(userText, base64Frame, currentFacingMode, savedFaces);
     if (backupReply) {
         return backupReply;
@@ -430,7 +466,8 @@ async function generateGeminiReplyInternal(body) {
 }
 
 // Internal Helper: Fast Cartesia TTS + Render Fallback Generation
-async function generateTtsAudioInternal(text) {
+async function generateTtsAudioInternal(rawText) {
+    const text = ensureCompleteHindiSentence(rawText);
     const cartesiaPool = getCartesiaPoolFromEnv();
     const renderUrl = (process.env.RENDER_TTS_URL || "https://papa-voice-cloud.onrender.com/api/tts").trim();
     let lastCartesiaError = "No Cartesia keys configured";
@@ -546,7 +583,6 @@ export default async function handler(req, res) {
         }
     }
 
-    // Diagnostic Scanner: Now checks BOTH Gemini 5-Keys AND Cartesia Keys!
     if (action === "diag") {
         const geminiKeys = getGeminiKeysFromEnv();
         const cartesiaPool = getCartesiaPoolFromEnv();
@@ -569,7 +605,7 @@ export default async function handler(req, res) {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             contents: [{ role: "user", parts: [{ text: "नमस्ते" }] }],
-                            generationConfig: { maxOutputTokens: 10 }
+                            generationConfig: { maxOutputTokens: 20 }
                         })
                     });
                     if (gRes.ok) {
@@ -592,7 +628,7 @@ export default async function handler(req, res) {
         logs.push(`\n🎙️ CARTESIA KEYS FOUND IN VERCEL ENV: ${cartesiaPool.length}`);
         for (let k = 0; k < cartesiaPool.length; k++) {
             const entry = cartesiaPool[k];
-            const resTest = await callSingleCartesiaTTS(entry.key, entry.primaryVoice, "नमस्ते बेटा, खुश रहो।");
+            const resTest = await callSingleCartesiaTTS(entry.key, entry.primaryVoice, "नमस्ते बेटा, मैं बिल्कुल ठीक हूँ और मेरी बात अब पूरी सुनाई देगी।");
             if (resTest.ok) {
                 logs.push(`✅ Cartesia Key #${k + 1} + Voice #${entry.primaryNum} (${resTest.modelUsed}): SUCCESS!`);
                 if (!firstSuccessAudio) {
