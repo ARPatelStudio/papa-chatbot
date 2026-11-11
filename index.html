@@ -108,7 +108,7 @@ if (!sessionPIN) {
 // Media Paths & Backend Endpoint
 const BACKEND_API_URL = "/api/papa";
 const RENDER_BASE_URL = "https://papa-voice-cloud.onrender.com";
-const DEFAULT_SHARE_URL = "https://papa-chatbot.vercel.app/";
+const DEFAULT_SHARE_URL = "https://papachatbot.vercel.app/";
 const IDLE_VIDEO_URL = "./avatar_idle.mp4";
 const TALKING_VIDEO_URL = "./avatar_talking.mp4";
 
@@ -160,7 +160,7 @@ fetch(BACKEND_API_URL, {
         document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:20%'>Access Denied. Wrong PIN.</h2>";
         throw new Error("Wrong PIN");
     }
-    statusText.innerText = "✅ Ready (Secured via Vercel Environment Variables).\nAb '🎤 Baat Karo' ya '🔊 Voice Test' dabayen!";
+    statusText.innerText = "✅ Ready (Turbo Single-Hop Mode ON).\nAb '🎤 Baat Karo' ya '🔊 Voice Test' dabayen!";
 })
 .catch(function(err) {
     if (err.message !== "Wrong PIN") {
@@ -266,7 +266,7 @@ function base64ToArrayBuffer(base64) {
 }
 
 // ============================================================================
-// 👨‍👩‍👧‍👦 FAMILY FACE MEMORY MANAGER
+// 👨‍👩‍👧‍👦 FAMILY FACE MEMORY MANAGER (Compact 160x160 Thumbnails for Fast Upload)
 // ============================================================================
 function getSavedFamilyFaces() {
     try {
@@ -327,11 +327,11 @@ saveFaceBtn.addEventListener("click", function() {
         return;
     }
 
-    faceThumbCanvas.width = 220;
-    faceThumbCanvas.height = 220;
+    faceThumbCanvas.width = 160;
+    faceThumbCanvas.height = 160;
     const ctx = faceThumbCanvas.getContext("2d");
-    ctx.drawImage(cameraVideo, 0, 0, 220, 220);
-    const thumbBase64 = faceThumbCanvas.toDataURL("image/jpeg", 0.72).split(",")[1];
+    ctx.drawImage(cameraVideo, 0, 0, 160, 160);
+    const thumbBase64 = faceThumbCanvas.toDataURL("image/jpeg", 0.6).split(",")[1];
 
     const faces = getSavedFamilyFaces();
     const existingIdx = faces.findIndex(function(f) {
@@ -351,7 +351,7 @@ saveFaceBtn.addEventListener("click", function() {
 renderFamilyFacesUI();
 
 // ============================================================================
-// 📷 LIVE CAMERA MANAGER (Front & Back Camera Switching)
+// 📷 LIVE CAMERA MANAGER (Fast 320x240 Frame Capture for Zero Upload Lag)
 // ============================================================================
 async function startCamera(facingMode) {
     const mode = facingMode || "user";
@@ -364,8 +364,8 @@ async function startCamera(facingMode) {
         activeCameraStream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: { ideal: mode },
-                width: { ideal: 640 },
-                height: { ideal: 480 }
+                width: { ideal: 320 },
+                height: { ideal: 240 }
             },
             audio: false
         });
@@ -436,17 +436,16 @@ camFlipBtn.addEventListener("click", async function() {
     statusText.innerText = "✅ " + (nextMode === "user" ? "Front Camera (Parivar Pehchan)" : "Back Camera (Chijein dekhne ke liye)") + " Active!";
 });
 
+// Optimized: Captures compact 320x240 JPEG (~10KB) so upload to Vercel takes <100ms!
 function captureCameraFrameBase64() {
     if (!isVisionEnabled || !activeCameraStream || cameraVideo.readyState < 2) {
         return null;
     }
-    const w = cameraVideo.videoWidth || 640;
-    const h = cameraVideo.videoHeight || 480;
-    visionCanvas.width = w;
-    visionCanvas.height = h;
+    visionCanvas.width = 320;
+    visionCanvas.height = 240;
     const ctx = visionCanvas.getContext("2d");
-    ctx.drawImage(cameraVideo, 0, 0, w, h);
-    const dataUrl = visionCanvas.toDataURL("image/jpeg", 0.75);
+    ctx.drawImage(cameraVideo, 0, 0, 320, 240);
+    const dataUrl = visionCanvas.toDataURL("image/jpeg", 0.55);
     return dataUrl.split(",")[1] || null;
 }
 
@@ -511,55 +510,12 @@ if (recognition) {
 }
 
 // ============================================================================
-// 🧠 1. Call Vercel Serverless Backend for Gemini 3.8 Flash Reply
+// 🔊 Shared Audio Playback Helper (Plays Base64 WAV + Syncs Talking Avatar)
 // ============================================================================
-async function getFatherReplyFromServer(userText, base64Frame) {
-    const savedFaces = getSavedFamilyFaces();
-    const res = await fetch(BACKEND_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            action: "chat",
-            pin: sessionPIN,
-            userText: userText,
-            base64Frame: base64Frame,
-            currentFacingMode: currentFacingMode,
-            savedFaces: savedFaces
-        })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-        throw new Error(data.error || ("Server HTTP " + res.status));
-    }
-    return data;
-}
-
-// ============================================================================
-// 🎙️ 2. Call Vercel Serverless Backend for Cartesia / Render TTS Audio
-// ============================================================================
-async function speakPapaReply(aiText) {
-    statusText.innerText = "Papa: " + aiText + "\n🔄 Awaaz ban rahi hai...";
-
-    const res = await fetch(BACKEND_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            action: "tts",
-            pin: sessionPIN,
-            text: aiText
-        })
-    });
-
-    const data = await res.json();
-    if (!res.ok || !data.audioBase64) {
-        throw new Error(data.error || "TTS Server Error");
-    }
-
-    const arrayBuffer = base64ToArrayBuffer(data.audioBase64);
+function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel) {
+    const arrayBuffer = base64ToArrayBuffer(audioBase64);
     const blob = new Blob([arrayBuffer], { type: "audio/wav" });
     const audioUrl = URL.createObjectURL(blob);
-    const engineLabel = data.engineLabel || "Cloud TTS";
 
     return new Promise(function(resolve) {
         function startAvatarTalking() {
@@ -603,12 +559,62 @@ async function speakPapaReply(aiText) {
     });
 }
 
+// ============================================================================
+// 🚀 1. TURBO SINGLE-HOP PIPELINE (Fetches Gemini Reply + Cartesia Audio Together!)
+// ============================================================================
+async function processSpeechTurbo(userText, base64Frame) {
+    const savedFaces = getSavedFamilyFaces();
+    const res = await fetch(BACKEND_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            action: "chat_and_tts",
+            pin: sessionPIN,
+            userText: userText,
+            base64Frame: base64Frame,
+            currentFacingMode: currentFacingMode,
+            savedFaces: savedFaces
+        })
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.audioBase64) {
+        throw new Error(data.error || ("Server HTTP " + res.status));
+    }
+
+    await playAudioBase64WithAvatar(data.audioBase64, data.aiText, data.engineLabel || "Turbo TTS");
+}
+
+// ============================================================================
+// 🎙️ 2. Standalone TTS Helper (Used for 1-Click Voice Test Button)
+// ============================================================================
+async function speakPapaReply(aiText) {
+    statusText.innerText = "Papa: " + aiText + "\n🔄 Awaaz ban rahi hai...";
+
+    const res = await fetch(BACKEND_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            action: "tts",
+            pin: sessionPIN,
+            text: aiText
+        })
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.audioBase64) {
+        throw new Error(data.error || "TTS Server Error");
+    }
+
+    await playAudioBase64WithAvatar(data.audioBase64, aiText, data.engineLabel || "Cloud TTS");
+}
+
 // 1-Click Direct Voice Test Button
 testVoiceBtn.addEventListener("click", async function() {
     unlockBrowserAudio();
     testVoiceBtn.disabled = true;
     try {
-        await speakPapaReply("नमस्ते बेटा, मेरी आवाज़ अब सुरक्षित सर्वर से बिल्कुल साफ़ आ रही है!");
+        await speakPapaReply("नमस्ते बेटा, मेरी आवाज़ अब टर्बो स्पीड से बिल्कुल साफ़ आ रही है!");
     } catch (err) {
         statusText.innerText = "🚨 Voice Test Error: " + err.message;
     } finally {
@@ -647,17 +653,16 @@ diagCartesiaBtn.addEventListener("click", async function() {
     }
 });
 
-// Main Speech + Live Vision + Family Recognition Pipeline
+// Main Speech + Live Vision + Family Recognition Pipeline (Uses Turbo Single-Hop!)
 if (recognition) {
     recognition.onresult = async function(event) {
         const userText = event.results[0][0].transcript;
         const cameraFrameBase64 = captureCameraFrameBase64();
         const visionTag = cameraFrameBase64 ? (" (👁️ " + (currentFacingMode === "user" ? "Chehra Pehchan" : "Back Cam") + " ON)") : "";
-        statusText.innerText = "Tum: " + userText + "\n🔄 Papa dekh aur soch rahe hain" + visionTag + "...";
+        statusText.innerText = "Tum: " + userText + "\n⚡ Papa turant jawab de rahe hain" + visionTag + "...";
 
         try {
-            const chatData = await getFatherReplyFromServer(userText, cameraFrameBase64);
-            await speakPapaReply(chatData.aiText);
+            await processSpeechTurbo(userText, cameraFrameBase64);
         } catch (error) {
             avatarVideo.src = IDLE_VIDEO_URL;
             avatarBox.style.borderColor = "#0D8ABC";
