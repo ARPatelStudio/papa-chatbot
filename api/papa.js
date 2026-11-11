@@ -1,7 +1,9 @@
 /**
- * Papa Chatbot - High-Speed Vercel Serverless Backend (2026 Turbo Edition)
- * Combines Gemini 3.8 Flash + Cartesia Sonic-Latest into a Single-Hop Pipeline ("chat_and_tts")
- * for 3x faster response time while preserving all existing actions and Ping-Pong rotation.
+ * Papa Chatbot - High-Speed Vercel Serverless Backend (2026 Quota-Resilient Turbo Edition)
+ * Features:
+ *  - Per-Model 429 Failover (Automatically switches between gemini-3.5-flash, gemini-3.5-flash-lite, gemini-3.8-flash)
+ *  - Circuit-Breaker Cooldown Cache (Skips quota-exhausted models instantly with 0ms delay)
+ *  - Bidirectional Ping-Pong Key Rotation (1->N then N->1) for both Gemini & Cartesia
  */
 
 let geminiKeyIdx = 0;
@@ -9,6 +11,9 @@ let geminiKeyDir = 1; // 1 = Forward (1->5), -1 = Reverse (5->1)
 
 let cartesiaKeyIdx = 0;
 let cartesiaKeyDir = 1; // 1 = Forward (1->9), -1 = Reverse (9->1)
+
+// Circuit-breaker cache: remembers which "keyIndex:modelName" hit 429 quota so next call is instant
+const exhaustedModelCache = new Map();
 
 const FATHER_PROMPT =
     "You are a loving, caring Indian father (Papa) talking to your family.\n" +
@@ -20,12 +25,15 @@ function getGeminiKeysFromEnv() {
     const keys = [];
     if (process.env.GEMINI_KEYS) {
         process.env.GEMINI_KEYS.split(",").forEach((k) => {
-            if (k && k.trim()) keys.push(k.trim());
+            const clean = k.trim();
+            if (clean && !clean.startsWith("YOUR_GEMINI_API_KEY") && !keys.includes(clean)) {
+                keys.push(clean);
+            }
         });
     }
     for (let i = 1; i <= 10; i++) {
         const k = process.env[`GEMINI_KEY_${i}`] || process.env[`GEMINI_API_KEY_${i}`];
-        if (k && k.trim() && !keys.includes(k.trim())) {
+        if (k && k.trim() && !k.trim().startsWith("YOUR_GEMINI_API_KEY") && !keys.includes(k.trim())) {
             keys.push(k.trim());
         }
     }
@@ -207,7 +215,7 @@ async function callSingleCartesiaTTS(apiKey, voiceId, text) {
     return { ok: false, status: lastStatus, error: lastError };
 }
 
-// Internal Helper: Fast Gemini 3.8 Flash Reply Generation
+// Internal Helper: Quota-Resilient Multi-Model + Multi-Key Gemini Reply Generator
 async function generateGeminiReplyInternal(body) {
     const geminiKeys = getGeminiKeysFromEnv();
     if (geminiKeys.length === 0) {
@@ -245,58 +253,85 @@ async function generateGeminiReplyInternal(body) {
 
     userParts.push({ text: `Family member said: "${userText}"` });
 
-    const modelsToTry = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
+    // Ordered by High Free-Tier Daily Quota + Low Latency first!
+    const modelsToTry = [
+        "gemini-3.5-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-3.8-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash"
+    ];
+
     let lastError = "Unknown Gemini Error";
-    const maxAttempts = geminiKeys.length * 2;
+    const maxKeyAttempts = Math.max(geminiKeys.length * 2, 2);
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const activeKey = geminiKeys[geminiKeyIdx];
-        const keyNum = geminiKeyIdx + 1;
+    // Pass 1: Skip models recently marked as 429 exhausted; Pass 2: Retry all if needed
+    for (let pass = 0; pass < 2; pass++) {
+        for (let attempt = 0; attempt < maxKeyAttempts; attempt++) {
+            const activeKey = geminiKeys[geminiKeyIdx];
+            const keyNum = geminiKeyIdx + 1;
 
-        for (const modelName of modelsToTry) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 7000);
-            try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
-                const gRes = await fetch(url, {
-                    method: "POST",
-                    signal: controller.signal,
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [{ role: "user", parts: userParts }],
-                        systemInstruction: { parts: [{ text: FATHER_PROMPT }] },
-                        generationConfig: {
-                            maxOutputTokens: 75,
-                            temperature: 0.65
-                        }
-                    })
-                });
-                clearTimeout(timer);
-
-                const data = await gRes.json();
-                const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (gRes.ok && replyText) {
-                    return {
-                        aiText: replyText.trim(),
-                        geminiKeyUsed: keyNum,
-                        modelUsed: modelName
-                    };
+            for (const modelName of modelsToTry) {
+                const cacheKey = `${geminiKeyIdx}:${modelName}`;
+                const exhaustedUntil = exhaustedModelCache.get(cacheKey) || 0;
+                if (pass === 0 && Date.now() < exhaustedUntil) {
+                    continue; // Instant skip of quota-exhausted model!
                 }
 
-                lastError = data?.error?.message || `HTTP ${gRes.status} on ${modelName}`;
-                if (gRes.status === 429 || gRes.status === 401 || gRes.status === 403) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 7000);
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
+                    const gRes = await fetch(url, {
+                        method: "POST",
+                        signal: controller.signal,
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: [{ role: "user", parts: userParts }],
+                            systemInstruction: { parts: [{ text: FATHER_PROMPT }] },
+                            generationConfig: {
+                                maxOutputTokens: 75,
+                                temperature: 0.65
+                            }
+                        })
+                    });
+                    clearTimeout(timer);
+
+                    const data = await gRes.json();
+                    const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (gRes.ok && replyText) {
+                        return {
+                            aiText: replyText.trim(),
+                            geminiKeyUsed: keyNum,
+                            modelUsed: modelName
+                        };
+                    }
+
+                    lastError = data?.error?.message || `HTTP ${gRes.status} on ${modelName}`;
+
+                    // If this specific model hit 429 quota or 404 retired, mark it in cooldown cache for 30 mins
+                    // and DO NOT break — immediately try the next model on this SAME API key!
+                    if (gRes.status === 429 || gRes.status === 404) {
+                        exhaustedModelCache.set(cacheKey, Date.now() + 30 * 60 * 1000);
+                        continue;
+                    }
+
+                    // Only break out of the model loop if the API key itself is invalid/revoked (401/403)
+                    if (gRes.status === 401 || gRes.status === 403) {
+                        break;
+                    }
+                } catch (err) {
+                    clearTimeout(timer);
+                    lastError = err.message;
                     break;
                 }
-            } catch (err) {
-                clearTimeout(timer);
-                lastError = err.message;
-                break;
             }
-        }
 
-        const shifted = shiftPingPongIndex(geminiKeyIdx, geminiKeyDir, geminiKeys.length);
-        geminiKeyIdx = shifted.idx;
-        geminiKeyDir = shifted.dir;
+            // Shift to next Gemini API Key (1->2->3->4->5 then 5->4->3->2->1)
+            const shifted = shiftPingPongIndex(geminiKeyIdx, geminiKeyDir, geminiKeys.length);
+            geminiKeyIdx = shifted.idx;
+            geminiKeyDir = shifted.dir;
+        }
     }
 
     throw new Error(`Gemini API Error: ${lastError}`);
@@ -315,7 +350,6 @@ async function generateTtsAudioInternal(text) {
             const entry = cartesiaPool[cartesiaKeyIdx];
             const keyNum = cartesiaKeyIdx + 1;
 
-            // Fast path: check primary pre-mapped Voice ID for this key
             const result = await callSingleCartesiaTTS(entry.key, entry.primaryVoice, text);
             if (result.ok) {
                 return {
@@ -326,7 +360,6 @@ async function generateTtsAudioInternal(text) {
 
             lastCartesiaError = `Key #${keyNum} V#${entry.primaryNum} [${result.status}]: ${result.error}`;
 
-            // Only try secondary voice if 404 (Voice not found on this key)
             if (result.status === 404) {
                 const res2 = await callSingleCartesiaTTS(entry.key, entry.secondaryVoice, text);
                 if (res2.ok) {
@@ -371,7 +404,6 @@ export default async function handler(req, res) {
     const action = body.action || "";
     const requiredPin = (process.env.APP_PIN || "1234").trim();
 
-    // 1. Verify PIN Action
     if (action === "verify_pin") {
         const enteredPin = String(body.pin || "").trim();
         if (enteredPin === requiredPin) {
@@ -380,12 +412,10 @@ export default async function handler(req, res) {
         return res.status(401).json({ ok: false, error: "Wrong PIN" });
     }
 
-    // Security check for all other actions
     if (String(body.pin || "").trim() !== requiredPin) {
         return res.status(401).json({ error: "Unauthorized PIN" });
     }
 
-    // 🚀 2. NEW TURBO ACTION: Combined Chat + TTS in a Single Server Round-Trip!
     if (action === "chat_and_tts") {
         try {
             const chatResult = await generateGeminiReplyInternal(body);
@@ -395,14 +425,13 @@ export default async function handler(req, res) {
                 geminiKeyUsed: chatResult.geminiKeyUsed,
                 modelUsed: chatResult.modelUsed,
                 audioBase64: ttsResult.audioBase64,
-                engineLabel: `G-Key #${chatResult.geminiKeyUsed} | ${ttsResult.engineLabel}`
+                engineLabel: `G-Key #${chatResult.geminiKeyUsed} (${chatResult.modelUsed}) | ${ttsResult.engineLabel}`
             });
         } catch (err) {
             return res.status(500).json({ error: err.message });
         }
     }
 
-    // 3. Standalone Chat Action (Preserved for compatibility)
     if (action === "chat") {
         try {
             const chatResult = await generateGeminiReplyInternal(body);
@@ -412,7 +441,6 @@ export default async function handler(req, res) {
         }
     }
 
-    // 4. Standalone TTS Action (Used by Voice Test button)
     if (action === "tts") {
         const text = (body.text || "").trim();
         if (!text) {
@@ -426,7 +454,6 @@ export default async function handler(req, res) {
         }
     }
 
-    // 5. Diagnostic Scanner Action
     if (action === "diag") {
         const cartesiaPool = getCartesiaPoolFromEnv();
         const logs = [];
