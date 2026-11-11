@@ -3,17 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Papa Chatbot - AI Vision & Family Recognition</title>
+    <title>Papa Chatbot - End-to-End Live Video Call & AI Vision</title>
+    <style>
+        @keyframes pulseRed {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.55; transform: scale(1.06); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .live-pulse {
+            animation: pulseRed 1.4s infinite ease-in-out;
+        }
+    </style>
 </head>
 <body style="background: #121212; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box;">
 
 <div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 520px; width: 100%; padding: 22px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;">
     
-    <!-- Portrait Video Avatar Box -->
-    <div id="avatar-box" style="margin: 0 auto 16px auto; width: 260px; border-radius: 15px; overflow: hidden; border: 4px solid #0D8ABC; box-shadow: 0 0 15px rgba(13, 138, 188, 0.4); transition: border-color 0.3s; position: relative;">
+    <!-- Portrait Video Avatar Box + LIVE Stream HUD -->
+    <div id="avatar-box" style="margin: 0 auto 16px auto; width: 265px; border-radius: 15px; overflow: hidden; border: 4px solid #0D8ABC; box-shadow: 0 0 15px rgba(13, 138, 188, 0.4); transition: border-color 0.3s, box-shadow 0.3s; position: relative;">
         <video id="avatar-video" width="100%" autoplay loop muted playsinline style="height: auto; display: block; object-fit: contain;"></video>
 
-        <!-- Live User/Environment Camera PiP Preview -->
+        <!-- 🔴 LIVE STREAM Indicator Badge (Top-Left) -->
+        <div id="live-stream-badge" class="live-pulse" style="display: none; position: absolute; top: 8px; left: 8px; background: rgba(220, 38, 38, 0.92); color: #fff; font-size: 10px; font-weight: bold; padding: 4px 9px; border-radius: 12px; letter-spacing: 0.6px; box-shadow: 0 2px 8px rgba(0,0,0,0.6);">
+            🔴 LIVE CALL
+        </div>
+
+        <!-- 💬 Live Call Subtitle Overlay (Bottom-Left/Center) -->
+        <div id="live-subtitle-box" style="display: none; position: absolute; bottom: 8px; left: 8px; right: 96px; background: rgba(0, 0, 0, 0.75); color: #ffeb3b; font-size: 11px; padding: 5px 8px; border-radius: 8px; text-align: left; line-height: 1.35; backdrop-filter: blur(3px);">
+            पापा लाइव कॉल पर जुड़े हैं...
+        </div>
+
+        <!-- Live User/Environment Camera PiP Preview (Bottom-Right) -->
         <div id="cam-preview-box" style="position: absolute; bottom: 8px; right: 8px; width: 82px; height: 108px; border-radius: 10px; overflow: hidden; border: 2px solid #ffeb3b; background: #000; box-shadow: 0 4px 12px rgba(0,0,0,0.7); display: none;">
             <video id="camera-video" width="100%" height="100%" autoplay muted playsinline style="object-fit: cover; width: 100%; height: 100%; transform: scaleX(-1);"></video>
             <span id="cam-mode-badge" style="position: absolute; bottom: 2px; left: 4px; font-size: 9px; background: rgba(0,0,0,0.7); color: #ffeb3b; padding: 1px 4px; border-radius: 4px;">Front</span>
@@ -80,15 +100,18 @@
         <div id="saved-family-list" style="font-size: 12px; color: #a6e3a1; max-height: 110px; overflow-y: auto;"></div>
     </div>
 
-    <!-- Main Mic Button + Voice Test + Cartesia Diagnostic Button -->
+    <!-- 📞 NEW: End-to-End Live Video Call Button + 🎤 Single Mic + 🔊 Test + 🔑 Keys -->
     <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
-        <button id="mic-btn" style="padding: 14px 26px; border-radius: 30px; border: none; background: #0D8ABC; color: white; font-size: 17px; font-weight: bold; cursor: pointer;">
+        <button id="live-call-btn" style="padding: 14px 22px; border-radius: 30px; border: 2px solid #ff5252; background: #b71c1c; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 14px rgba(255, 82, 82, 0.35);">
+            📞 Start Live Call
+        </button>
+        <button id="mic-btn" style="padding: 14px 22px; border-radius: 30px; border: none; background: #0D8ABC; color: white; font-size: 16px; font-weight: bold; cursor: pointer;">
             🎤 Baat Karo
         </button>
-        <button id="test-voice-btn" style="padding: 14px 18px; border-radius: 30px; border: 1px solid #a6e3a1; background: #1e3a2f; color: #a6e3a1; font-size: 14px; font-weight: bold; cursor: pointer;">
+        <button id="test-voice-btn" style="padding: 13px 16px; border-radius: 30px; border: 1px solid #a6e3a1; background: #1e3a2f; color: #a6e3a1; font-size: 13px; font-weight: bold; cursor: pointer;">
             🔊 Voice Test
         </button>
-        <button id="diag-cartesia-btn" style="padding: 14px 16px; border-radius: 30px; border: 1px solid #f9e2af; background: #332b1a; color: #f9e2af; font-size: 13px; font-weight: bold; cursor: pointer;">
+        <button id="diag-cartesia-btn" style="padding: 13px 14px; border-radius: 30px; border: 1px solid #f9e2af; background: #332b1a; color: #f9e2af; font-size: 12px; font-weight: bold; cursor: pointer;">
             🔑 Check Keys
         </button>
     </div>
@@ -113,6 +136,9 @@ const IDLE_VIDEO_URL = "./avatar_idle.mp4";
 const TALKING_VIDEO_URL = "./avatar_talking.mp4";
 
 // DOM Elements
+const liveCallBtn = document.getElementById("live-call-btn");
+const liveStreamBadge = document.getElementById("live-stream-badge");
+const liveSubtitleBox = document.getElementById("live-subtitle-box");
 const micBtn = document.getElementById("mic-btn");
 const testVoiceBtn = document.getElementById("test-voice-btn");
 const diagCartesiaBtn = document.getElementById("diag-cartesia-btn");
@@ -147,6 +173,12 @@ let isVisionEnabled = true;
 let currentFacingMode = "user";
 let sharedAudioCtx = null;
 
+// 📞 End-to-End Live Call State & Sliding Conversation Memory
+let isLiveCallActive = false;
+let isPapaSpeakingOrThinking = false;
+let isMicCurrentlyListening = false;
+let conversationHistory = []; // Stores last 6 turns: [{ role: 'user'|'papa', text: '...' }]
+
 avatarVideo.src = IDLE_VIDEO_URL;
 
 // Verify PIN with Backend on startup
@@ -160,11 +192,11 @@ fetch(BACKEND_API_URL, {
         document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:20%'>Access Denied. Wrong PIN.</h2>";
         throw new Error("Wrong PIN");
     }
-    statusText.innerText = "✅ Ready (Turbo Single-Hop Mode ON).\nAb '🎤 Baat Karo' ya '🔊 Voice Test' dabayen!";
+    statusText.innerText = "✅ Ready! Hands-Free baat ke liye '📞 Start Live Call' dabayen\nya ek baar bolne ke liye '🎤 Baat Karo' dabayen.";
 })
 .catch(function(err) {
     if (err.message !== "Wrong PIN") {
-        statusText.innerText = "✅ Ready. Ab '🎤 Baat Karo' dabayen!";
+        statusText.innerText = "✅ Ready! '📞 Start Live Call' ya '🎤 Baat Karo' dabayen.";
     }
 });
 
@@ -218,7 +250,7 @@ copyLinkBtn.addEventListener("click", async function() {
 
 whatsappShareBtn.addEventListener("click", function() {
     const finalLink = buildFinalShareUrl();
-    const message = "🎙️ *Papa AI Chatbot* se baat karne ke liye is link par click karein:\n" + finalLink;
+    const message = "🎙️ *Papa AI Chatbot* se Live Video Call par baat karne ke liye is link par click karein:\n" + finalLink;
     window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank");
 });
 
@@ -266,7 +298,7 @@ function base64ToArrayBuffer(base64) {
 }
 
 // ============================================================================
-// 👨‍👩‍👧‍👦 FAMILY FACE MEMORY MANAGER (Compact 160x160 Thumbnails for Fast Upload)
+// 👨‍👩‍👧‍👦 FAMILY FACE MEMORY MANAGER (Compact 160x160 Thumbnails)
 // ============================================================================
 function getSavedFamilyFaces() {
     try {
@@ -351,7 +383,7 @@ saveFaceBtn.addEventListener("click", function() {
 renderFamilyFacesUI();
 
 // ============================================================================
-// 📷 LIVE CAMERA MANAGER (Fast 320x240 Frame Capture for Zero Upload Lag)
+// 📷 LIVE CAMERA MANAGER (Fast 320x240 Frame Capture)
 // ============================================================================
 async function startCamera(facingMode) {
     const mode = facingMode || "user";
@@ -436,7 +468,6 @@ camFlipBtn.addEventListener("click", async function() {
     statusText.innerText = "✅ " + (nextMode === "user" ? "Front Camera (Parivar Pehchan)" : "Back Camera (Chijein dekhne ke liye)") + " Active!";
 });
 
-// Optimized: Captures compact 320x240 JPEG (~10KB) so upload to Vercel takes <100ms!
 function captureCameraFrameBase64() {
     if (!isVisionEnabled || !activeCameraStream || cameraVideo.readyState < 2) {
         return null;
@@ -451,7 +482,9 @@ function captureCameraFrameBase64() {
 
 startCamera("user");
 
-// Speech Recognition Setup
+// ============================================================================
+// 🎤 SPEECH RECOGNITION + 📞 END-TO-END HANDS-FREE LIVE CALL ENGINE
+// ============================================================================
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (!SpeechRecognition) {
     statusText.innerText = "🚨 Aapka browser Speech Recognition support nahi karta. Kripya Google Chrome use karein.";
@@ -464,53 +497,123 @@ if (recognition) {
 
 const haBetaBolAudio = new Audio("./ha_beta_bol.mp3");
 
+function startListeningSafely() {
+    if (!recognition || isPapaSpeakingOrThinking || isMicCurrentlyListening) return;
+    try {
+        recognition.start();
+        isMicCurrentlyListening = true;
+        if (isLiveCallActive) {
+            liveSubtitleBox.innerText = "🎤 आप बोलिए, पापा लाइव सुन और देख रहे हैं...";
+            statusText.innerText = "🔴 [LIVE CALL] 🎤 Aap boliye (Bina button dabaye)...";
+        } else {
+            statusText.innerText = "🎤 Ab aap boliye (Papa aapko dekh aur pehchan rahe hain)...";
+        }
+    } catch (e) {}
+}
+
+// 📞 Toggle End-to-End Live Video Call Stream
+liveCallBtn.addEventListener("click", function() {
+    unlockBrowserAudio();
+
+    if (!isLiveCallActive) {
+        // Start Live Call Mode
+        isLiveCallActive = true;
+        liveCallBtn.innerText = "📴 End Live Call";
+        liveCallBtn.style.background = "#4caf50";
+        liveCallBtn.style.borderColor = "#a6e3a1";
+        liveStreamBadge.style.display = "block";
+        liveSubtitleBox.style.display = "block";
+        liveSubtitleBox.innerText = "पापा जुड़ रहे हैं: 'हाँ बेटा बोल...'";
+        avatarBox.style.boxShadow = "0 0 25px rgba(255, 82, 82, 0.7)";
+
+        isPapaSpeakingOrThinking = true;
+        avatarVideo.src = TALKING_VIDEO_URL;
+        avatarBox.style.borderColor = "#4caf50";
+        statusText.innerText = "🔴 [LIVE CALL STARTED] Papa bol rahe hain...";
+
+        haBetaBolAudio.play().catch(function() {
+            isPapaSpeakingOrThinking = false;
+            avatarVideo.src = IDLE_VIDEO_URL;
+            avatarBox.style.borderColor = "#ff5252";
+            startListeningSafely();
+        });
+    } else {
+        // Stop Live Call Mode
+        isLiveCallActive = false;
+        isPapaSpeakingOrThinking = false;
+        liveCallBtn.innerText = "📞 Start Live Call";
+        liveCallBtn.style.background = "#b71c1c";
+        liveCallBtn.style.borderColor = "#ff5252";
+        liveStreamBadge.style.display = "none";
+        liveSubtitleBox.style.display = "none";
+        avatarVideo.src = IDLE_VIDEO_URL;
+        avatarBox.style.borderColor = "#0D8ABC";
+        avatarBox.style.boxShadow = "0 0 15px rgba(13, 138, 188, 0.4)";
+        try { papaTtsPlayer.pause(); } catch (e) {}
+        try { if (recognition && isMicCurrentlyListening) recognition.stop(); } catch (e) {}
+        statusText.innerText = "📴 Live Call band kar di gayi hai.\nDubara baat karne ke liye '📞 Start Live Call' ya '🎤 Baat Karo' dabayen.";
+    }
+});
+
+// Single-Turn Manual Mic Button (Preserved 100%)
 micBtn.addEventListener("click", function() {
     unlockBrowserAudio();
 
     micBtn.disabled = true;
     micBtn.style.opacity = "0.6";
+    isPapaSpeakingOrThinking = true;
     statusText.innerText = "Papa bol rahe hain...";
 
     avatarVideo.src = TALKING_VIDEO_URL;
     avatarBox.style.borderColor = "#4caf50";
 
     haBetaBolAudio.play().catch(function() {
+        isPapaSpeakingOrThinking = false;
         avatarVideo.src = IDLE_VIDEO_URL;
         avatarBox.style.borderColor = "#0D8ABC";
-        startListening();
+        startListeningSafely();
     });
 });
 
 haBetaBolAudio.onended = function() {
+    isPapaSpeakingOrThinking = false;
     avatarVideo.src = IDLE_VIDEO_URL;
-    avatarBox.style.borderColor = "#0D8ABC";
-    startListening();
+    avatarBox.style.borderColor = isLiveCallActive ? "#ff5252" : "#0D8ABC";
+    startListeningSafely();
 };
-
-function startListening() {
-    if (!recognition) return;
-    try {
-        recognition.start();
-        statusText.innerText = "🎤 Ab aap boliye (Papa aapko dekh aur pehchan rahe hain)...";
-    } catch (e) {}
-}
 
 if (recognition) {
     recognition.onend = function() {
+        isMicCurrentlyListening = false;
         micBtn.disabled = false;
         micBtn.style.opacity = "1";
+
+        // 🔄 Continuous Live Call Auto-Relisten: If Live Call is active and Papa is not currently speaking/thinking, keep listening!
+        if (isLiveCallActive && !isPapaSpeakingOrThinking) {
+            setTimeout(function() {
+                if (isLiveCallActive && !isPapaSpeakingOrThinking) {
+                    startListeningSafely();
+                }
+            }, 350);
+        }
     };
 
     recognition.onerror = function(event) {
+        isMicCurrentlyListening = false;
         micBtn.disabled = false;
         micBtn.style.opacity = "1";
+
+        // During Live Call, ignore 'no-speech' or 'aborted' and automatically keep listening
+        if (isLiveCallActive && (event.error === "no-speech" || event.error === "aborted")) {
+            return;
+        }
         avatarVideo.src = IDLE_VIDEO_URL;
         statusText.innerText = "⚠️ Mic Error (" + event.error + "). Dubara Mic button dabayen.";
     };
 }
 
 // ============================================================================
-// 🔊 Shared Audio Playback Helper (Plays Base64 WAV + Syncs Talking Avatar)
+// 🔊 Shared Audio Playback Helper (Plays Base64 WAV + Syncs Talking Avatar + Live Loop)
 // ============================================================================
 function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel) {
     const arrayBuffer = base64ToArrayBuffer(audioBase64);
@@ -519,17 +622,32 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel) {
 
     return new Promise(function(resolve) {
         function startAvatarTalking() {
+            isPapaSpeakingOrThinking = true;
+            if (isLiveCallActive) {
+                liveSubtitleBox.innerText = "पापा: " + aiText;
+            }
             statusText.innerText = "✅ Papa bol rahe hain [" + engineLabel + "]:\n\"" + aiText + "\"";
             avatarVideo.src = TALKING_VIDEO_URL;
             avatarBox.style.borderColor = "#4caf50";
         }
 
         function stopAvatarTalking() {
-            statusText.innerText = "✅ Main dekh aur sun raha hoon beta... [" + engineLabel + "]";
+            isPapaSpeakingOrThinking = false;
             avatarVideo.src = IDLE_VIDEO_URL;
-            avatarBox.style.borderColor = "#0D8ABC";
+            avatarBox.style.borderColor = isLiveCallActive ? "#ff5252" : "#0D8ABC";
             URL.revokeObjectURL(audioUrl);
             resolve();
+
+            // 🔄 END-TO-END LIVE STREAM MAGIC: Automatically open Mic as soon as Papa finishes speaking!
+            if (isLiveCallActive) {
+                setTimeout(function() {
+                    if (isLiveCallActive && !isPapaSpeakingOrThinking) {
+                        startListeningSafely();
+                    }
+                }, 400);
+            } else {
+                statusText.innerText = "✅ Main dekh aur sun raha hoon beta... [" + engineLabel + "]";
+            }
         }
 
         papaTtsPlayer.onplay = startAvatarTalking;
@@ -560,10 +678,16 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel) {
 }
 
 // ============================================================================
-// 🚀 1. TURBO SINGLE-HOP PIPELINE (Fetches Gemini Reply + Cartesia Audio Together!)
+// 🚀 1. TURBO SINGLE-HOP PIPELINE (With Live Conversation Memory)
 // ============================================================================
 async function processSpeechTurbo(userText, base64Frame) {
+    isPapaSpeakingOrThinking = true;
     const savedFaces = getSavedFamilyFaces();
+
+    if (isLiveCallActive) {
+        liveSubtitleBox.innerText = "तुम: " + userText + "\n⚡ पापा जवाब दे रहे हैं...";
+    }
+
     const res = await fetch(BACKEND_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -573,13 +697,22 @@ async function processSpeechTurbo(userText, base64Frame) {
             userText: userText,
             base64Frame: base64Frame,
             currentFacingMode: currentFacingMode,
-            savedFaces: savedFaces
+            savedFaces: savedFaces,
+            chatHistory: conversationHistory.slice(-6)
         })
     });
 
     const data = await res.json();
     if (!res.ok || !data.audioBase64) {
+        isPapaSpeakingOrThinking = false;
         throw new Error(data.error || ("Server HTTP " + res.status));
+    }
+
+    // Save turn in sliding conversation history (keep last 6 messages)
+    conversationHistory.push({ role: "user", text: userText });
+    conversationHistory.push({ role: "papa", text: data.aiText });
+    if (conversationHistory.length > 6) {
+        conversationHistory = conversationHistory.slice(-6);
     }
 
     await playAudioBase64WithAvatar(data.audioBase64, data.aiText, data.engineLabel || "Turbo TTS");
@@ -614,7 +747,7 @@ testVoiceBtn.addEventListener("click", async function() {
     unlockBrowserAudio();
     testVoiceBtn.disabled = true;
     try {
-        await speakPapaReply("नमस्ते बेटा, मेरी आवाज़ अब टर्बो स्पीड से बिल्कुल साफ़ आ रही है!");
+        await speakPapaReply("नमस्ते बेटा, अब तुम मुझसे बिना बार बार बटन दबाए लाइव वीडियो कॉल पर बात कर सकते हो।");
     } catch (err) {
         statusText.innerText = "🚨 Voice Test Error: " + err.message;
     } finally {
@@ -626,7 +759,7 @@ testVoiceBtn.addEventListener("click", async function() {
 diagCartesiaBtn.addEventListener("click", async function() {
     unlockBrowserAudio();
     diagBox.style.display = "block";
-    diagBox.innerText = "🔍 Server par sabhi Cartesia Keys aur Voice IDs check ho rahi hain...\n";
+    diagBox.innerText = "🔍 Server par sabhi Gemini & Cartesia Keys check ho rahi hain...\n";
     diagCartesiaBtn.disabled = true;
 
     try {
@@ -653,7 +786,7 @@ diagCartesiaBtn.addEventListener("click", async function() {
     }
 });
 
-// Main Speech + Live Vision + Family Recognition Pipeline (Uses Turbo Single-Hop!)
+// Main Speech + Live Vision + Family Recognition Pipeline
 if (recognition) {
     recognition.onresult = async function(event) {
         const userText = event.results[0][0].transcript;
@@ -664,9 +797,13 @@ if (recognition) {
         try {
             await processSpeechTurbo(userText, cameraFrameBase64);
         } catch (error) {
+            isPapaSpeakingOrThinking = false;
             avatarVideo.src = IDLE_VIDEO_URL;
             avatarBox.style.borderColor = "#0D8ABC";
             statusText.innerText = "🚨 Error: " + error.message;
+            if (isLiveCallActive) {
+                setTimeout(startListeningSafely, 1200);
+            }
         }
     };
 }
