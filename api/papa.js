@@ -1,10 +1,11 @@
 /**
- * Papa Chatbot - High-Speed Quota-Proof Vercel Serverless Backend (2026 Full-Sentence Edition)
+ * Papa Chatbot - End-to-End Live Stream & Quota-Proof Serverless Backend (2026 Edition)
  * Features:
- *  1. Full Hindi Sentence Guarantee (maxOutputTokens: 350 + Complete Sentence Punctuation Enforcer)
- *  2. 250ms Trailing Audio Silence Cushion (Prevents browser audio player from clipping the last word)
- *  3. Smart 5-Key Gemini Parser + Multi-Model Rotation + Unlimited Free AI Fallback
- *  4. Bidirectional Ping-Pong Auto-Shift (1->N then N->1) for Gemini & Cartesia
+ *  1. Multi-Turn Live Call Memory (Remembers ongoing conversation history in Live Stream mode)
+ *  2. Full Hindi Sentence Guarantee (maxOutputTokens: 350 + Complete Sentence Punctuation Enforcer)
+ *  3. 250ms Trailing Audio Silence Cushion (Prevents browser audio player from clipping the last word)
+ *  4. Smart 5-Key Gemini Parser + Multi-Model Rotation + Unlimited Free AI Fallback
+ *  5. Bidirectional Ping-Pong Auto-Shift (1->N then N->1) for Gemini & Cartesia
  */
 
 let geminiKeyIdx = 0;
@@ -17,23 +18,21 @@ let cartesiaKeyDir = 1; // 1 = Forward (1->9), -1 = Reverse (9->1)
 const exhaustedModelCache = new Map();
 
 const FATHER_PROMPT =
-    "You are a loving, caring Indian father (Papa) talking to your family.\n" +
+    "You are a loving, caring Indian father (Papa) on a live video call with your family.\n" +
     "1. FAMILY RECOGNITION: If reference photos of family members are provided, compare the person in the 'CURRENT LIVE CAMERA VIEW' with those reference photos. If they match a registered family member, address them warmly by their name/relation.\n" +
-    "2. LIVE VISION ABSORPTION: Also observe their facial expression, clothes, or any object/place shown through the front or back camera and respond naturally.\n" +
-    "3. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak 1 or 2 complete, meaningful sentences (around 15 to 30 words) and ALWAYS finish your sentence completely with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete or cut off in the middle.";
+    "2. LIVE VISION & CONVERSATION CONTINUITY: Observe their facial expression, clothes, or any object/place shown through the front or back camera, and maintain natural continuity with the recent conversation history.\n" +
+    "3. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak 1 or 2 complete, natural sentences (around 15 to 30 words) and ALWAYS finish your sentence completely with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete.";
 
 // Ensures Hindi text always ends cleanly with complete punctuation so Cartesia TTS never cuts off mid-intonation
 function ensureCompleteHindiSentence(rawText) {
-    if (!rawText) return "हाँ बेटा, मैं तुम्हारी बात सुन रहा हूँ।";
+    if (!rawText) return "हाँ बेटा, मैं तुम्हारी बात ध्यान से सुन रहा हूँ।";
     let text = String(rawText)
         .replace(/\*+/g, "")
         .replace(/\s+/g, " ")
         .trim();
 
-    // If the model was somehow cut off after a comma or conjunction at the very end, trim trailing comma
     text = text.replace(/[,،;:\-–—]+$/, "").trim();
 
-    // Ensure final Hindi punctuation (।, ?, or !) so Cartesia pronounces the last word completely
     if (!/[।?!.|]$/.test(text)) {
         text += "।";
     } else if (text.endsWith(".")) {
@@ -158,7 +157,6 @@ function buildWavBufferFromPcm(rawArrayBuffer, sampleRate = 24000) {
     const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
     const blockAlign = (numChannels * bitsPerSample) / 8;
 
-    // Add 250ms of trailing silence (zero bytes, even-aligned) so browser player never cuts off the end
     const silenceSamples = Math.floor(sampleRate * 0.25);
     const silenceBytesLength = silenceSamples * blockAlign;
     const totalDataSize = pcmBytes.byteLength + silenceBytesLength;
@@ -188,7 +186,6 @@ function buildWavBufferFromPcm(rawArrayBuffer, sampleRate = 24000) {
 
     const targetArray = new Uint8Array(wavBuffer, 44);
     targetArray.set(pcmBytes, 0);
-    // Remaining silenceBytesLength in targetArray are already 0 (clean silence)
 
     return Buffer.from(wavBuffer);
 }
@@ -254,13 +251,26 @@ async function callSingleCartesiaTTS(apiKey, voiceId, text) {
     return { ok: false, status: lastStatus, error: lastError };
 }
 
+// Formats recent conversation history for context continuity during Live Call
+function formatHistoryContextText(chatHistory) {
+    if (!Array.isArray(chatHistory) || chatHistory.length === 0) return "";
+    const recent = chatHistory.slice(-6);
+    const lines = recent.map((turn) => {
+        const speaker = turn.role === "papa" ? "Papa" : "Family Member";
+        return `${speaker}: "${turn.text}"`;
+    });
+    return "RECENT LIVE CALL CONVERSATION HISTORY:\n" + lines.join("\n") + "\n\n";
+}
+
 // Unlimited Free Backup AI Generator (Runs automatically if all 5 Gemini keys hit daily quota)
-async function generateFreeBackupReply(userText, base64Frame, currentFacingMode, savedFaces) {
+async function generateFreeBackupReply(userText, base64Frame, currentFacingMode, savedFaces, chatHistory) {
     let familyHint = "";
     if (currentFacingMode === "user" && Array.isArray(savedFaces) && savedFaces.length > 0) {
         const names = savedFaces.map((f) => f.name).join(", ");
         familyHint = `\nRegistered family members in household: ${names}.`;
     }
+
+    const historyText = formatHistoryContextText(chatHistory);
 
     if (process.env.GROQ_API_KEY) {
         try {
@@ -274,7 +284,7 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
                     model: "llama-3.3-70b-versatile",
                     messages: [
                         { role: "system", content: FATHER_PROMPT + familyHint },
-                        { role: "user", content: userText }
+                        { role: "user", content: historyText + `Family member said: "${userText}"` }
                     ],
                     max_tokens: 280,
                     temperature: 0.65
@@ -295,7 +305,9 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
     const userContent = [
         {
             type: "text",
-            text: `Family member said: "${userText}"\n(Reply warmly as Papa in 1-2 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)`
+            text:
+                historyText +
+                `Family member now said: "${userText}"\n(Reply warmly as Papa in 1-2 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)`
         }
     ];
     if (base64Frame) {
@@ -340,13 +352,14 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
     return null;
 }
 
-// Internal Helper: Quota-Resilient Multi-Model + 5-Key Gemini Reply Generator
+// Internal Helper: Quota-Resilient Multi-Model + 5-Key Gemini Reply Generator with Live Call Memory
 async function generateGeminiReplyInternal(body) {
     const geminiKeys = getGeminiKeysFromEnv();
     const userText = body.userText || "नमस्ते पापा";
     const base64Frame = body.base64Frame || null;
     const currentFacingMode = body.currentFacingMode || "user";
     const savedFaces = Array.isArray(body.savedFaces) ? body.savedFaces : [];
+    const chatHistory = Array.isArray(body.chatHistory) ? body.chatHistory : [];
 
     const userParts = [];
     if (base64Frame && currentFacingMode === "user" && savedFaces.length > 0) {
@@ -370,8 +383,11 @@ async function generateGeminiReplyInternal(body) {
         });
     }
 
+    const historyText = formatHistoryContextText(chatHistory);
     userParts.push({
-        text: `Family member said: "${userText}"\n(अपना जवाब हमेशा पूरा लिखें और वाक्य को अधूरा न छोड़ें।)`
+        text:
+            historyText +
+            `Family member now said: "${userText}"\n(अपना जवाब हमेशा 1-2 पूरे वाक्यों में लिखें और वाक्य को अधूरा न छोड़ें।)`
     });
 
     const modelsToTry = [
@@ -410,7 +426,6 @@ async function generateGeminiReplyInternal(body) {
                             contents: [{ role: "user", parts: userParts }],
                             systemInstruction: { parts: [{ text: FATHER_PROMPT }] },
                             generationConfig: {
-                                // 350 tokens ensures Devanagari Hindi sentences NEVER get cut off mid-way!
                                 maxOutputTokens: 350,
                                 temperature: 0.65
                             }
@@ -419,7 +434,6 @@ async function generateGeminiReplyInternal(body) {
                     clearTimeout(timer);
 
                     const data = await gRes.json();
-                    // Concatenate all text parts in case the model split output across parts
                     const partsList = data?.candidates?.[0]?.content?.parts || [];
                     const combinedText = partsList
                         .map((p) => p.text || "")
@@ -457,7 +471,13 @@ async function generateGeminiReplyInternal(body) {
         }
     }
 
-    const backupReply = await generateFreeBackupReply(userText, base64Frame, currentFacingMode, savedFaces);
+    const backupReply = await generateFreeBackupReply(
+        userText,
+        base64Frame,
+        currentFacingMode,
+        savedFaces,
+        chatHistory
+    );
     if (backupReply) {
         return backupReply;
     }
@@ -505,7 +525,6 @@ async function generateTtsAudioInternal(rawText) {
         }
     }
 
-    // Fallback to Render Cloud Piper TTS Server
     const rRes = await fetch(renderUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -628,7 +647,11 @@ export default async function handler(req, res) {
         logs.push(`\n🎙️ CARTESIA KEYS FOUND IN VERCEL ENV: ${cartesiaPool.length}`);
         for (let k = 0; k < cartesiaPool.length; k++) {
             const entry = cartesiaPool[k];
-            const resTest = await callSingleCartesiaTTS(entry.key, entry.primaryVoice, "नमस्ते बेटा, मैं बिल्कुल ठीक हूँ और मेरी बात अब पूरी सुनाई देगी।");
+            const resTest = await callSingleCartesiaTTS(
+                entry.key,
+                entry.primaryVoice,
+                "नमस्ते बेटा, मैं बिल्कुल ठीक हूँ और अब हम लाइव वीडियो कॉल पर बात कर सकते हैं।"
+            );
             if (resTest.ok) {
                 logs.push(`✅ Cartesia Key #${k + 1} + Voice #${entry.primaryNum} (${resTest.modelUsed}): SUCCESS!`);
                 if (!firstSuccessAudio) {
