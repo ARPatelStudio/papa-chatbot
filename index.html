@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Papa Chatbot - AI Vision & Family Recognition</title>
+</head>
+<body style="background: #121212; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box;">
+
+<div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 520px; width: 100%; padding: 22px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;">
+    
+    <!-- Portrait Video Avatar Box -->
+    <div id="avatar-box" style="margin: 0 auto 16px auto; width: 260px; border-radius: 15px; overflow: hidden; border: 4px solid #0D8ABC; box-shadow: 0 0 15px rgba(13, 138, 188, 0.4); transition: border-color 0.3s; position: relative;">
+        <video id="avatar-video" width="100%" autoplay loop muted playsinline style="height: auto; display: block; object-fit: contain;"></video>
+
+        <!-- Live User/Environment Camera PiP Preview -->
+        <div id="cam-preview-box" style="position: absolute; bottom: 8px; right: 8px; width: 82px; height: 108px; border-radius: 10px; overflow: hidden; border: 2px solid #ffeb3b; background: #000; box-shadow: 0 4px 12px rgba(0,0,0,0.7); display: none;">
+            <video id="camera-video" width="100%" height="100%" autoplay muted playsinline style="object-fit: cover; width: 100%; height: 100%; transform: scaleX(-1);"></video>
+            <span id="cam-mode-badge" style="position: absolute; bottom: 2px; left: 4px; font-size: 9px; background: rgba(0,0,0,0.7); color: #ffeb3b; padding: 1px 4px; border-radius: 4px;">Front</span>
+        </div>
+    </div>
+
+    <!-- Hidden Canvases & Persistent Audio Player -->
+    <canvas id="vision-canvas" style="display: none;"></canvas>
+    <canvas id="face-thumb-canvas" style="display: none;"></canvas>
+    <audio id="papa-tts-player" playsinline style="display: none;"></audio>
+
+    <!-- Camera, Family Face Recognition & Share Link Controls -->
+    <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+        <button id="cam-toggle-btn" style="padding: 8px 12px; border-radius: 20px; border: 1px solid #4caf50; background: #263829; color: #a6e3a1; font-size: 12px; font-weight: bold; cursor: pointer;">
+            👁️ Papa Vision: ON
+        </button>
+        <button id="cam-flip-btn" style="padding: 8px 12px; border-radius: 20px; border: 1px solid #0D8ABC; background: #162436; color: #89b4fa; font-size: 12px; font-weight: bold; cursor: pointer;">
+            🔄 Camera: Front
+        </button>
+        <button id="family-btn" style="padding: 8px 12px; border-radius: 20px; border: 1px solid #ffeb3b; background: #332d1a; color: #ffeb3b; font-size: 12px; font-weight: bold; cursor: pointer;">
+            👨‍👩‍👧‍👦 Parivar Pehchan (0)
+        </button>
+        <button id="share-btn" style="padding: 8px 12px; border-radius: 20px; border: 1px solid #cba6f7; background: #2a1f3d; color: #cba6f7; font-size: 12px; font-weight: bold; cursor: pointer;">
+            🔗 Share Link
+        </button>
+    </div>
+
+    <!-- Clean Share Link Drawer Panel (NO PIN IN LINK OR MESSAGE) -->
+    <div id="share-panel" style="display: none; background: #121224; border: 1px solid #cba6f7; border-radius: 14px; padding: 14px; margin-bottom: 15px; text-align: left;">
+        <div style="font-size: 13px; font-weight: bold; color: #cba6f7; margin-bottom: 6px;">
+            🔗 Parivar ke Sath Papa Chatbot Share Karein:
+        </div>
+        <div style="font-size: 11px; color: #cdd6f4; margin-bottom: 8px;">
+            Aapka Safe Share Link (Is link me PIN password add nahi hai):
+        </div>
+        <input id="share-url-input" type="text" style="width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px; border: 1px solid #45475a; background: #242438; color: #a6e3a1; font-size: 12px; margin-bottom: 10px;" />
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button id="whatsapp-share-btn" style="flex: 1; padding: 8px 10px; border-radius: 8px; border: none; background: #25D366; color: #111; font-size: 12px; font-weight: bold; cursor: pointer;">
+                📲 WhatsApp Share
+            </button>
+            <button id="copy-link-btn" style="flex: 1; padding: 8px 10px; border-radius: 8px; border: none; background: #89b4fa; color: #111; font-size: 12px; font-weight: bold; cursor: pointer;">
+                📋 Copy Link
+            </button>
+            <button id="native-share-btn" style="flex: 1; padding: 8px 10px; border-radius: 8px; border: none; background: #cba6f7; color: #111; font-size: 12px; font-weight: bold; cursor: pointer;">
+                📤 More Apps
+            </button>
+        </div>
+    </div>
+
+    <!-- Family Face Registration Drawer -->
+    <div id="family-panel" style="display: none; background: #121224; border: 1px solid #ffeb3b; border-radius: 14px; padding: 14px; margin-bottom: 15px; text-align: left;">
+        <div style="font-size: 13px; font-weight: bold; color: #ffeb3b; margin-bottom: 8px;">
+            📸 Parivar ke Sadasya ka Chehra Yaad Karayein:
+        </div>
+        <div style="font-size: 11px; color: #cdd6f4; margin-bottom: 10px;">
+            Front cam ke samne baith kar apna Naam aur Papa se Rishta likhein (jaise: <b>Amit (Bada Beta)</b> ya <b>Mummy (Aapki Patni)</b>):
+        </div>
+        <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+            <input id="family-name-input" type="text" placeholder="Jaise: Amit (Bada Beta)" style="flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #45475a; background: #242438; color: #fff; font-size: 13px;" />
+            <button id="save-face-btn" style="padding: 8px 12px; border-radius: 8px; border: none; background: #4caf50; color: #fff; font-size: 12px; font-weight: bold; cursor: pointer;">
+                📸 Save Face
+            </button>
+        </div>
+        <div id="saved-family-list" style="font-size: 12px; color: #a6e3a1; max-height: 110px; overflow-y: auto;"></div>
+    </div>
+
+    <!-- Main Mic Button + Voice Test + Cartesia Diagnostic Button -->
+    <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
+        <button id="mic-btn" style="padding: 14px 26px; border-radius: 30px; border: none; background: #0D8ABC; color: white; font-size: 17px; font-weight: bold; cursor: pointer;">
+            🎤 Baat Karo
+        </button>
+        <button id="test-voice-btn" style="padding: 14px 18px; border-radius: 30px; border: 1px solid #a6e3a1; background: #1e3a2f; color: #a6e3a1; font-size: 14px; font-weight: bold; cursor: pointer;">
+            🔊 Voice Test
+        </button>
+        <button id="diag-cartesia-btn" style="padding: 14px 16px; border-radius: 30px; border: 1px solid #f9e2af; background: #332b1a; color: #f9e2af; font-size: 13px; font-weight: bold; cursor: pointer;">
+            🔑 Check Keys
+        </button>
+    </div>
+    
+    <p id="status-text" style="margin-top: 16px; font-size: 14px; color: #ffeb3b; white-space: pre-line;">🔒 Checking Security PIN...</p>
+    <div id="diag-box" style="display: none; margin-top: 12px; padding: 10px; border-radius: 10px; background: #11111b; border: 1px solid #45475a; color: #cdd6f4; font-size: 12px; text-align: left; max-height: 170px; overflow-y: auto; white-space: pre-wrap;"></div>
+</div>
+
+<script>
+// 1. Enter PIN (Verified securely against Vercel Environment Variable APP_PIN)
+const sessionPIN = prompt("Papa se baat karne ke liye PIN dalein:") || "";
+if (!sessionPIN) {
+    document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:20%'>Access Denied. PIN Required.</h2>";
+    throw new Error("PIN not entered.");
+}
+
+// Media Paths & Backend Endpoint
+const BACKEND_API_URL = "/api/papa";
+const RENDER_BASE_URL = "https://papa-voice-cloud.onrender.com";
+const DEFAULT_SHARE_URL = "https://papa-chatbot.vercel.app/";
+const IDLE_VIDEO_URL = "./avatar_idle.mp4";
+const TALKING_VIDEO_URL = "./avatar_talking.mp4";
+
+// DOM Elements
+const micBtn = document.getElementById("mic-btn");
+const testVoiceBtn = document.getElementById("test-voice-btn");
+const diagCartesiaBtn = document.getElementById("diag-cartesia-btn");
+const diagBox = document.getElementById("diag-box");
+const statusText = document.getElementById("status-text");
+const avatarVideo = document.getElementById("avatar-video");
+const avatarBox = document.getElementById("avatar-box");
+const papaTtsPlayer = document.getElementById("papa-tts-player");
+
+const cameraVideo = document.getElementById("camera-video");
+const camPreviewBox = document.getElementById("cam-preview-box");
+const camModeBadge = document.getElementById("cam-mode-badge");
+const camToggleBtn = document.getElementById("cam-toggle-btn");
+const camFlipBtn = document.getElementById("cam-flip-btn");
+const familyBtn = document.getElementById("family-btn");
+const familyPanel = document.getElementById("family-panel");
+const familyNameInput = document.getElementById("family-name-input");
+const saveFaceBtn = document.getElementById("save-face-btn");
+const savedFamilyList = document.getElementById("saved-family-list");
+const visionCanvas = document.getElementById("vision-canvas");
+const faceThumbCanvas = document.getElementById("face-thumb-canvas");
+
+const shareBtn = document.getElementById("share-btn");
+const sharePanel = document.getElementById("share-panel");
+const shareUrlInput = document.getElementById("share-url-input");
+const whatsappShareBtn = document.getElementById("whatsapp-share-btn");
+const copyLinkBtn = document.getElementById("copy-link-btn");
+const nativeShareBtn = document.getElementById("native-share-btn");
+
+let activeCameraStream = null;
+let isVisionEnabled = true;
+let currentFacingMode = "user";
+let sharedAudioCtx = null;
+
+avatarVideo.src = IDLE_VIDEO_URL;
+
+// Verify PIN with Backend on startup
+fetch(BACKEND_API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "verify_pin", pin: sessionPIN })
+})
+.then(function(res) {
+    if (res.status === 401) {
+        document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:20%'>Access Denied. Wrong PIN.</h2>";
+        throw new Error("Wrong PIN");
+    }
+    statusText.innerText = "✅ Ready (Secured via Vercel Environment Variables).\nAb '🎤 Baat Karo' ya '🔊 Voice Test' dabayen!";
+})
+.catch(function(err) {
+    if (err.message !== "Wrong PIN") {
+        statusText.innerText = "✅ Ready. Ab '🎤 Baat Karo' dabayen!";
+    }
+});
+
+// Wakeup Render Backup Server silently
+fetch(RENDER_BASE_URL + "/health").catch(function() {});
+
+// ============================================================================
+// 🔗 CLEAN SHARE LINK GENERATOR (NO PIN IN LINK OR MESSAGE)
+// ============================================================================
+function getBaseShareUrl() {
+    if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+        return window.location.origin + window.location.pathname;
+    }
+    return localStorage.getItem("papa_custom_share_url") || DEFAULT_SHARE_URL;
+}
+
+shareUrlInput.value = getBaseShareUrl();
+
+function buildFinalShareUrl() {
+    let rawUrl = shareUrlInput.value.trim() || getBaseShareUrl();
+    try {
+        const parsed = new URL(rawUrl);
+        parsed.searchParams.delete("pin");
+        const cleanUrl = parsed.toString();
+        localStorage.setItem("papa_custom_share_url", cleanUrl);
+        return cleanUrl;
+    } catch (e) {
+        const cleanFallback = rawUrl.split("?")[0];
+        localStorage.setItem("papa_custom_share_url", cleanFallback);
+        return cleanFallback;
+    }
+}
+
+shareBtn.addEventListener("click", function() {
+    shareUrlInput.value = buildFinalShareUrl();
+    sharePanel.style.display = sharePanel.style.display === "none" ? "block" : "none";
+});
+
+copyLinkBtn.addEventListener("click", async function() {
+    const finalLink = buildFinalShareUrl();
+    shareUrlInput.value = finalLink;
+    try {
+        await navigator.clipboard.writeText(finalLink);
+        statusText.innerText = "✅ Safe Share Link copy ho gaya hai (Bina PIN ke):\n" + finalLink;
+    } catch (e) {
+        shareUrlInput.select();
+        document.execCommand("copy");
+        statusText.innerText = "✅ Safe Share Link copy ho gaya hai (Bina PIN ke):\n" + finalLink;
+    }
+});
+
+whatsappShareBtn.addEventListener("click", function() {
+    const finalLink = buildFinalShareUrl();
+    const message = "🎙️ *Papa AI Chatbot* se baat karne ke liye is link par click karein:\n" + finalLink;
+    window.open("https://wa.me/?text=" + encodeURIComponent(message), "_blank");
+});
+
+nativeShareBtn.addEventListener("click", async function() {
+    const finalLink = buildFinalShareUrl();
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: "Papa AI Chatbot",
+                text: "🎙️ Papa AI Chatbot se baat karne ke liye is link par click karein:",
+                url: finalLink
+            });
+            statusText.innerText = "✅ Link safaltapoorvak share kiya gaya!";
+        } catch (err) {}
+    } else {
+        copyLinkBtn.click();
+    }
+});
+
+// ============================================================================
+// 🔓 AUDIO UNLOCKER + BASE64 TO ARRAYBUFFER CONVERTER
+// ============================================================================
+function unlockBrowserAudio() {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+            if (!sharedAudioCtx) sharedAudioCtx = new AudioCtx();
+            if (sharedAudioCtx.state === "suspended") {
+                sharedAudioCtx.resume();
+            }
+        }
+        papaTtsPlayer.muted = false;
+        papaTtsPlayer.volume = 1.0;
+    } catch (e) {}
+}
+
+function base64ToArrayBuffer(base64) {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
+
+// ============================================================================
+// 👨‍👩‍👧‍👦 FAMILY FACE MEMORY MANAGER
+// ============================================================================
+function getSavedFamilyFaces() {
+    try {
+        const raw = localStorage.getItem("papa_family_faces_v1");
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveFamilyFacesList(list) {
+    localStorage.setItem("papa_family_faces_v1", JSON.stringify(list));
+    renderFamilyFacesUI();
+}
+
+function renderFamilyFacesUI() {
+    const faces = getSavedFamilyFaces();
+    familyBtn.innerText = "👨‍👩‍👧‍👦 Parivar Pehchan (" + faces.length + ")";
+
+    if (faces.length === 0) {
+        savedFamilyList.innerHTML = "<span style='color:#a6adc8;'>Abhi koi chehra save nahi hai. Upar naam likh kar 'Save Face' dabayein.</span>";
+        return;
+    }
+
+    let html = "";
+    for (let idx = 0; idx < faces.length; idx++) {
+        const item = faces[idx];
+        html += "<div style='display:flex; align-items:center; justify-content:space-between; background:#1e1e36; padding:5px 8px; border-radius:6px; margin-top:5px;'>" +
+            "<div style='display:flex; align-items:center; gap:8px;'>" +
+            "<img src='data:image/jpeg;base64," + item.photo + "' style='width:28px; height:28px; border-radius:50%; object-fit:cover; border:1px solid #ffeb3b;' />" +
+            "<span><b>" + item.name + "</b></span>" +
+            "</div>" +
+            "<button onclick='removeFamilyFace(" + idx + ")' style='background:#f38ba8; color:#111; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer; font-weight:bold;'>Hatao</button>" +
+            "</div>";
+    }
+    savedFamilyList.innerHTML = html;
+}
+
+window.removeFamilyFace = function(index) {
+    const faces = getSavedFamilyFaces();
+    faces.splice(index, 1);
+    saveFamilyFacesList(faces);
+};
+
+familyBtn.addEventListener("click", function() {
+    familyPanel.style.display = familyPanel.style.display === "none" ? "block" : "none";
+    renderFamilyFacesUI();
+});
+
+saveFaceBtn.addEventListener("click", function() {
+    const memberName = familyNameInput.value.trim();
+    if (!memberName) {
+        alert("Kripya pehle parivar ke sadasya ka naam aur rishta likhein (jaise: Amit - Bada Beta)!");
+        return;
+    }
+    if (!isVisionEnabled || !activeCameraStream || cameraVideo.readyState < 2) {
+        alert("Chehra save karne ke liye Camera ON hona chahiye!");
+        return;
+    }
+
+    faceThumbCanvas.width = 220;
+    faceThumbCanvas.height = 220;
+    const ctx = faceThumbCanvas.getContext("2d");
+    ctx.drawImage(cameraVideo, 0, 0, 220, 220);
+    const thumbBase64 = faceThumbCanvas.toDataURL("image/jpeg", 0.72).split(",")[1];
+
+    const faces = getSavedFamilyFaces();
+    const existingIdx = faces.findIndex(function(f) {
+        return f.name.toLowerCase() === memberName.toLowerCase();
+    });
+    if (existingIdx >= 0) {
+        faces[existingIdx].photo = thumbBase64;
+    } else {
+        faces.push({ name: memberName, photo: thumbBase64 });
+    }
+
+    saveFamilyFacesList(faces);
+    familyNameInput.value = "";
+    statusText.innerText = "✅ Papa ne \"" + memberName + "\" ka chehra yaad kar liya hai!";
+});
+
+renderFamilyFacesUI();
+
+// ============================================================================
+// 📷 LIVE CAMERA MANAGER (Front & Back Camera Switching)
+// ============================================================================
+async function startCamera(facingMode) {
+    const mode = facingMode || "user";
+    stopCamera();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        return;
+    }
+
+    try {
+        activeCameraStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { ideal: mode },
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            },
+            audio: false
+        });
+    } catch (err) {
+        try {
+            activeCameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } catch (fallbackErr) {
+            isVisionEnabled = false;
+            updateCameraUI();
+            return;
+        }
+    }
+
+    cameraVideo.srcObject = activeCameraStream;
+    currentFacingMode = mode;
+    cameraVideo.style.transform = currentFacingMode === "user" ? "scaleX(-1)" : "scaleX(1)";
+    updateCameraUI();
+}
+
+function stopCamera() {
+    if (activeCameraStream) {
+        activeCameraStream.getTracks().forEach(function(track) {
+            track.stop();
+        });
+        activeCameraStream = null;
+    }
+    cameraVideo.srcObject = null;
+}
+
+function updateCameraUI() {
+    if (isVisionEnabled && activeCameraStream) {
+        camPreviewBox.style.display = "block";
+        camToggleBtn.innerText = "👁️ Papa Vision: ON";
+        camToggleBtn.style.borderColor = "#4caf50";
+        camToggleBtn.style.color = "#a6e3a1";
+        camFlipBtn.style.display = "inline-block";
+
+        if (currentFacingMode === "user") {
+            camModeBadge.innerText = "Front";
+            camFlipBtn.innerText = "🔄 Camera: Front";
+        } else {
+            camModeBadge.innerText = "Back";
+            camFlipBtn.innerText = "🔄 Camera: Back";
+        }
+    } else {
+        camPreviewBox.style.display = "none";
+        camToggleBtn.innerText = "🚫 Papa Vision: OFF";
+        camToggleBtn.style.borderColor = "#f38ba8";
+        camToggleBtn.style.color = "#f38ba8";
+        camFlipBtn.style.display = "none";
+    }
+}
+
+camToggleBtn.addEventListener("click", async function() {
+    isVisionEnabled = !isVisionEnabled;
+    if (isVisionEnabled) {
+        await startCamera(currentFacingMode);
+    } else {
+        stopCamera();
+        updateCameraUI();
+    }
+});
+
+camFlipBtn.addEventListener("click", async function() {
+    const nextMode = currentFacingMode === "user" ? "environment" : "user";
+    statusText.innerText = "📷 Camera shift ho raha hai (" + (nextMode === "user" ? "Front" : "Back") + ")...";
+    await startCamera(nextMode);
+    statusText.innerText = "✅ " + (nextMode === "user" ? "Front Camera (Parivar Pehchan)" : "Back Camera (Chijein dekhne ke liye)") + " Active!";
+});
+
+function captureCameraFrameBase64() {
+    if (!isVisionEnabled || !activeCameraStream || cameraVideo.readyState < 2) {
+        return null;
+    }
+    const w = cameraVideo.videoWidth || 640;
+    const h = cameraVideo.videoHeight || 480;
+    visionCanvas.width = w;
+    visionCanvas.height = h;
+    const ctx = visionCanvas.getContext("2d");
+    ctx.drawImage(cameraVideo, 0, 0, w, h);
+    const dataUrl = visionCanvas.toDataURL("image/jpeg", 0.75);
+    return dataUrl.split(",")[1] || null;
+}
+
+startCamera("user");
+
+// Speech Recognition Setup
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SpeechRecognition) {
+    statusText.innerText = "🚨 Aapka browser Speech Recognition support nahi karta. Kripya Google Chrome use karein.";
+}
+const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+if (recognition) {
+    recognition.lang = "hi-IN";
+    recognition.interimResults = false;
+}
+
+const haBetaBolAudio = new Audio("./ha_beta_bol.mp3");
+
+micBtn.addEventListener("click", function() {
+    unlockBrowserAudio();
+
+    micBtn.disabled = true;
+    micBtn.style.opacity = "0.6";
+    statusText.innerText = "Papa bol rahe hain...";
+
+    avatarVideo.src = TALKING_VIDEO_URL;
+    avatarBox.style.borderColor = "#4caf50";
+
+    haBetaBolAudio.play().catch(function() {
+        avatarVideo.src = IDLE_VIDEO_URL;
+        avatarBox.style.borderColor = "#0D8ABC";
+        startListening();
+    });
+});
+
+haBetaBolAudio.onended = function() {
+    avatarVideo.src = IDLE_VIDEO_URL;
+    avatarBox.style.borderColor = "#0D8ABC";
+    startListening();
+};
+
+function startListening() {
+    if (!recognition) return;
+    try {
+        recognition.start();
+        statusText.innerText = "🎤 Ab aap boliye (Papa aapko dekh aur pehchan rahe hain)...";
+    } catch (e) {}
+}
+
+if (recognition) {
+    recognition.onend = function() {
+        micBtn.disabled = false;
+        micBtn.style.opacity = "1";
+    };
+
+    recognition.onerror = function(event) {
+        micBtn.disabled = false;
+        micBtn.style.opacity = "1";
+        avatarVideo.src = IDLE_VIDEO_URL;
+        statusText.innerText = "⚠️ Mic Error (" + event.error + "). Dubara Mic button dabayen.";
+    };
+}
+
+// ============================================================================
+// 🧠 1. Call Vercel Serverless Backend for Gemini 3.8 Flash Reply
+// ============================================================================
+async function getFatherReplyFromServer(userText, base64Frame) {
+    const savedFaces = getSavedFamilyFaces();
+    const res = await fetch(BACKEND_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            action: "chat",
+            pin: sessionPIN,
+            userText: userText,
+            base64Frame: base64Frame,
+            currentFacingMode: currentFacingMode,
+            savedFaces: savedFaces
+        })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.error || ("Server HTTP " + res.status));
+    }
+    return data;
+}
+
+// ============================================================================
+// 🎙️ 2. Call Vercel Serverless Backend for Cartesia / Render TTS Audio
+// ============================================================================
+async function speakPapaReply(aiText) {
+    statusText.innerText = "Papa: " + aiText + "\n🔄 Awaaz ban rahi hai...";
+
+    const res = await fetch(BACKEND_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            action: "tts",
+            pin: sessionPIN,
+            text: aiText
+        })
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.audioBase64) {
+        throw new Error(data.error || "TTS Server Error");
+    }
+
+    const arrayBuffer = base64ToArrayBuffer(data.audioBase64);
+    const blob = new Blob([arrayBuffer], { type: "audio/wav" });
+    const audioUrl = URL.createObjectURL(blob);
+    const engineLabel = data.engineLabel || "Cloud TTS";
+
+    return new Promise(function(resolve) {
+        function startAvatarTalking() {
+            statusText.innerText = "✅ Papa bol rahe hain [" + engineLabel + "]:\n\"" + aiText + "\"";
+            avatarVideo.src = TALKING_VIDEO_URL;
+            avatarBox.style.borderColor = "#4caf50";
+        }
+
+        function stopAvatarTalking() {
+            statusText.innerText = "✅ Main dekh aur sun raha hoon beta... [" + engineLabel + "]";
+            avatarVideo.src = IDLE_VIDEO_URL;
+            avatarBox.style.borderColor = "#0D8ABC";
+            URL.revokeObjectURL(audioUrl);
+            resolve();
+        }
+
+        papaTtsPlayer.onplay = startAvatarTalking;
+        papaTtsPlayer.onended = stopAvatarTalking;
+        papaTtsPlayer.onerror = async function() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!sharedAudioCtx) sharedAudioCtx = new AudioCtx();
+                if (sharedAudioCtx.state === "suspended") await sharedAudioCtx.resume();
+
+                const decodedBuffer = await sharedAudioCtx.decodeAudioData(arrayBuffer.slice(0));
+                const source = sharedAudioCtx.createBufferSource();
+                source.buffer = decodedBuffer;
+                source.connect(sharedAudioCtx.destination);
+                startAvatarTalking();
+                source.onended = stopAvatarTalking;
+                source.start(0);
+            } catch (webAudioErr) {
+                stopAvatarTalking();
+            }
+        };
+
+        papaTtsPlayer.src = audioUrl;
+        papaTtsPlayer.play().catch(function() {
+            papaTtsPlayer.onerror();
+        });
+    });
+}
+
+// 1-Click Direct Voice Test Button
+testVoiceBtn.addEventListener("click", async function() {
+    unlockBrowserAudio();
+    testVoiceBtn.disabled = true;
+    try {
+        await speakPapaReply("नमस्ते बेटा, मेरी आवाज़ अब सुरक्षित सर्वर से बिल्कुल साफ़ आ रही है!");
+    } catch (err) {
+        statusText.innerText = "🚨 Voice Test Error: " + err.message;
+    } finally {
+        testVoiceBtn.disabled = false;
+    }
+});
+
+// 1-Click Server Key Diagnostic Button
+diagCartesiaBtn.addEventListener("click", async function() {
+    unlockBrowserAudio();
+    diagBox.style.display = "block";
+    diagBox.innerText = "🔍 Server par sabhi Cartesia Keys aur Voice IDs check ho rahi hain...\n";
+    diagCartesiaBtn.disabled = true;
+
+    try {
+        const res = await fetch(BACKEND_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "diag", pin: sessionPIN })
+        });
+        const data = await res.json();
+        if (data.logs) {
+            diagBox.innerText = data.logs.join("\n");
+        }
+        if (data.foundWorking && data.audioBase64) {
+            statusText.innerText = "🎉 " + data.activeKeyLabel + " 100% ACTIVE!";
+            const buf = base64ToArrayBuffer(data.audioBase64);
+            const url = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+            papaTtsPlayer.src = url;
+            papaTtsPlayer.play().catch(function() {});
+        }
+    } catch (err) {
+        diagBox.innerText += "\n🚨 Error: " + err.message;
+    } finally {
+        diagCartesiaBtn.disabled = false;
+    }
+});
+
+// Main Speech + Live Vision + Family Recognition Pipeline
+if (recognition) {
+    recognition.onresult = async function(event) {
+        const userText = event.results[0][0].transcript;
+        const cameraFrameBase64 = captureCameraFrameBase64();
+        const visionTag = cameraFrameBase64 ? (" (👁️ " + (currentFacingMode === "user" ? "Chehra Pehchan" : "Back Cam") + " ON)") : "";
+        statusText.innerText = "Tum: " + userText + "\n🔄 Papa dekh aur soch rahe hain" + visionTag + "...";
+
+        try {
+            const chatData = await getFatherReplyFromServer(userText, cameraFrameBase64);
+            await speakPapaReply(chatData.aiText);
+        } catch (error) {
+            avatarVideo.src = IDLE_VIDEO_URL;
+            avatarBox.style.borderColor = "#0D8ABC";
+            statusText.innerText = "🚨 Error: " + error.message;
+        }
+    };
+}
+</script>
+</body>
+</html>
