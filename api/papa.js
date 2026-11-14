@@ -1,11 +1,12 @@
 /**
- * Papa Chatbot - End-to-End Live Stream & Quota-Proof Serverless Backend (2026 Edition)
+ * Papa Chatbot - 9-Video Emotion-Aware Live Stream Backend (2026 Hybrid Release Edition)
  * Features:
- *  1. Multi-Turn Live Call Memory (Remembers ongoing conversation history in Live Stream mode)
- *  2. Full Hindi Sentence Guarantee (maxOutputTokens: 350 + Complete Sentence Punctuation Enforcer)
- *  3. 250ms Trailing Audio Silence Cushion (Prevents browser audio player from clipping the last word)
- *  4. Smart 5-Key Gemini Parser + Multi-Model Rotation + Unlimited Free AI Fallback
- *  5. Bidirectional Ping-Pong Auto-Shift (1->N then N->1) for Gemini & Cartesia
+ *  1. Supports GITHUB_RELEASE_URL env var so all family devices automatically load the 7 Release videos
+ *  2. Automatic Emotion Detection (blessing, laughing, happy, caring, talking)
+ *  3. Multi-Turn Live Call Memory + Full Hindi Sentence Guarantee (maxOutputTokens: 350)
+ *  4. 250ms Trailing Audio Silence Cushion
+ *  5. Smart 5-Key Gemini Parser + Multi-Model Rotation + Unlimited Free AI Fallback
+ *  6. Bidirectional Ping-Pong Auto-Shift (1->N then N->1) for Gemini & Cartesia
  */
 
 let geminiKeyIdx = 0;
@@ -14,7 +15,6 @@ let geminiKeyDir = 1; // 1 = Forward (1->5), -1 = Reverse (5->1)
 let cartesiaKeyIdx = 0;
 let cartesiaKeyDir = 1; // 1 = Forward (1->9), -1 = Reverse (9->1)
 
-// Circuit-breaker cache: remembers which "keyIndex:modelName" hit 429 quota
 const exhaustedModelCache = new Map();
 
 const FATHER_PROMPT =
@@ -23,7 +23,6 @@ const FATHER_PROMPT =
     "2. LIVE VISION & CONVERSATION CONTINUITY: Observe their facial expression, clothes, or any object/place shown through the front or back camera, and maintain natural continuity with the recent conversation history.\n" +
     "3. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak 1 or 2 complete, natural sentences (around 15 to 30 words) and ALWAYS finish your sentence completely with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete.";
 
-// Ensures Hindi text always ends cleanly with complete punctuation so Cartesia TTS never cuts off mid-intonation
 function ensureCompleteHindiSentence(rawText) {
     if (!rawText) return "हाँ बेटा, मैं तुम्हारी बात ध्यान से सुन रहा हूँ।";
     let text = String(rawText)
@@ -41,7 +40,52 @@ function ensureCompleteHindiSentence(rawText) {
     return text;
 }
 
-// Smart Parser: Reads all 5 Gemini keys whether separated by comma, space, newline, or individual env vars
+// Normalize GitHub Release URL (if user pasted full file link or base folder link in Vercel Env)
+function getNormalizedReleaseBaseUrl() {
+    const raw = (process.env.GITHUB_RELEASE_URL || "").trim();
+    if (!raw) return "";
+    // If user pasted a full .mp4 link like .../releases/download/v1.0/avatar_greeting.mp4, strip filename
+    if (raw.toLowerCase().endsWith(".mp4")) {
+        return raw.substring(0, raw.lastIndexOf("/") + 1);
+    }
+    return raw.endsWith("/") ? raw : raw + "/";
+}
+
+// Detects which emotional avatar video Papa should play based on user input & Papa's reply
+function detectPapaEmotion(userText, aiText) {
+    const combined = `${userText || ""} ${aiText || ""}`.toLowerCase();
+
+    if (
+        /प्रणाम|नमस्ते|चरण|पैर लागू|आशीर्वाद|खुश रहो|जीते रहो|सदा सुखी|भगवान|तरक्की|सफल|pranam|namaste|ashirwad|bless/.test(
+            combined
+        )
+    ) {
+        return "blessing";
+    }
+
+    if (/हाहा|हीही|हँस|हंस|मज़ाक|मजाक|चुटकुला|जोक|फनी|haha|joke|funny/.test(combined)) {
+        return "laughing";
+    }
+
+    if (
+        /तबीयत|खाना खाया|दवा|आराम|ध्यान रख|चिंता|परेशान|रो मत|हिम्मत|थक|नींद|बुखार|दर्द|ख्याल/.test(
+            combined
+        )
+    ) {
+        return "caring";
+    }
+
+    if (
+        /शाबाश|बधाई|गर्व|बहुत बढ़िया|बहुत अच्छा|खुशी|मुस्कुरा|प्यार|सुंदर|अच्छा लग|वाह/.test(
+            combined
+        )
+    ) {
+        return "happy";
+    }
+
+    return "talking";
+}
+
 function getGeminiKeysFromEnv() {
     const keys = [];
     const addCleanKey = (raw) => {
@@ -139,7 +183,6 @@ function shiftPingPongIndex(currentIdx, currentDir, totalLength) {
     return { idx, dir };
 }
 
-// Builds a clean 44-byte RIFF WAV buffer + 250ms trailing silence padding so last word never clips
 function buildWavBufferFromPcm(rawArrayBuffer, sampleRate = 24000) {
     let pcmBytes = new Uint8Array(rawArrayBuffer);
     if (
@@ -251,7 +294,6 @@ async function callSingleCartesiaTTS(apiKey, voiceId, text) {
     return { ok: false, status: lastStatus, error: lastError };
 }
 
-// Formats recent conversation history for context continuity during Live Call
 function formatHistoryContextText(chatHistory) {
     if (!Array.isArray(chatHistory) || chatHistory.length === 0) return "";
     const recent = chatHistory.slice(-6);
@@ -262,7 +304,6 @@ function formatHistoryContextText(chatHistory) {
     return "RECENT LIVE CALL CONVERSATION HISTORY:\n" + lines.join("\n") + "\n\n";
 }
 
-// Unlimited Free Backup AI Generator (Runs automatically if all 5 Gemini keys hit daily quota)
 async function generateFreeBackupReply(userText, base64Frame, currentFacingMode, savedFaces, chatHistory) {
     let familyHint = "";
     if (currentFacingMode === "user" && Array.isArray(savedFaces) && savedFaces.length > 0) {
@@ -352,7 +393,6 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
     return null;
 }
 
-// Internal Helper: Quota-Resilient Multi-Model + 5-Key Gemini Reply Generator with Live Call Memory
 async function generateGeminiReplyInternal(body) {
     const geminiKeys = getGeminiKeysFromEnv();
     const userText = body.userText || "नमस्ते पापा";
@@ -441,8 +481,10 @@ async function generateGeminiReplyInternal(body) {
                         .trim();
 
                     if (gRes.ok && combinedText) {
+                        const finalReply = ensureCompleteHindiSentence(combinedText);
                         return {
-                            aiText: ensureCompleteHindiSentence(combinedText),
+                            aiText: finalReply,
+                            emotion: detectPapaEmotion(userText, finalReply),
                             geminiKeyUsed: keyNum,
                             modelUsed: modelName
                         };
@@ -479,13 +521,13 @@ async function generateGeminiReplyInternal(body) {
         chatHistory
     );
     if (backupReply) {
+        backupReply.emotion = detectPapaEmotion(userText, backupReply.aiText);
         return backupReply;
     }
 
     throw new Error(`Gemini API Error (${geminiKeys.length} keys tried): ${lastError}`);
 }
 
-// Internal Helper: Fast Cartesia TTS + Render Fallback Generation
 async function generateTtsAudioInternal(rawText) {
     const text = ensureCompleteHindiSentence(rawText);
     const cartesiaPool = getCartesiaPoolFromEnv();
@@ -555,7 +597,10 @@ export default async function handler(req, res) {
     if (action === "verify_pin") {
         const enteredPin = String(body.pin || "").trim();
         if (enteredPin === requiredPin) {
-            return res.status(200).json({ ok: true });
+            return res.status(200).json({
+                ok: true,
+                releaseBaseUrl: getNormalizedReleaseBaseUrl()
+            });
         }
         return res.status(401).json({ ok: false, error: "Wrong PIN" });
     }
@@ -570,6 +615,7 @@ export default async function handler(req, res) {
             const ttsResult = await generateTtsAudioInternal(chatResult.aiText);
             return res.status(200).json({
                 aiText: chatResult.aiText,
+                emotion: chatResult.emotion || "talking",
                 geminiKeyUsed: chatResult.geminiKeyUsed,
                 modelUsed: chatResult.modelUsed,
                 audioBase64: ttsResult.audioBase64,
@@ -596,7 +642,10 @@ export default async function handler(req, res) {
         }
         try {
             const ttsResult = await generateTtsAudioInternal(text);
-            return res.status(200).json(ttsResult);
+            return res.status(200).json({
+                ...ttsResult,
+                emotion: detectPapaEmotion("", text)
+            });
         } catch (err) {
             return res.status(502).json({ error: err.message });
         }
@@ -650,7 +699,7 @@ export default async function handler(req, res) {
             const resTest = await callSingleCartesiaTTS(
                 entry.key,
                 entry.primaryVoice,
-                "नमस्ते बेटा, मैं बिल्कुल ठीक हूँ और अब हम लाइव वीडियो कॉल पर बात कर सकते हैं।"
+                "नमस्ते बेटा, सदा खुश रहो, मेरा आशीर्वाद हमेशा तुम्हारे साथ है।"
             );
             if (resTest.ok) {
                 logs.push(`✅ Cartesia Key #${k + 1} + Voice #${entry.primaryNum} (${resTest.modelUsed}): SUCCESS!`);
