@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Papa Chatbot - 9-Video Live Call & AI Vision</title>
+    <title>Papa Chatbot - Full-Speech Listener & Auto-Model Live Call</title>
     <style>
         @keyframes pulseRed {
             0% { opacity: 1; transform: scale(1); }
@@ -17,10 +17,10 @@
 </head>
 <body style="background: #121212; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box;">
 
-<div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 520px; width: 100%; padding: 22px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;">
+<div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 530px; width: 100%; padding: 20px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;">
     
     <!-- Portrait Video Avatar Box + LIVE Stream HUD -->
-    <div id="avatar-box" style="margin: 0 auto 16px auto; width: 265px; border-radius: 15px; overflow: hidden; border: 4px solid #0D8ABC; box-shadow: 0 0 15px rgba(13, 138, 188, 0.4); transition: border-color 0.3s, box-shadow 0.3s; position: relative;">
+    <div id="avatar-box" style="margin: 0 auto 14px auto; width: 265px; border-radius: 15px; overflow: hidden; border: 4px solid #0D8ABC; box-shadow: 0 0 15px rgba(13, 138, 188, 0.4); transition: border-color 0.3s, box-shadow 0.3s; position: relative; background: #000;">
         <video id="avatar-video" width="100%" autoplay loop muted playsinline style="height: auto; display: block; object-fit: contain;"></video>
 
         <!-- 🔴 LIVE STREAM Indicator Badge (Top-Left) -->
@@ -33,8 +33,8 @@
             😊 शांत (Idle)
         </div>
 
-        <!-- 💬 Live Call Subtitle Overlay (Bottom-Left/Center) -->
-        <div id="live-subtitle-box" style="display: none; position: absolute; bottom: 8px; left: 8px; right: 96px; background: rgba(0, 0, 0, 0.75); color: #ffeb3b; font-size: 11px; padding: 5px 8px; border-radius: 8px; text-align: left; line-height: 1.35; backdrop-filter: blur(3px);">
+        <!-- 💬 Live Call Subtitle & Real-Time Speech Preview Overlay -->
+        <div id="live-subtitle-box" style="display: none; position: absolute; bottom: 8px; left: 8px; right: 96px; background: rgba(0, 0, 0, 0.78); color: #ffeb3b; font-size: 11px; padding: 6px 8px; border-radius: 8px; text-align: left; line-height: 1.35; backdrop-filter: blur(3px);">
             पापा लाइव कॉल पर जुड़े हैं...
         </div>
 
@@ -45,46 +45,65 @@
         </div>
     </div>
 
+    <!-- 🎙️ NEW: Google-Style Live Speech Transcript Box + Manual "Send Now" Button -->
+    <div id="live-transcript-bar" style="display: none; background: #111827; border: 1px solid #ffeb3b; border-radius: 12px; padding: 8px 12px; margin-bottom: 12px; align-items: center; justify-content: space-between; gap: 8px;">
+        <div id="live-transcript-text" style="font-size: 13px; color: #fef08a; text-align: left; flex: 1;">
+            🎤 बोलिए, पापा आपकी पूरी बात सुन रहे हैं...
+        </div>
+        <button id="finish-speech-btn" style="padding: 6px 12px; border-radius: 16px; border: none; background: #4caf50; color: #fff; font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap;">
+            ✅ बात पूरी हुई
+        </button>
+    </div>
+
     <!-- Hidden Canvases & Persistent Audio Player -->
     <canvas id="vision-canvas" style="display: none;"></canvas>
     <canvas id="face-thumb-canvas" style="display: none;"></canvas>
     <audio id="papa-tts-player" playsinline style="display: none;"></audio>
 
-    <!-- Camera, Family Face Recognition, Release Videos & Share Link Controls -->
-    <div style="display: flex; justify-content: center; gap: 6px; margin-bottom: 14px; flex-wrap: wrap;">
-        <button id="cam-toggle-btn" style="padding: 7px 11px; border-radius: 20px; border: 1px solid #4caf50; background: #263829; color: #a6e3a1; font-size: 11px; font-weight: bold; cursor: pointer;">
+    <!-- Camera, Family Face, Release Videos, Share Link & Bug Radar Controls -->
+    <div style="display: flex; justify-content: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;">
+        <button id="cam-toggle-btn" style="padding: 6px 10px; border-radius: 20px; border: 1px solid #4caf50; background: #263829; color: #a6e3a1; font-size: 11px; font-weight: bold; cursor: pointer;">
             👁️ Vision: ON
         </button>
-        <button id="cam-flip-btn" style="padding: 7px 11px; border-radius: 20px; border: 1px solid #0D8ABC; background: #162436; color: #89b4fa; font-size: 11px; font-weight: bold; cursor: pointer;">
+        <button id="cam-flip-btn" style="padding: 6px 10px; border-radius: 20px; border: 1px solid #0D8ABC; background: #162436; color: #89b4fa; font-size: 11px; font-weight: bold; cursor: pointer;">
             🔄 Cam: Front
         </button>
-        <button id="family-btn" style="padding: 7px 11px; border-radius: 20px; border: 1px solid #ffeb3b; background: #332d1a; color: #ffeb3b; font-size: 11px; font-weight: bold; cursor: pointer;">
+        <button id="family-btn" style="padding: 6px 10px; border-radius: 20px; border: 1px solid #ffeb3b; background: #332d1a; color: #ffeb3b; font-size: 11px; font-weight: bold; cursor: pointer;">
             👨‍👩‍👧‍👦 Parivar (0)
         </button>
-        <button id="release-btn" style="padding: 7px 11px; border-radius: 20px; border: 1px solid #fab387; background: #33221a; color: #fab387; font-size: 11px; font-weight: bold; cursor: pointer;">
-            🎬 7 Release Videos
+        <button id="release-btn" style="padding: 6px 10px; border-radius: 20px; border: 1px solid #fab387; background: #33221a; color: #fab387; font-size: 11px; font-weight: bold; cursor: pointer;">
+            🎬 7 Videos
         </button>
-        <button id="share-btn" style="padding: 7px 11px; border-radius: 20px; border: 1px solid #cba6f7; background: #2a1f3d; color: #cba6f7; font-size: 11px; font-weight: bold; cursor: pointer;">
-            🔗 Share Link
+        <button id="share-btn" style="padding: 6px 10px; border-radius: 20px; border: 1px solid #cba6f7; background: #2a1f3d; color: #cba6f7; font-size: 11px; font-weight: bold; cursor: pointer;">
+            🔗 Share
+        </button>
+        <button id="bug-radar-btn" style="padding: 6px 10px; border-radius: 20px; border: 1px solid #f38ba8; background: #331a24; color: #f38ba8; font-size: 11px; font-weight: bold; cursor: pointer;">
+            🛠️ Bug Radar (0)
         </button>
     </div>
 
-    <!-- 🎬 NEW: GitHub Releases (रास्ता A) 1-Click Video Connector Drawer -->
+    <!-- 🛠️ NEW: Live Glitch, Bug & Telemetry X-Ray Radar Drawer -->
+    <div id="bug-radar-panel" style="display: none; background: #0d0d17; border: 1px solid #f38ba8; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: left;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 12px; font-weight: bold; color: #f38ba8;">🛠️ Live Glitch & Bug X-Ray Radar:</span>
+            <button id="clear-radar-btn" style="background: #313244; color: #cdd6f4; border: none; border-radius: 6px; padding: 3px 8px; font-size: 10px; cursor: pointer;">Clear Log</button>
+        </div>
+        <div id="bug-radar-log" style="font-family: monospace; font-size: 11px; color: #a6e3a1; max-height: 150px; overflow-y: auto; white-space: pre-wrap; line-height: 1.4;">System X-Ray Active... Koi glitch aane par yahan turant dikhega.</div>
+    </div>
+
+    <!-- 🎬 GitHub Releases (रास्ता A) 1-Click Video Connector Drawer -->
     <div id="release-panel" style="display: none; background: #121224; border: 1px solid #fab387; border-radius: 14px; padding: 14px; margin-bottom: 15px; text-align: left;">
         <div style="font-size: 13px; font-weight: bold; color: #fab387; margin-bottom: 6px;">
             🎬 GitHub Releases (v1.0) Video Link Setup:
         </div>
         <div style="font-size: 11px; color: #cdd6f4; margin-bottom: 8px; line-height: 1.4;">
-            GitHub Releases me 7 nayi video upload karne ke baad kisi bhi <b>1 video par Right-Click ➔ Copy Link Address</b> karein aur yahan paste kar dein (Purani 2 video <code>avatar_idle.mp4</code> aur <code>avatar_talking.mp4</code> main folder se hi chalengi):
+            GitHub Releases me 7 nayi video upload karne ke baad kisi bhi <b>1 video par Right-Click ➔ Copy Link Address</b> karein aur yahan paste kar dein:
         </div>
         <div style="display: flex; gap: 6px; margin-bottom: 8px;">
             <input id="release-url-input" type="text" placeholder="https://github.com/.../releases/download/v1.0/avatar_greeting.mp4" style="flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #45475a; background: #242438; color: #a6e3a1; font-size: 11px;" />
             <button id="save-release-btn" style="padding: 8px 12px; border-radius: 8px; border: none; background: #fab387; color: #111; font-size: 12px; font-weight: bold; cursor: pointer;">
                 ✅ Save
             </button>
-        </div>
-        <div style="font-size: 10px; color: #a6adc8;">
-            💡 Tip: Aap yehi link Vercel ke Environment Variables me <b>GITHUB_RELEASE_URL</b> naam se bhi daal sakte hain taaki parivar ke sabhi mobile par apne-aap 7 videos chalein!
         </div>
     </div>
 
@@ -129,13 +148,13 @@
 
     <!-- 📞 End-to-End Live Video Call Button + 🎤 Single Mic + 🔊 Test + 🔑 Keys -->
     <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
-        <button id="live-call-btn" style="padding: 14px 22px; border-radius: 30px; border: 2px solid #ff5252; background: #b71c1c; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 14px rgba(255, 82, 82, 0.35);">
+        <button id="live-call-btn" style="padding: 13px 20px; border-radius: 30px; border: 2px solid #ff5252; background: #b71c1c; color: #fff; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 14px rgba(255, 82, 82, 0.35);">
             📞 Start Live Call
         </button>
-        <button id="mic-btn" style="padding: 14px 22px; border-radius: 30px; border: none; background: #0D8ABC; color: white; font-size: 16px; font-weight: bold; cursor: pointer;">
+        <button id="mic-btn" style="padding: 13px 20px; border-radius: 30px; border: none; background: #0D8ABC; color: white; font-size: 15px; font-weight: bold; cursor: pointer;">
             🎤 Baat Karo
         </button>
-        <button id="test-voice-btn" style="padding: 13px 16px; border-radius: 30px; border: 1px solid #a6e3a1; background: #1e3a2f; color: #a6e3a1; font-size: 13px; font-weight: bold; cursor: pointer;">
+        <button id="test-voice-btn" style="padding: 13px 15px; border-radius: 30px; border: 1px solid #a6e3a1; background: #1e3a2f; color: #a6e3a1; font-size: 13px; font-weight: bold; cursor: pointer;">
             🔊 Voice Test
         </button>
         <button id="diag-cartesia-btn" style="padding: 13px 14px; border-radius: 30px; border: 1px solid #f9e2af; background: #332b1a; color: #f9e2af; font-size: 12px; font-weight: bold; cursor: pointer;">
@@ -143,7 +162,7 @@
         </button>
     </div>
     
-    <p id="status-text" style="margin-top: 16px; font-size: 14px; color: #ffeb3b; white-space: pre-line;">🔒 Checking Security PIN...</p>
+    <p id="status-text" style="margin-top: 14px; font-size: 13.5px; color: #ffeb3b; white-space: pre-line;">🔒 Checking Security PIN...</p>
     <div id="diag-box" style="display: none; margin-top: 12px; padding: 10px; border-radius: 10px; background: #11111b; border: 1px solid #45475a; color: #cdd6f4; font-size: 12px; text-align: left; max-height: 170px; overflow-y: auto; white-space: pre-wrap;"></div>
 </div>
 
@@ -156,13 +175,59 @@ if (!sessionPIN) {
 }
 
 // ============================================================================
-// 🎬 HYBRID 9-VIDEO SYSTEM (Base 2 videos in Root Folder + 7 New Videos in GitHub Releases!)
+// 🛠️ LIVE BUG, GLITCH & TELEMETRY X-RAY RADAR SYSTEM
+// ============================================================================
+const bugRadarBtn = document.getElementById("bug-radar-btn");
+const bugRadarPanel = document.getElementById("bug-radar-panel");
+const bugRadarLog = document.getElementById("bug-radar-log");
+const clearRadarBtn = document.getElementById("clear-radar-btn");
+let glitchCount = 0;
+
+function logRadarEvent(type, message) {
+    const now = new Date();
+    const timeStr = now.toTimeString().split(" ")[0];
+    const icon = type === "GLITCH" ? "🚨 [GLITCH]" : (type === "WARN" ? "⚠️ [WARN]" : "ℹ️ [INFO]");
+    if (type === "GLITCH" || type === "WARN") {
+        glitchCount++;
+        bugRadarBtn.innerText = "🛠️ Bug Radar (" + glitchCount + ")";
+    }
+    const line = "[" + timeStr + "] " + icon + " " + message;
+    console.log(line);
+    if (bugRadarLog.innerText.indexOf("System X-Ray Active...") === 0) {
+        bugRadarLog.innerText = line;
+    } else {
+        bugRadarLog.innerText = line + "\n" + bugRadarLog.innerText;
+    }
+}
+
+window.addEventListener("error", function(ev) {
+    logRadarEvent("GLITCH", "JS Error: " + ev.message + " (Line " + ev.lineno + ")");
+});
+
+window.addEventListener("unhandledrejection", function(ev) {
+    const reason = ev.reason && ev.reason.message ? ev.reason.message : String(ev.reason);
+    // Ignore harmless video play() interruption when switching states quickly
+    if (reason.indexOf("interrupted by a new load request") !== -1) return;
+    logRadarEvent("GLITCH", "Async Glitch: " + reason);
+});
+
+bugRadarBtn.addEventListener("click", function() {
+    bugRadarPanel.style.display = bugRadarPanel.style.display === "none" ? "block" : "none";
+});
+
+clearRadarBtn.addEventListener("click", function() {
+    glitchCount = 0;
+    bugRadarBtn.innerText = "🛠️ Bug Radar (0)";
+    bugRadarLog.innerText = "✅ Log cleared. Monitoring active...";
+});
+
+// ============================================================================
+// 🎬 HYBRID 9-VIDEO SYSTEM (Zero-Flicker Safe Video Switcher)
 // ============================================================================
 const BACKEND_API_URL = "/api/papa";
 const RENDER_BASE_URL = "https://papa-voice-cloud.onrender.com";
 const DEFAULT_SHARE_URL = "https://papachatbot.vercel.app/";
 
-// Optional: Agar aap chahein to apna GitHub Release base link seedha yahan bhi daal sakte hain:
 let releaseBaseUrl = localStorage.getItem("papa_release_base_url") || "";
 
 function normalizeReleaseUrl(inputUrl) {
@@ -208,6 +273,9 @@ const liveCallBtn = document.getElementById("live-call-btn");
 const liveStreamBadge = document.getElementById("live-stream-badge");
 const emotionBadge = document.getElementById("emotion-badge");
 const liveSubtitleBox = document.getElementById("live-subtitle-box");
+const liveTranscriptBar = document.getElementById("live-transcript-bar");
+const liveTranscriptText = document.getElementById("live-transcript-text");
+const finishSpeechBtn = document.getElementById("finish-speech-btn");
 const micBtn = document.getElementById("mic-btn");
 const testVoiceBtn = document.getElementById("test-voice-btn");
 const diagCartesiaBtn = document.getElementById("diag-cartesia-btn");
@@ -247,6 +315,7 @@ let isVisionEnabled = true;
 let currentFacingMode = "user";
 let sharedAudioCtx = null;
 let currentVideoState = "";
+let lastResolvedVideoUrl = "";
 
 let isLiveCallActive = false;
 let isPapaSpeakingOrThinking = false;
@@ -264,21 +333,22 @@ saveReleaseBtn.addEventListener("click", function() {
     releaseBaseUrl = normalizeReleaseUrl(releaseUrlInput.value);
     localStorage.setItem("papa_release_base_url", releaseBaseUrl);
     releaseUrlInput.value = releaseBaseUrl;
+    logRadarEvent("INFO", "Release Video URL updated: " + (releaseBaseUrl || "Local Mode"));
     statusText.innerText = "✅ GitHub Releases Video Link Save ho gaya!\n" + (releaseBaseUrl || "(Local Folder Mode)");
     setAvatarVideoState("greeting", false);
 });
 
-// 🎬 Hybrid Video Switcher:
-// - Keeps old 'idle' & 'talking' on fast local root folder (./avatar_idle.mp4 & ./avatar_talking.mp4)
-// - Loads the 7 new videos from GitHub Releases (if releaseBaseUrl is set) or local folder, with automatic fallback!
+// Zero-Flicker Video Switcher: Prevents reloading the same URL & logs any missing video in Bug Radar
+function safePlayVideo(videoEl) {
+    const playPromise = videoEl.play();
+    if (playPromise !== undefined) {
+        playPromise.catch(function() {});
+    }
+}
+
 function setAvatarVideoState(stateKey, isSpeakingState) {
     const fileName = VIDEO_FILENAMES[stateKey] || (isSpeakingState ? VIDEO_FILENAMES.talking : VIDEO_FILENAMES.idle);
     emotionBadge.innerText = EMOTION_LABELS[stateKey] || EMOTION_LABELS.idle;
-
-    if (currentVideoState === stateKey && !avatarVideo.paused) {
-        return;
-    }
-    currentVideoState = stateKey;
 
     const isBaseLocalVideo = (stateKey === "idle" || stateKey === "talking");
     const primaryUrl = (!isBaseLocalVideo && releaseBaseUrl)
@@ -287,32 +357,39 @@ function setAvatarVideoState(stateKey, isSpeakingState) {
     const localCandidateUrl = "./" + fileName;
     const safeFallbackUrl = isSpeakingState ? "./avatar_talking.mp4" : "./avatar_idle.mp4";
 
+    if (currentVideoState === stateKey && lastResolvedVideoUrl === primaryUrl && !avatarVideo.paused) {
+        return;
+    }
+    currentVideoState = stateKey;
+    lastResolvedVideoUrl = primaryUrl;
+
     let triedLocalFallback = false;
 
     avatarVideo.onerror = function() {
-        // Step 1: If Release URL failed, try local ./filename.mp4
         if (!triedLocalFallback && primaryUrl !== localCandidateUrl) {
             triedLocalFallback = true;
+            logRadarEvent("WARN", "Release video missing (" + fileName + "), trying local folder...");
+            lastResolvedVideoUrl = localCandidateUrl;
             avatarVideo.src = localCandidateUrl;
-            avatarVideo.play().catch(function() {});
+            safePlayVideo(avatarVideo);
             return;
         }
-        // Step 2: Guaranteed fallback to existing ./avatar_idle.mp4 or ./avatar_talking.mp4
         avatarVideo.onerror = null;
-        if (avatarVideo.src.indexOf(safeFallbackUrl.slice(2)) === -1) {
+        if (lastResolvedVideoUrl !== safeFallbackUrl) {
+            logRadarEvent("WARN", "Video '" + fileName + "' not found -> Auto-healed with " + safeFallbackUrl);
+            lastResolvedVideoUrl = safeFallbackUrl;
             avatarVideo.src = safeFallbackUrl;
-            avatarVideo.play().catch(function() {});
+            safePlayVideo(avatarVideo);
         }
     };
 
     avatarVideo.src = primaryUrl;
-    avatarVideo.play().catch(function() {});
+    safePlayVideo(avatarVideo);
 }
 
-// Start with Idle initially, then play Greeting once PIN/Release URL is verified
 setAvatarVideoState("idle", false);
 
-// Verify PIN with Backend on startup & auto-fetch GITHUB_RELEASE_URL if set in Vercel Env
+// Verify PIN with Backend on startup & log auto-discovered Gemini models
 fetch(BACKEND_API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -331,22 +408,24 @@ fetch(BACKEND_API_URL, {
         localStorage.setItem("papa_release_base_url", releaseBaseUrl);
         releaseUrlInput.value = releaseBaseUrl;
     }
-    // Play Greeting video on welcome, then return to Idle after 4.2s
+    if (data && data.autoDiscoveredModels) {
+        logRadarEvent("INFO", "Auto-Discovered Gemini Models: " + data.autoDiscoveredModels.join(", "));
+    }
     setAvatarVideoState("greeting", false);
     setTimeout(function() {
         if (currentVideoState === "greeting" && !isPapaSpeakingOrThinking && !isMicCurrentlyListening) {
             setAvatarVideoState("idle", false);
         }
     }, 4200);
-    statusText.innerText = "✅ Ready! Hands-Free baat ke liye '📞 Start Live Call' dabayen\nya ek baar bolne ke liye '🎤 Baat Karo' dabayen.";
+    statusText.innerText = "✅ Ready! (Auto-Updating Gemini + Full-Speech Listener ON)\n'📞 Start Live Call' ya '🎤 Baat Karo' dabayen.";
 })
 .catch(function(err) {
     if (err.message !== "Wrong PIN") {
+        logRadarEvent("WARN", "Startup verify warning: " + err.message);
         statusText.innerText = "✅ Ready! '📞 Start Live Call' ya '🎤 Baat Karo' dabayen.";
     }
 });
 
-// Wakeup Render Backup Server silently
 fetch(RENDER_BASE_URL + "/health").catch(function() {});
 
 // ============================================================================
@@ -552,6 +631,7 @@ async function startCamera(facingMode) {
             activeCameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         } catch (fallbackErr) {
             isVisionEnabled = false;
+            logRadarEvent("WARN", "Camera permission denied or unavailable.");
             updateCameraUI();
             return;
         }
@@ -629,36 +709,113 @@ function captureCameraFrameBase64() {
 startCamera("user");
 
 // ============================================================================
-// 🎤 SPEECH RECOGNITION + 📞 END-TO-END HANDS-FREE LIVE CALL ENGINE
+// 🎤 GOOGLE-STYLE FULL-SPEECH LISTENER (Continuous + 2.5s Silence Wait Buffer!)
 // ============================================================================
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (!SpeechRecognition) {
     statusText.innerText = "🚨 Aapka browser Speech Recognition support nahi karta. Kripya Google Chrome use karein.";
+    logRadarEvent("GLITCH", "Web Speech API not supported in this browser.");
 }
+
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 if (recognition) {
     recognition.lang = "hi-IN";
-    recognition.interimResults = false;
+    // CRITICAL FIX: continuous + interimResults ensures mic NEVER cuts off while user pauses to breathe!
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 }
+
+const SILENCE_WAIT_MS = 2500; // Waits 2.5 full seconds after your last word before turning mic off!
+let accumulatedFinalTranscript = "";
+let latestInterimTranscript = "";
+let silenceDebounceTimer = null;
+let isSubmittingSpeech = false;
 
 const haBetaBolAudio = new Audio("./ha_beta_bol.mp3");
 
+function clearSilenceTimer() {
+    if (silenceDebounceTimer) {
+        clearTimeout(silenceDebounceTimer);
+        silenceDebounceTimer = null;
+    }
+}
+
 function startListeningSafely() {
-    if (!recognition || isPapaSpeakingOrThinking || isMicCurrentlyListening) return;
+    if (!recognition || isPapaSpeakingOrThinking || isMicCurrentlyListening || isSubmittingSpeech) return;
+    accumulatedFinalTranscript = "";
+    latestInterimTranscript = "";
+    clearSilenceTimer();
+
     try {
         recognition.start();
         isMicCurrentlyListening = true;
+        liveTranscriptBar.style.display = "flex";
+        liveTranscriptText.innerText = "🎤 आप आराम से पूरी बात बोलिए (2.5 सेकंड चुप रहने पर बात जाएगी)...";
         setAvatarVideoState("listening", false);
         avatarBox.style.borderColor = "#ffeb3b";
 
         if (isLiveCallActive) {
-            liveSubtitleBox.innerText = "🎤 आप बोलिए, पापा ध्यान से सुन रहे हैं...";
-            statusText.innerText = "🔴 [LIVE CALL] 🎤 Aap boliye (Papa sun rahe hain)...";
+            liveSubtitleBox.innerText = "🎤 आप बोलिए, पापा आपकी पूरी बात ध्यान से सुन रहे हैं...";
+            statusText.innerText = "🔴 [LIVE CALL] 🎤 Aap aaram se puri baat boliye...";
         } else {
-            statusText.innerText = "🎤 Ab aap boliye (Papa aapko dekh aur sun rahe hain)...";
+            statusText.innerText = "🎤 Aap aaram se apni puri baat boliye (Papa sun rahe hain)...";
+        }
+    } catch (e) {
+        // Already started
+    }
+}
+
+// Finalizes user's full accumulated speech, stops mic cleanly, and sends to Papa!
+async function finalizeAndSubmitUserSpeech() {
+    clearSilenceTimer();
+    if (isSubmittingSpeech || isPapaSpeakingOrThinking) return;
+
+    const fullUserText = (accumulatedFinalTranscript + " " + latestInterimTranscript).replace(/\s+/g, " ").trim();
+    if (!fullUserText) return;
+
+    isSubmittingSpeech = true;
+    accumulatedFinalTranscript = "";
+    latestInterimTranscript = "";
+    liveTranscriptBar.style.display = "none";
+
+    // Turn off mic cleanly just like Google Assistant after full speech is captured
+    try {
+        if (recognition && isMicCurrentlyListening) {
+            recognition.stop();
         }
     } catch (e) {}
+    isMicCurrentlyListening = false;
+
+    const cameraFrameBase64 = captureCameraFrameBase64();
+    const visionTag = cameraFrameBase64 ? (" (👁️ " + (currentFacingMode === "user" ? "Chehra Pehchan" : "Back Cam") + " ON)") : "";
+    statusText.innerText = "Tum: \"" + fullUserText + "\"\n🤔 Papa soch rahe hain" + visionTag + "...";
+    logRadarEvent("INFO", "Full speech captured (" + fullUserText.length + " chars): \"" + fullUserText + "\"");
+
+    try {
+        await processSpeechTurbo(fullUserText, cameraFrameBase64);
+    } catch (error) {
+        isPapaSpeakingOrThinking = false;
+        setAvatarVideoState("idle", false);
+        avatarBox.style.borderColor = "#0D8ABC";
+        statusText.innerText = "🚨 Error: " + error.message;
+        logRadarEvent("GLITCH", "Speech Pipeline Error: " + error.message);
+        if (isLiveCallActive) {
+            setTimeout(function() {
+                isSubmittingSpeech = false;
+                startListeningSafely();
+            }, 1200);
+            return;
+        }
+    } finally {
+        isSubmittingSpeech = false;
+    }
 }
+
+// Manual "✅ बात पूरी हुई" button so user can also send immediately without waiting 2.5s
+finishSpeechBtn.addEventListener("click", function() {
+    finalizeAndSubmitUserSpeech();
+});
 
 // Toggle End-to-End Live Video Call Stream
 liveCallBtn.addEventListener("click", function() {
@@ -678,6 +835,7 @@ liveCallBtn.addEventListener("click", function() {
         setAvatarVideoState("greeting", true);
         avatarBox.style.borderColor = "#4caf50";
         statusText.innerText = "🔴 [LIVE CALL STARTED] Papa bol rahe hain...";
+        logRadarEvent("INFO", "Live Call mode started.");
 
         haBetaBolAudio.play().catch(function() {
             isPapaSpeakingOrThinking = false;
@@ -686,6 +844,9 @@ liveCallBtn.addEventListener("click", function() {
     } else {
         isLiveCallActive = false;
         isPapaSpeakingOrThinking = false;
+        isSubmittingSpeech = false;
+        clearSilenceTimer();
+        liveTranscriptBar.style.display = "none";
         liveCallBtn.innerText = "📞 Start Live Call";
         liveCallBtn.style.background = "#b71c1c";
         liveCallBtn.style.borderColor = "#ff5252";
@@ -696,6 +857,7 @@ liveCallBtn.addEventListener("click", function() {
         avatarBox.style.boxShadow = "0 0 15px rgba(13, 138, 188, 0.4)";
         try { papaTtsPlayer.pause(); } catch (e) {}
         try { if (recognition && isMicCurrentlyListening) recognition.stop(); } catch (e) {}
+        logRadarEvent("INFO", "Live Call mode ended by user.");
         statusText.innerText = "📴 Live Call band kar di gayi hai.\nDubara baat karne ke liye '📞 Start Live Call' ya '🎤 Baat Karo' dabayen.";
     }
 });
@@ -724,18 +886,61 @@ haBetaBolAudio.onended = function() {
 };
 
 if (recognition) {
+    recognition.onresult = function(event) {
+        if (isPapaSpeakingOrThinking || isSubmittingSpeech) return;
+
+        let finalTranscriptChunk = "";
+        let interimTranscriptChunk = "";
+
+        for (let i = 0; i < event.results.length; i++) {
+            const transcriptPiece = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                finalTranscriptChunk += transcriptPiece + " ";
+            } else {
+                interimTranscriptChunk += transcriptPiece;
+            }
+        }
+
+        accumulatedFinalTranscript = finalTranscriptChunk.trim();
+        latestInterimTranscript = interimTranscriptChunk.trim();
+
+        const combinedPreview = (accumulatedFinalTranscript + " " + latestInterimTranscript).replace(/\s+/g, " ").trim();
+        if (combinedPreview) {
+            liveTranscriptBar.style.display = "flex";
+            liveTranscriptText.innerText = "🗣️ तुम: \"" + combinedPreview + "\"";
+            if (isLiveCallActive) {
+                liveSubtitleBox.innerText = "🗣️ तुम बोल रहे हो: \"" + combinedPreview + "\"";
+            }
+
+            // Reset the 2.5-second silence wait timer every time the user speaks a new syllable!
+            clearSilenceTimer();
+            silenceDebounceTimer = setTimeout(function() {
+                finalizeAndSubmitUserSpeech();
+            }, SILENCE_WAIT_MS);
+        }
+    };
+
     recognition.onend = function() {
         isMicCurrentlyListening = false;
         micBtn.disabled = false;
         micBtn.style.opacity = "1";
 
-        if (isLiveCallActive && !isPapaSpeakingOrThinking) {
+        // If the browser stopped recognition while user still had unsent text in buffer, send it!
+        const pendingText = (accumulatedFinalTranscript + " " + latestInterimTranscript).trim();
+        if (pendingText && !isSubmittingSpeech && !isPapaSpeakingOrThinking) {
+            finalizeAndSubmitUserSpeech();
+            return;
+        }
+
+        // If Live Call is active and Papa is not speaking, keep the mic open seamlessly
+        if (isLiveCallActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech) {
             setTimeout(function() {
-                if (isLiveCallActive && !isPapaSpeakingOrThinking) {
+                if (isLiveCallActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech) {
                     startListeningSafely();
                 }
             }, 350);
-        } else if (!isPapaSpeakingOrThinking) {
+        } else if (!isPapaSpeakingOrThinking && !isSubmittingSpeech) {
+            liveTranscriptBar.style.display = "none";
             setAvatarVideoState("idle", false);
             avatarBox.style.borderColor = "#0D8ABC";
         }
@@ -746,12 +951,13 @@ if (recognition) {
         micBtn.disabled = false;
         micBtn.style.opacity = "1";
 
-        if (isLiveCallActive && (event.error === "no-speech" || event.error === "aborted")) {
+        if (event.error === "no-speech" || event.error === "aborted") {
             return;
         }
+        logRadarEvent("WARN", "Mic Recognition Warning: " + event.error);
         setAvatarVideoState("idle", false);
         avatarBox.style.borderColor = "#0D8ABC";
-        statusText.innerText = "⚠️ Mic Error (" + event.error + "). Dubara Mic button dabayen.";
+        statusText.innerText = "⚠️ Mic Warning (" + event.error + "). Dubara Mic button dabayen.";
     };
 }
 
@@ -796,6 +1002,7 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
         papaTtsPlayer.onplay = startAvatarTalking;
         papaTtsPlayer.onended = stopAvatarTalking;
         papaTtsPlayer.onerror = async function() {
+            logRadarEvent("WARN", "HTML5 Audio fallback -> Using WebAudio API decoder.");
             try {
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
                 if (!sharedAudioCtx) sharedAudioCtx = new AudioCtx();
@@ -809,6 +1016,7 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
                 source.onended = stopAvatarTalking;
                 source.start(0);
             } catch (webAudioErr) {
+                logRadarEvent("GLITCH", "WebAudio Playback Error: " + webAudioErr.message);
                 stopAvatarTalking();
             }
         };
@@ -821,7 +1029,7 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
 }
 
 // ============================================================================
-// 🚀 1. TURBO SINGLE-HOP PIPELINE (Plays avatar_thinking.mp4 while waiting!)
+// 🚀 1. TURBO SINGLE-HOP PIPELINE (With Live Glitch Telemetry Logging)
 // ============================================================================
 async function processSpeechTurbo(userText, base64Frame) {
     isPapaSpeakingOrThinking = true;
@@ -853,6 +1061,18 @@ async function processSpeechTurbo(userText, base64Frame) {
         isPapaSpeakingOrThinking = false;
         setAvatarVideoState("idle", false);
         throw new Error(data.error || ("Server HTTP " + res.status));
+    }
+
+    // Log speed and any skipped models into Bug & Glitch Radar
+    if (data.telemetry) {
+        const t = data.telemetry;
+        logRadarEvent(
+            "INFO",
+            "Reply OK in " + t.totalMs + "ms (AI: " + t.geminiMs + "ms, Voice: " + t.ttsMs + "ms) via " + data.modelUsed
+        );
+        if (t.skippedAttempts && t.skippedAttempts.length > 0) {
+            logRadarEvent("WARN", "Auto-Skipped Models/Keys: " + t.skippedAttempts.join(" | "));
+        }
     }
 
     conversationHistory.push({ role: "user", text: userText });
@@ -905,8 +1125,9 @@ testVoiceBtn.addEventListener("click", async function() {
     unlockBrowserAudio();
     testVoiceBtn.disabled = true;
     try {
-        await speakPapaReply("नमस्ते बेटा, सदा खुश रहो, मेरा आशीर्वाद हमेशा तुम्हारे साथ है।");
+        await speakPapaReply("नमस्ते बेटा, सदा खुश रहो, अब मैं तुम्हारी पूरी बात आराम से सुनूँगा और कभी बीच में नहीं काटूँगा।");
     } catch (err) {
+        logRadarEvent("GLITCH", "Voice Test Failed: " + err.message);
         statusText.innerText = "🚨 Voice Test Error: " + err.message;
     } finally {
         testVoiceBtn.disabled = false;
@@ -917,7 +1138,7 @@ testVoiceBtn.addEventListener("click", async function() {
 diagCartesiaBtn.addEventListener("click", async function() {
     unlockBrowserAudio();
     diagBox.style.display = "block";
-    diagBox.innerText = "🔍 Server par sabhi Gemini & Cartesia Keys check ho rahi hain...\n";
+    diagBox.innerText = "🔍 Server par Auto-Discovered Gemini Models & 20 Cartesia Keys check ho rahi hain...\n";
     diagCartesiaBtn.disabled = true;
 
     try {
@@ -942,33 +1163,12 @@ diagCartesiaBtn.addEventListener("click", async function() {
             papaTtsPlayer.play().catch(function() {});
         }
     } catch (err) {
+        logRadarEvent("GLITCH", "Diagnostic Error: " + err.message);
         diagBox.innerText += "\n🚨 Error: " + err.message;
     } finally {
         diagCartesiaBtn.disabled = false;
     }
 });
-
-// Main Speech + Live Vision + Family Recognition Pipeline
-if (recognition) {
-    recognition.onresult = async function(event) {
-        const userText = event.results[0][0].transcript;
-        const cameraFrameBase64 = captureCameraFrameBase64();
-        const visionTag = cameraFrameBase64 ? (" (👁️ " + (currentFacingMode === "user" ? "Chehra Pehchan" : "Back Cam") + " ON)") : "";
-        statusText.innerText = "Tum: " + userText + "\n🤔 Papa soch rahe hain" + visionTag + "...";
-
-        try {
-            await processSpeechTurbo(userText, cameraFrameBase64);
-        } catch (error) {
-            isPapaSpeakingOrThinking = false;
-            setAvatarVideoState("idle", false);
-            avatarBox.style.borderColor = "#0D8ABC";
-            statusText.innerText = "🚨 Error: " + error.message;
-            if (isLiveCallActive) {
-                setTimeout(startListeningSafely, 1200);
-            }
-        }
-    };
-}
 </script>
 </body>
 </html>
