@@ -1,21 +1,40 @@
 /**
- * Papa Chatbot - 9-Video Emotion-Aware Live Stream Backend (2026 Hybrid Release Edition)
+ * Papa Chatbot - Self-Updating Gemini 4 / 3.8 + 4-Voice & 20-Cartesia Keys Backend (Nov 2026 Edition)
  * Features:
- *  1. Supports GITHUB_RELEASE_URL env var so all family devices automatically load the 7 Release videos
- *  2. Automatic Emotion Detection (blessing, laughing, happy, caring, talking)
- *  3. Multi-Turn Live Call Memory + Full Hindi Sentence Guarantee (maxOutputTokens: 350)
- *  4. 250ms Trailing Audio Silence Cushion
- *  5. Smart 5-Key Gemini Parser + Multi-Model Rotation + Unlimited Free AI Fallback
- *  6. Bidirectional Ping-Pong Auto-Shift (1->N then N->1) for Gemini & Cartesia
+ *  1. AUTO-UPDATING GEMINI MODEL ENGINE: Queries Google's live /v1beta/models API automatically so
+ *     future Gemini updates (Gemini 4.x, 5.x, Flash-Latest) work forever without code changes!
+ *  2. Built-in Glitch & Telemetry Reporter: Returns exact latency (ms), skipped models, and active engine info.
+ *  3. Supports 4 Cartesia Voice IDs & 20+ API Keys with Smart Auto-Voice Discovery Cache & Ping-Pong Rotation.
+ *  4. 9-Video Emotion Detection + Multi-Turn Live Call Memory + Full Hindi Sentence Guarantee (350 tokens).
  */
 
 let geminiKeyIdx = 0;
 let geminiKeyDir = 1; // 1 = Forward (1->5), -1 = Reverse (5->1)
 
 let cartesiaKeyIdx = 0;
-let cartesiaKeyDir = 1; // 1 = Forward (1->9), -1 = Reverse (9->1)
+let cartesiaKeyDir = 1; // 1 = Forward (1->20), -1 = Reverse (20->1)
 
+// Circuit-breaker cache for models hitting 429 quota or 404 deprecation
 const exhaustedModelCache = new Map();
+
+// Smart Lock Cache: Remembers the exact working { id, num } Voice ID for each Cartesia API key
+const keyVoiceLockCache = new Map();
+
+// Auto-Discovered Live Gemini Models Cache (Refreshes automatically from Google servers)
+let cachedDiscoveredModels = null;
+let lastModelDiscoveryTime = 0;
+
+// Active November 2026 Default Seed List (Used alongside live /v1beta/models discovery)
+const NOV_2026_ACTIVE_MODELS = [
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.8-flash",
+    "gemini-4-hydrogen",
+    "gemini-4-argon",
+    "gemini-4-carbon",
+    "gemini-flash-lite-latest",
+    "gemini-flash-latest"
+];
 
 const FATHER_PROMPT =
     "You are a loving, caring Indian father (Papa) on a live video call with your family.\n" +
@@ -40,18 +59,15 @@ function ensureCompleteHindiSentence(rawText) {
     return text;
 }
 
-// Normalize GitHub Release URL (if user pasted full file link or base folder link in Vercel Env)
 function getNormalizedReleaseBaseUrl() {
     const raw = (process.env.GITHUB_RELEASE_URL || "").trim();
     if (!raw) return "";
-    // If user pasted a full .mp4 link like .../releases/download/v1.0/avatar_greeting.mp4, strip filename
     if (raw.toLowerCase().endsWith(".mp4")) {
         return raw.substring(0, raw.lastIndexOf("/") + 1);
     }
     return raw.endsWith("/") ? raw : raw + "/";
 }
 
-// Detects which emotional avatar video Papa should play based on user input & Papa's reply
 function detectPapaEmotion(userText, aiText) {
     const combined = `${userText || ""} ${aiText || ""}`.toLowerCase();
 
@@ -117,47 +133,169 @@ function getGeminiKeysFromEnv() {
     return keys;
 }
 
-function getCartesiaPoolFromEnv() {
-    const voice1 = (process.env.CARTESIA_VOICE_ID_1 || "5f2590b0-c99c-4fd8-97c8-56d5d3a621d8").trim();
-    const voice2 = (process.env.CARTESIA_VOICE_ID_2 || "35bece76-689b-4b28-b398-0b53a8d5fd05").trim();
-    const pool = [];
+// ============================================================================
+// 🔄 SELF-UPDATING GEMINI MODEL AUTO-DISCOVERY ENGINE (Never needs manual updates!)
+// ============================================================================
+function scoreGeminiModelForChat(modelId) {
+    const id = modelId.toLowerCase();
+    // Exclude specialized non-chat or retired models
+    if (
+        /embedding|imagen|veo|tts|transcribe|live|decision|cyber|banana|image|audio|aqa|bison|gecko|gemma|1\.0|1\.5|2\.0|2\.5|3\.5-flash$|3\.7-flash/.test(
+            id
+        )
+    ) {
+        return -1;
+    }
+    if (!id.startsWith("gemini-")) return -1;
 
-    if (process.env.CARTESIA_KEYS_V1) {
-        process.env.CARTESIA_KEYS_V1.split(/[\s,;]+/).forEach((k) => {
-            const clean = k.replace(/["']/g, "").trim();
-            if (clean && !clean.startsWith("sk_car_admin_")) {
-                pool.push({ key: clean, primaryVoice: voice1, primaryNum: 1, secondaryVoice: voice2, secondaryNum: 2 });
-            }
-        });
+    // Extract version number dynamically (e.g. gemini-5.0-flash -> 5.0, gemini-4-hydrogen -> 4.0, gemini-3.8-flash -> 3.8)
+    const verMatch = id.match(/gemini-(\d+(?:\.\d+)?)/);
+    const versionNum = verMatch ? parseFloat(verMatch[1]) : 3.0;
+
+    let score = versionNum * 100;
+    // Prefer flash-lite & flash first because they have the highest Free-Tier daily quota and lowest latency!
+    if (id.includes("flash-lite")) score += 45;
+    else if (id.includes("flash")) score += 35;
+    else if (id.includes("hydrogen") || id.includes("argon")) score += 25;
+    else if (id.includes("carbon") || id.includes("pro")) score += 10;
+
+    if (id.includes("preview") || id.includes("exp")) score -= 15;
+    return score;
+}
+
+async function getAutoUpdatedGeminiModelsList(apiKey) {
+    const SIX_HOURS = 6 * 60 * 60 * 1000;
+    if (cachedDiscoveredModels && Date.now() - lastModelDiscoveryTime < SIX_HOURS) {
+        return cachedDiscoveredModels;
     }
 
-    if (process.env.CARTESIA_KEYS_V2) {
-        process.env.CARTESIA_KEYS_V2.split(/[\s,;]+/).forEach((k) => {
-            const clean = k.replace(/["']/g, "").trim();
-            if (clean && !clean.startsWith("sk_car_admin_")) {
-                pool.push({ key: clean, primaryVoice: voice2, primaryNum: 2, secondaryVoice: voice1, secondaryNum: 1 });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    try {
+        const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+            { signal: controller.signal }
+        );
+        clearTimeout(timer);
+
+        if (res.ok) {
+            const data = await res.json();
+            const rawModels = Array.isArray(data.models) ? data.models : [];
+            const scored = [];
+
+            for (const m of rawModels) {
+                const methods = Array.isArray(m.supportedGenerationMethods)
+                    ? m.supportedGenerationMethods
+                    : [];
+                if (!methods.includes("generateContent")) continue;
+
+                const shortId = String(m.name || "").replace(/^models\//, "");
+                const sc = scoreGeminiModelForChat(shortId);
+                if (sc > 0) {
+                    scored.push({ id: shortId, score: sc });
+                }
             }
-        });
+
+            scored.sort((a, b) => b.score - a.score);
+            const discoveredIds = scored.map((item) => item.id);
+
+            // Merge live discovered models with our verified Nov 2026 active seed models
+            const finalMerged = [];
+            for (const id of [...discoveredIds, ...NOV_2026_ACTIVE_MODELS]) {
+                if (!finalMerged.includes(id)) {
+                    finalMerged.push(id);
+                }
+            }
+
+            if (finalMerged.length > 0) {
+                cachedDiscoveredModels = finalMerged.slice(0, 8);
+                lastModelDiscoveryTime = Date.now();
+                return cachedDiscoveredModels;
+            }
+        }
+    } catch (_) {
+        clearTimeout(timer);
     }
+
+    return NOV_2026_ACTIVE_MODELS;
+}
+
+// ============================================================================
+// 🎙️ 4 VOICE IDs + 20 CARTESIA KEYS PARSER & SMART AUTO-PAIRING POOL
+// ============================================================================
+function getAllCartesiaVoicesFromEnv() {
+    const voices = [];
+    const addVoice = (rawId) => {
+        if (!rawId) return;
+        String(rawId)
+            .split(/[\s,;]+/)
+            .forEach((part) => {
+                const clean = part.replace(/["']/g, "").trim();
+                if (clean && clean.length > 10 && !voices.some((v) => v.id === clean)) {
+                    voices.push({ id: clean, num: voices.length + 1 });
+                }
+            });
+    };
 
     for (let i = 1; i <= 10; i++) {
-        const rawKey = process.env[`CARTESIA_KEY_${i}`];
-        if (rawKey && rawKey.trim() && !rawKey.trim().startsWith("sk_car_admin_")) {
-            const clean = rawKey.replace(/["']/g, "").trim();
-            if (!pool.some((item) => item.key === clean)) {
-                const isGroup1 = i <= 4;
-                pool.push({
-                    key: clean,
-                    primaryVoice: isGroup1 ? voice1 : voice2,
-                    primaryNum: isGroup1 ? 1 : 2,
-                    secondaryVoice: isGroup1 ? voice2 : voice1,
-                    secondaryNum: isGroup1 ? 2 : 1
-                });
-            }
+        addVoice(process.env[`CARTESIA_VOICE_ID_${i}`]);
+        addVoice(process.env[`VOICE_ID_${i}`]);
+    }
+    addVoice(process.env.CARTESIA_VOICE_IDS);
+
+    addVoice("5f2590b0-c99c-4fd8-97c8-56d5d3a621d8");
+    addVoice("35bece76-689b-4b28-b398-0b53a8d5fd05");
+
+    return voices;
+}
+
+function getCartesiaPoolFromEnv() {
+    const allVoices = getAllCartesiaVoicesFromEnv();
+    const pool = [];
+
+    const addKeysForPreferredVoiceIndex = (rawKeysString, preferredVoiceZeroIdx) => {
+        if (!rawKeysString) return;
+        const preferredVoiceObj = allVoices[preferredVoiceZeroIdx] || allVoices[0];
+
+        const orderedVoices = [
+            preferredVoiceObj,
+            ...allVoices.filter((v) => v.id !== preferredVoiceObj.id)
+        ];
+
+        String(rawKeysString)
+            .split(/[\s,;]+/)
+            .forEach((k) => {
+                const clean = k.replace(/["']/g, "").trim();
+                if (
+                    clean &&
+                    clean.length > 10 &&
+                    !clean.startsWith("sk_car_admin_") &&
+                    !pool.some((item) => item.key === clean)
+                ) {
+                    pool.push({
+                        key: clean,
+                        candidateVoices: orderedVoices
+                    });
+                }
+            });
+    };
+
+    for (let v = 1; v <= 10; v++) {
+        addKeysForPreferredVoiceIndex(process.env[`CARTESIA_KEYS_V${v}`], v - 1);
+    }
+
+    addKeysForPreferredVoiceIndex(process.env.CARTESIA_KEYS, 0);
+    addKeysForPreferredVoiceIndex(process.env.CARTESIA_API_KEYS, 0);
+
+    for (let i = 1; i <= 30; i++) {
+        const rawKey = process.env[`CARTESIA_KEY_${i}`] || process.env[`CARTESIA_API_KEY_${i}`];
+        if (rawKey) {
+            const guessedVoiceIdx = Math.min(Math.floor((i - 1) / 5), allVoices.length - 1);
+            addKeysForPreferredVoiceIndex(rawKey, guessedVoiceIdx);
         }
     }
 
-    return pool;
+    return { pool, allVoices };
 }
 
 function shiftPingPongIndex(currentIdx, currentDir, totalLength) {
@@ -294,6 +432,39 @@ async function callSingleCartesiaTTS(apiKey, voiceId, text) {
     return { ok: false, status: lastStatus, error: lastError };
 }
 
+async function tryKeyAcrossAllVoices(entry, text) {
+    const lockedVoice = keyVoiceLockCache.get(entry.key);
+    const voicesToTest = lockedVoice
+        ? [lockedVoice, ...entry.candidateVoices.filter((v) => v.id !== lockedVoice.id)]
+        : entry.candidateVoices;
+
+    let lastRes = { ok: false, status: 0, error: "No voices tested" };
+
+    for (const vObj of voicesToTest) {
+        const res = await callSingleCartesiaTTS(entry.key, vObj.id, text);
+        if (res.ok) {
+            keyVoiceLockCache.set(entry.key, vObj);
+            return {
+                ok: true,
+                audioBase64: res.audioBase64,
+                modelUsed: res.modelUsed,
+                voiceNum: vObj.num
+            };
+        }
+
+        lastRes = { ...res, voiceNum: vObj.num };
+
+        if (res.status === 404) {
+            continue;
+        }
+        if (res.status === 401 || res.status === 402 || res.status === 429) {
+            break;
+        }
+    }
+
+    return lastRes;
+}
+
 function formatHistoryContextText(chatHistory) {
     if (!Array.isArray(chatHistory) || chatHistory.length === 0) return "";
     const recent = chatHistory.slice(-6);
@@ -400,6 +571,7 @@ async function generateGeminiReplyInternal(body) {
     const currentFacingMode = body.currentFacingMode || "user";
     const savedFaces = Array.isArray(body.savedFaces) ? body.savedFaces : [];
     const chatHistory = Array.isArray(body.chatHistory) ? body.chatHistory : [];
+    const skippedTelemetry = [];
 
     const userParts = [];
     if (base64Frame && currentFacingMode === "user" && savedFaces.length > 0) {
@@ -430,18 +602,13 @@ async function generateGeminiReplyInternal(body) {
             `Family member now said: "${userText}"\n(अपना जवाब हमेशा 1-2 पूरे वाक्यों में लिखें और वाक्य को अधूरा न छोड़ें।)`
     });
 
-    const modelsToTry = [
-        "gemini-3.5-flash-lite",
-        "gemini-3.5-flash",
-        "gemini-2.5-flash-lite",
-        "gemini-2.5-flash",
-        "gemini-3.8-flash"
-    ];
-
     let lastError = "No Gemini keys configured";
 
     if (geminiKeys.length > 0) {
         if (geminiKeyIdx >= geminiKeys.length) geminiKeyIdx = 0;
+
+        // Automatically discover the latest active Gemini models from Google's API!
+        const modelsToTry = await getAutoUpdatedGeminiModelsList(geminiKeys[geminiKeyIdx]);
 
         for (let attempt = 0; attempt < geminiKeys.length; attempt++) {
             const activeKey = geminiKeys[geminiKeyIdx];
@@ -486,13 +653,20 @@ async function generateGeminiReplyInternal(body) {
                             aiText: finalReply,
                             emotion: detectPapaEmotion(userText, finalReply),
                             geminiKeyUsed: keyNum,
-                            modelUsed: modelName
+                            modelUsed: modelName,
+                            skippedTelemetry
                         };
                     }
 
                     lastError = data?.error?.message || `HTTP ${gRes.status} on ${modelName}`;
+                    skippedTelemetry.push(`G-Key#${keyNum} ${modelName} -> HTTP ${gRes.status}`);
 
-                    if (gRes.status === 429 || gRes.status === 404 || gRes.status === 400) {
+                    // If 404 (Deprecated/Retired), cooldown for 6 hours; if 429 (Quota), cooldown for 20 mins
+                    if (gRes.status === 404) {
+                        exhaustedModelCache.set(cacheKey, Date.now() + 6 * 60 * 60 * 1000);
+                        continue;
+                    }
+                    if (gRes.status === 429 || gRes.status === 400) {
                         exhaustedModelCache.set(cacheKey, Date.now() + 20 * 60 * 1000);
                         continue;
                     }
@@ -503,6 +677,7 @@ async function generateGeminiReplyInternal(body) {
                 } catch (err) {
                     clearTimeout(timer);
                     lastError = err.message;
+                    skippedTelemetry.push(`G-Key#${keyNum} ${modelName} -> ${err.message}`);
                     break;
                 }
             }
@@ -522,6 +697,7 @@ async function generateGeminiReplyInternal(body) {
     );
     if (backupReply) {
         backupReply.emotion = detectPapaEmotion(userText, backupReply.aiText);
+        backupReply.skippedTelemetry = skippedTelemetry;
         return backupReply;
     }
 
@@ -530,7 +706,7 @@ async function generateGeminiReplyInternal(body) {
 
 async function generateTtsAudioInternal(rawText) {
     const text = ensureCompleteHindiSentence(rawText);
-    const cartesiaPool = getCartesiaPoolFromEnv();
+    const { pool: cartesiaPool } = getCartesiaPoolFromEnv();
     const renderUrl = (process.env.RENDER_TTS_URL || "https://papa-voice-cloud.onrender.com/api/tts").trim();
     let lastCartesiaError = "No Cartesia keys configured";
 
@@ -541,25 +717,15 @@ async function generateTtsAudioInternal(rawText) {
             const entry = cartesiaPool[cartesiaKeyIdx];
             const keyNum = cartesiaKeyIdx + 1;
 
-            const result = await callSingleCartesiaTTS(entry.key, entry.primaryVoice, text);
+            const result = await tryKeyAcrossAllVoices(entry, text);
             if (result.ok) {
                 return {
                     audioBase64: result.audioBase64,
-                    engineLabel: `Cartesia Key #${keyNum} (Voice #${entry.primaryNum} - ${result.modelUsed})`
+                    engineLabel: `Cartesia Key #${keyNum}/${cartesiaPool.length} (Voice #${result.voiceNum} - ${result.modelUsed})`
                 };
             }
 
-            lastCartesiaError = `Key #${keyNum} V#${entry.primaryNum} [${result.status}]: ${result.error}`;
-
-            if (result.status === 404) {
-                const res2 = await callSingleCartesiaTTS(entry.key, entry.secondaryVoice, text);
-                if (res2.ok) {
-                    return {
-                        audioBase64: res2.audioBase64,
-                        engineLabel: `Cartesia Key #${keyNum} (Voice #${entry.secondaryNum} - ${res2.modelUsed})`
-                    };
-                }
-            }
+            lastCartesiaError = `Key #${keyNum} V#${result.voiceNum || 1} [${result.status}]: ${result.error}`;
 
             const shifted = shiftPingPongIndex(cartesiaKeyIdx, cartesiaKeyDir, cartesiaPool.length);
             cartesiaKeyIdx = shifted.idx;
@@ -590,6 +756,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: "Method Not Allowed" });
     }
 
+    const startTimeMs = Date.now();
     const body = req.body || {};
     const action = body.action || "";
     const requiredPin = (process.env.APP_PIN || "1234").trim();
@@ -597,9 +764,12 @@ export default async function handler(req, res) {
     if (action === "verify_pin") {
         const enteredPin = String(body.pin || "").trim();
         if (enteredPin === requiredPin) {
+            const gKeys = getGeminiKeysFromEnv();
+            const discovered = gKeys.length > 0 ? await getAutoUpdatedGeminiModelsList(gKeys[0]) : NOV_2026_ACTIVE_MODELS;
             return res.status(200).json({
                 ok: true,
-                releaseBaseUrl: getNormalizedReleaseBaseUrl()
+                releaseBaseUrl: getNormalizedReleaseBaseUrl(),
+                autoDiscoveredModels: discovered.slice(0, 5)
             });
         }
         return res.status(401).json({ ok: false, error: "Wrong PIN" });
@@ -611,15 +781,27 @@ export default async function handler(req, res) {
 
     if (action === "chat_and_tts") {
         try {
+            const t0 = Date.now();
             const chatResult = await generateGeminiReplyInternal(body);
+            const geminiMs = Date.now() - t0;
+
+            const t1 = Date.now();
             const ttsResult = await generateTtsAudioInternal(chatResult.aiText);
+            const ttsMs = Date.now() - t1;
+
             return res.status(200).json({
                 aiText: chatResult.aiText,
                 emotion: chatResult.emotion || "talking",
                 geminiKeyUsed: chatResult.geminiKeyUsed,
                 modelUsed: chatResult.modelUsed,
                 audioBase64: ttsResult.audioBase64,
-                engineLabel: `G-Key #${chatResult.geminiKeyUsed} (${chatResult.modelUsed}) | ${ttsResult.engineLabel}`
+                engineLabel: `G-Key #${chatResult.geminiKeyUsed} (${chatResult.modelUsed}) | ${ttsResult.engineLabel}`,
+                telemetry: {
+                    totalMs: Date.now() - startTimeMs,
+                    geminiMs,
+                    ttsMs,
+                    skippedAttempts: chatResult.skippedTelemetry || []
+                }
             });
         } catch (err) {
             return res.status(500).json({ error: err.message });
@@ -653,19 +835,25 @@ export default async function handler(req, res) {
 
     if (action === "diag") {
         const geminiKeys = getGeminiKeysFromEnv();
-        const cartesiaPool = getCartesiaPoolFromEnv();
+        const { pool: cartesiaPool, allVoices } = getCartesiaPoolFromEnv();
         const logs = [];
         let firstSuccessAudio = null;
         let activeKeyLabel = null;
 
-        logs.push(`🧠 GEMINI KEYS FOUND IN VERCEL ENV: ${geminiKeys.length}`);
+        const liveModels = geminiKeys.length > 0
+            ? await getAutoUpdatedGeminiModelsList(geminiKeys[0])
+            : NOV_2026_ACTIVE_MODELS;
+
+        logs.push(`🔄 AUTO-DISCOVERED LIVE GEMINI MODELS: ${liveModels.slice(0, 5).join(", ")}`);
+        logs.push(`🧠 GEMINI KEYS FOUND: ${geminiKeys.length}`);
+
         for (let g = 0; g < geminiKeys.length; g++) {
             const gKey = geminiKeys[g];
             const masked = gKey.slice(0, 6) + "..." + gKey.slice(-4);
             let keyWorked = false;
             let lastGStatus = "";
 
-            for (const testModel of ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash"]) {
+            for (const testModel of liveModels.slice(0, 4)) {
                 try {
                     const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/${testModel}:generateContent?key=${gKey}`;
                     const gRes = await fetch(gUrl, {
@@ -693,23 +881,23 @@ export default async function handler(req, res) {
             }
         }
 
-        logs.push(`\n🎙️ CARTESIA KEYS FOUND IN VERCEL ENV: ${cartesiaPool.length}`);
+        logs.push(`\n🎙️ CARTESIA VOICES FOUND: ${allVoices.length} | KEYS FOUND: ${cartesiaPool.length}`);
         for (let k = 0; k < cartesiaPool.length; k++) {
             const entry = cartesiaPool[k];
-            const resTest = await callSingleCartesiaTTS(
-                entry.key,
-                entry.primaryVoice,
+            const maskedKey = entry.key.slice(0, 9) + "..." + entry.key.slice(-4);
+            const resTest = await tryKeyAcrossAllVoices(
+                entry,
                 "नमस्ते बेटा, सदा खुश रहो, मेरा आशीर्वाद हमेशा तुम्हारे साथ है।"
             );
             if (resTest.ok) {
-                logs.push(`✅ Cartesia Key #${k + 1} + Voice #${entry.primaryNum} (${resTest.modelUsed}): SUCCESS!`);
+                logs.push(`✅ Key #${k + 1} (${maskedKey}) ➔ Matched Voice #${resTest.voiceNum} (${resTest.modelUsed}): SUCCESS!`);
                 if (!firstSuccessAudio) {
                     firstSuccessAudio = resTest.audioBase64;
                     cartesiaKeyIdx = k;
-                    activeKeyLabel = `Gemini (${geminiKeys.length} Keys) + Cartesia Key #${k + 1}`;
+                    activeKeyLabel = `Gemini (${geminiKeys.length} Keys) + Cartesia Key #${k + 1}/${cartesiaPool.length} (Voice #${resTest.voiceNum})`;
                 }
             } else {
-                logs.push(`❌ Cartesia Key #${k + 1} + Voice #${entry.primaryNum}: HTTP ${resTest.status}`);
+                logs.push(`❌ Key #${k + 1} (${maskedKey}): HTTP ${resTest.status} - ${resTest.error}`);
             }
         }
 
