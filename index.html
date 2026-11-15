@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Papa Chatbot - Full-Speech Listener & Auto-Model Live Call</title>
+    <title>Papa Chatbot - Universal End-to-End AGI & Live Video Call</title>
     <style>
         @keyframes pulseRed {
             0% { opacity: 1; transform: scale(1); }
@@ -17,7 +17,7 @@
 </head>
 <body style="background: #121212; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box;">
 
-<div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 530px; width: 100%; padding: 20px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;">
+<div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 540px; width: 100%; padding: 20px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;">
     
     <!-- Portrait Video Avatar Box + LIVE Stream HUD -->
     <div id="avatar-box" style="margin: 0 auto 14px auto; width: 265px; border-radius: 15px; overflow: hidden; border: 4px solid #0D8ABC; box-shadow: 0 0 15px rgba(13, 138, 188, 0.4); transition: border-color 0.3s, box-shadow 0.3s; position: relative; background: #000;">
@@ -25,7 +25,7 @@
 
         <!-- 🔴 LIVE STREAM Indicator Badge (Top-Left) -->
         <div id="live-stream-badge" class="live-pulse" style="display: none; position: absolute; top: 8px; left: 8px; background: rgba(220, 38, 38, 0.92); color: #fff; font-size: 10px; font-weight: bold; padding: 4px 9px; border-radius: 12px; letter-spacing: 0.6px; box-shadow: 0 2px 8px rgba(0,0,0,0.6);">
-            🔴 LIVE CALL
+            🔴 LIVE AGI CALL
         </div>
 
         <!-- 🎭 Emotion/State Badge (Top-Right) -->
@@ -45,8 +45,8 @@
         </div>
     </div>
 
-    <!-- 🎙️ NEW: Google-Style Live Speech Transcript Box + Manual "Send Now" Button -->
-    <div id="live-transcript-bar" style="display: none; background: #111827; border: 1px solid #ffeb3b; border-radius: 12px; padding: 8px 12px; margin-bottom: 12px; align-items: center; justify-content: space-between; gap: 8px;">
+    <!-- 🎙️ Google-Style Live Speech Transcript Box + Manual "Send Now" Button -->
+    <div id="live-transcript-bar" style="display: none; background: #111827; border: 1px solid #ffeb3b; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; align-items: center; justify-content: space-between; gap: 8px;">
         <div id="live-transcript-text" style="font-size: 13px; color: #fef08a; text-align: left; flex: 1;">
             🎤 बोलिए, पापा आपकी पूरी बात सुन रहे हैं...
         </div>
@@ -55,34 +55,62 @@
         </button>
     </div>
 
+    <!-- ⚡ NEW: Autonomous AGI Action Card (Appears when Papa opens YouTube, Maps, or Web Search) -->
+    <div id="agi-action-card" style="display: none; background: #1e293b; border: 1px solid #38bdf8; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; align-items: center; justify-content: space-between; gap: 8px;">
+        <span id="agi-action-text" style="font-size: 12px; color: #bae6fd; font-weight: bold; text-align: left;">⚡ पापा ने आपके लिए लिंक तैयार किया है:</span>
+        <a id="agi-action-link" href="#" target="_blank" style="padding: 6px 12px; border-radius: 14px; background: #0284c7; color: #fff; text-decoration: none; font-size: 11px; font-weight: bold; white-space: nowrap;">
+            🚀 अभी खोलें
+        </a>
+    </div>
+
     <!-- Hidden Canvases & Persistent Audio Player -->
     <canvas id="vision-canvas" style="display: none;"></canvas>
     <canvas id="face-thumb-canvas" style="display: none;"></canvas>
     <audio id="papa-tts-player" playsinline style="display: none;"></audio>
 
-    <!-- Camera, Family Face, Release Videos, Share Link & Bug Radar Controls -->
-    <div style="display: flex; justify-content: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;">
-        <button id="cam-toggle-btn" style="padding: 6px 10px; border-radius: 20px; border: 1px solid #4caf50; background: #263829; color: #a6e3a1; font-size: 11px; font-weight: bold; cursor: pointer;">
+    <!-- Camera, Family Face, AGI Memory, Release Videos, Share Link & Bug Radar Controls -->
+    <div style="display: flex; justify-content: center; gap: 5px; margin-bottom: 12px; flex-wrap: wrap;">
+        <button id="cam-toggle-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #4caf50; background: #263829; color: #a6e3a1; font-size: 11px; font-weight: bold; cursor: pointer;">
             👁️ Vision: ON
         </button>
-        <button id="cam-flip-btn" style="padding: 6px 10px; border-radius: 20px; border: 1px solid #0D8ABC; background: #162436; color: #89b4fa; font-size: 11px; font-weight: bold; cursor: pointer;">
+        <button id="cam-flip-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #0D8ABC; background: #162436; color: #89b4fa; font-size: 11px; font-weight: bold; cursor: pointer;">
             🔄 Cam: Front
         </button>
-        <button id="family-btn" style="padding: 6px 10px; border-radius: 20px; border: 1px solid #ffeb3b; background: #332d1a; color: #ffeb3b; font-size: 11px; font-weight: bold; cursor: pointer;">
+        <button id="family-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #ffeb3b; background: #332d1a; color: #ffeb3b; font-size: 11px; font-weight: bold; cursor: pointer;">
             👨‍👩‍👧‍👦 Parivar (0)
         </button>
-        <button id="release-btn" style="padding: 6px 10px; border-radius: 20px; border: 1px solid #fab387; background: #33221a; color: #fab387; font-size: 11px; font-weight: bold; cursor: pointer;">
+        <button id="agi-memory-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #89dceb; background: #152b36; color: #89dceb; font-size: 11px; font-weight: bold; cursor: pointer;">
+            🧠 AGI Memory (0)
+        </button>
+        <button id="release-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #fab387; background: #33221a; color: #fab387; font-size: 11px; font-weight: bold; cursor: pointer;">
             🎬 7 Videos
         </button>
-        <button id="share-btn" style="padding: 6px 10px; border-radius: 20px; border: 1px solid #cba6f7; background: #2a1f3d; color: #cba6f7; font-size: 11px; font-weight: bold; cursor: pointer;">
+        <button id="share-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #cba6f7; background: #2a1f3d; color: #cba6f7; font-size: 11px; font-weight: bold; cursor: pointer;">
             🔗 Share
         </button>
-        <button id="bug-radar-btn" style="padding: 6px 10px; border-radius: 20px; border: 1px solid #f38ba8; background: #331a24; color: #f38ba8; font-size: 11px; font-weight: bold; cursor: pointer;">
+        <button id="bug-radar-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #f38ba8; background: #331a24; color: #f38ba8; font-size: 11px; font-weight: bold; cursor: pointer;">
             🛠️ Bug Radar (0)
         </button>
     </div>
 
-    <!-- 🛠️ NEW: Live Glitch, Bug & Telemetry X-Ray Radar Drawer -->
+    <!-- 🧠 NEW: Universal AGI Long-Term Memory Drawer -->
+    <div id="agi-memory-panel" style="display: none; background: #121224; border: 1px solid #89dceb; border-radius: 14px; padding: 14px; margin-bottom: 14px; text-align: left;">
+        <div style="font-size: 13px; font-weight: bold; color: #89dceb; margin-bottom: 6px;">
+            🧠 Papa AGI Permanent Memory (हमेशा याद रहने वाली बातें):
+        </div>
+        <div style="font-size: 11px; color: #cdd6f4; margin-bottom: 8px;">
+            Yahan parivar ki koi bhi khas baat likhein (jaise: <b>Amit ka birthday 15 August hai</b> ya <b>Mummy ko subah BP ki dawa leni hai</b>)—Papa ise hamesha yaad rakhenge:
+        </div>
+        <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+            <input id="agi-memory-input" type="text" placeholder="Jaise: Hamare ghar me sabko chai pasand hai..." style="flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #45475a; background: #242438; color: #fff; font-size: 12px;" />
+            <button id="save-memory-btn" style="padding: 8px 12px; border-radius: 8px; border: none; background: #0284c7; color: #fff; font-size: 12px; font-weight: bold; cursor: pointer;">
+                🧠 Yaad Rakhein
+            </button>
+        </div>
+        <div id="saved-memory-list" style="font-size: 11.5px; color: #89dceb; max-height: 110px; overflow-y: auto;"></div>
+    </div>
+
+    <!-- 🛠️ Live Glitch, Bug & Telemetry X-Ray Radar Drawer -->
     <div id="bug-radar-panel" style="display: none; background: #0d0d17; border: 1px solid #f38ba8; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: left;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <span style="font-size: 12px; font-weight: bold; color: #f38ba8;">🛠️ Live Glitch & Bug X-Ray Radar:</span>
@@ -147,7 +175,7 @@
     </div>
 
     <!-- 📞 End-to-End Live Video Call Button + 🎤 Single Mic + 🔊 Test + 🔑 Keys -->
-    <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
+    <div style="display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
         <button id="live-call-btn" style="padding: 13px 20px; border-radius: 30px; border: 2px solid #ff5252; background: #b71c1c; color: #fff; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 14px rgba(255, 82, 82, 0.35);">
             📞 Start Live Call
         </button>
@@ -161,8 +189,16 @@
             🔑 Check Keys
         </button>
     </div>
+
+    <!-- ⌨️ NEW: Universal AGI Direct Text & Task Command Bar -->
+    <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+        <input id="agi-command-input" type="text" placeholder="🧠 Papa AGI se kuch bhi puchein, news janein, ya kaam bolein..." style="flex: 1; padding: 10px 14px; border-radius: 25px; border: 1px solid #38bdf8; background: #111827; color: #fff; font-size: 13px; outline: none;" />
+        <button id="agi-send-btn" style="padding: 10px 18px; border-radius: 25px; border: none; background: #0284c7; color: #fff; font-size: 13px; font-weight: bold; cursor: pointer;">
+            🚀 Ask Papa
+        </button>
+    </div>
     
-    <p id="status-text" style="margin-top: 14px; font-size: 13.5px; color: #ffeb3b; white-space: pre-line;">🔒 Checking Security PIN...</p>
+    <p id="status-text" style="margin-top: 12px; font-size: 13.5px; color: #ffeb3b; white-space: pre-line;">🔒 Checking Security PIN...</p>
     <div id="diag-box" style="display: none; margin-top: 12px; padding: 10px; border-radius: 10px; background: #11111b; border: 1px solid #45475a; color: #cdd6f4; font-size: 12px; text-align: left; max-height: 170px; overflow-y: auto; white-space: pre-wrap;"></div>
 </div>
 
@@ -206,7 +242,6 @@ window.addEventListener("error", function(ev) {
 
 window.addEventListener("unhandledrejection", function(ev) {
     const reason = ev.reason && ev.reason.message ? ev.reason.message : String(ev.reason);
-    // Ignore harmless video play() interruption when switching states quickly
     if (reason.indexOf("interrupted by a new load request") !== -1) return;
     logRadarEvent("GLITCH", "Async Glitch: " + reason);
 });
@@ -276,6 +311,12 @@ const liveSubtitleBox = document.getElementById("live-subtitle-box");
 const liveTranscriptBar = document.getElementById("live-transcript-bar");
 const liveTranscriptText = document.getElementById("live-transcript-text");
 const finishSpeechBtn = document.getElementById("finish-speech-btn");
+const agiActionCard = document.getElementById("agi-action-card");
+const agiActionText = document.getElementById("agi-action-text");
+const agiActionLink = document.getElementById("agi-action-link");
+const agiCommandInput = document.getElementById("agi-command-input");
+const agiSendBtn = document.getElementById("agi-send-btn");
+
 const micBtn = document.getElementById("mic-btn");
 const testVoiceBtn = document.getElementById("test-voice-btn");
 const diagCartesiaBtn = document.getElementById("diag-cartesia-btn");
@@ -297,6 +338,12 @@ const saveFaceBtn = document.getElementById("save-face-btn");
 const savedFamilyList = document.getElementById("saved-family-list");
 const visionCanvas = document.getElementById("vision-canvas");
 const faceThumbCanvas = document.getElementById("face-thumb-canvas");
+
+const agiMemoryBtn = document.getElementById("agi-memory-btn");
+const agiMemoryPanel = document.getElementById("agi-memory-panel");
+const agiMemoryInput = document.getElementById("agi-memory-input");
+const saveMemoryBtn = document.getElementById("save-memory-btn");
+const savedMemoryList = document.getElementById("saved-memory-list");
 
 const releaseBtn = document.getElementById("release-btn");
 const releasePanel = document.getElementById("release-panel");
@@ -338,7 +385,77 @@ saveReleaseBtn.addEventListener("click", function() {
     setAvatarVideoState("greeting", false);
 });
 
-// Zero-Flicker Video Switcher: Prevents reloading the same URL & logs any missing video in Bug Radar
+// ============================================================================
+// 🧠 UNIVERSAL AGI PERMANENT LONG-TERM MEMORY MANAGER
+// ============================================================================
+function getSavedLongTermMemories() {
+    try {
+        const raw = localStorage.getItem("papa_long_term_memory_v1");
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveLongTermMemoriesList(list) {
+    localStorage.setItem("papa_long_term_memory_v1", JSON.stringify(list));
+    renderLongTermMemoriesUI();
+}
+
+function addNewLongTermMemoryFact(factText) {
+    if (!factText || !factText.trim()) return;
+    const clean = factText.trim();
+    const list = getSavedLongTermMemories();
+    if (!list.includes(clean)) {
+        list.push(clean);
+        saveLongTermMemoriesList(list);
+        logRadarEvent("INFO", "New AGI Long-Term Memory saved: " + clean);
+    }
+}
+
+function renderLongTermMemoriesUI() {
+    const memories = getSavedLongTermMemories();
+    agiMemoryBtn.innerText = "🧠 AGI Memory (" + memories.length + ")";
+
+    if (memories.length === 0) {
+        savedMemoryList.innerHTML = "<span style='color:#a6adc8;'>Abhi koi permanent memory save nahi hai. Aap bol kar ('Papa yaad rakhna...') ya upar likh kar save kar sakte hain.</span>";
+        return;
+    }
+
+    let html = "";
+    for (let i = 0; i < memories.length; i++) {
+        html += "<div style='display:flex; align-items:center; justify-content:space-between; background:#1e293b; padding:5px 8px; border-radius:6px; margin-top:5px;'>" +
+            "<span>📌 " + memories[i] + "</span>" +
+            "<button onclick='removeLongTermMemory(" + i + ")' style='background:#f38ba8; color:#111; border:none; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer; font-weight:bold;'>Hatao</button>" +
+            "</div>";
+    }
+    savedMemoryList.innerHTML = html;
+}
+
+window.removeLongTermMemory = function(idx) {
+    const list = getSavedLongTermMemories();
+    list.splice(idx, 1);
+    saveLongTermMemoriesList(list);
+};
+
+agiMemoryBtn.addEventListener("click", function() {
+    agiMemoryPanel.style.display = agiMemoryPanel.style.display === "none" ? "block" : "none";
+    renderLongTermMemoriesUI();
+});
+
+saveMemoryBtn.addEventListener("click", function() {
+    const val = agiMemoryInput.value.trim();
+    if (!val) return;
+    addNewLongTermMemoryFact(val);
+    agiMemoryInput.value = "";
+    statusText.innerText = "🧠 Papa AGI ne yeh baat hamesha ke liye yaad kar li hai!";
+});
+
+renderLongTermMemoriesUI();
+
+// ============================================================================
+// 🎬 ZERO-FLICKER SAFE VIDEO SWITCHER
+// ============================================================================
 function safePlayVideo(videoEl) {
     const playPromise = videoEl.play();
     if (playPromise !== undefined) {
@@ -417,7 +534,7 @@ fetch(BACKEND_API_URL, {
             setAvatarVideoState("idle", false);
         }
     }, 4200);
-    statusText.innerText = "✅ Ready! (Auto-Updating Gemini + Full-Speech Listener ON)\n'📞 Start Live Call' ya '🎤 Baat Karo' dabayen.";
+    statusText.innerText = "✅ Universal Papa AGI Ready! (Live Web Search + Memory + Live Call ON)\n'📞 Start Live Call' dabayen ya niche box me kuch bhi puchein.";
 })
 .catch(function(err) {
     if (err.message !== "Wrong PIN") {
@@ -691,7 +808,7 @@ camFlipBtn.addEventListener("click", async function() {
     const nextMode = currentFacingMode === "user" ? "environment" : "user";
     statusText.innerText = "📷 Camera shift ho raha hai (" + (nextMode === "user" ? "Front" : "Back") + ")...";
     await startCamera(nextMode);
-    statusText.innerText = "✅ " + (nextMode === "user" ? "Front Camera (Parivar Pehchan)" : "Back Camera (Chijein dekhne ke liye)") + " Active!";
+    statusText.innerText = "✅ " + (nextMode === "user" ? "Front Camera (Parivar Pehchan)" : "Back Camera (Dawa/Bill/Chijein dekhne ke liye)") + " Active!";
 });
 
 function captureCameraFrameBase64() {
@@ -720,13 +837,12 @@ if (!SpeechRecognition) {
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 if (recognition) {
     recognition.lang = "hi-IN";
-    // CRITICAL FIX: continuous + interimResults ensures mic NEVER cuts off while user pauses to breathe!
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 }
 
-const SILENCE_WAIT_MS = 2500; // Waits 2.5 full seconds after your last word before turning mic off!
+const SILENCE_WAIT_MS = 2500;
 let accumulatedFinalTranscript = "";
 let latestInterimTranscript = "";
 let silenceDebounceTimer = null;
@@ -757,29 +873,22 @@ function startListeningSafely() {
 
         if (isLiveCallActive) {
             liveSubtitleBox.innerText = "🎤 आप बोलिए, पापा आपकी पूरी बात ध्यान से सुन रहे हैं...";
-            statusText.innerText = "🔴 [LIVE CALL] 🎤 Aap aaram se puri baat boliye...";
+            statusText.innerText = "🔴 [LIVE AGI CALL] 🎤 Aap aaram se puri baat boliye...";
         } else {
             statusText.innerText = "🎤 Aap aaram se apni puri baat boliye (Papa sun rahe hain)...";
         }
-    } catch (e) {
-        // Already started
-    }
+    } catch (e) {}
 }
 
-// Finalizes user's full accumulated speech, stops mic cleanly, and sends to Papa!
-async function finalizeAndSubmitUserSpeech() {
-    clearSilenceTimer();
-    if (isSubmittingSpeech || isPapaSpeakingOrThinking) return;
-
-    const fullUserText = (accumulatedFinalTranscript + " " + latestInterimTranscript).replace(/\s+/g, " ").trim();
-    if (!fullUserText) return;
+async function submitQueryToPapaAGI(queryText) {
+    const cleanText = String(queryText || "").replace(/\s+/g, " ").trim();
+    if (!cleanText) return;
 
     isSubmittingSpeech = true;
     accumulatedFinalTranscript = "";
     latestInterimTranscript = "";
     liveTranscriptBar.style.display = "none";
 
-    // Turn off mic cleanly just like Google Assistant after full speech is captured
     try {
         if (recognition && isMicCurrentlyListening) {
             recognition.stop();
@@ -789,17 +898,17 @@ async function finalizeAndSubmitUserSpeech() {
 
     const cameraFrameBase64 = captureCameraFrameBase64();
     const visionTag = cameraFrameBase64 ? (" (👁️ " + (currentFacingMode === "user" ? "Chehra Pehchan" : "Back Cam") + " ON)") : "";
-    statusText.innerText = "Tum: \"" + fullUserText + "\"\n🤔 Papa soch rahe hain" + visionTag + "...";
-    logRadarEvent("INFO", "Full speech captured (" + fullUserText.length + " chars): \"" + fullUserText + "\"");
+    statusText.innerText = "Tum: \"" + cleanText + "\"\n🤔 Papa AGI soch rahe hain" + visionTag + "...";
+    logRadarEvent("INFO", "Input sent (" + cleanText.length + " chars): \"" + cleanText + "\"");
 
     try {
-        await processSpeechTurbo(fullUserText, cameraFrameBase64);
+        await processSpeechTurbo(cleanText, cameraFrameBase64);
     } catch (error) {
         isPapaSpeakingOrThinking = false;
         setAvatarVideoState("idle", false);
         avatarBox.style.borderColor = "#0D8ABC";
         statusText.innerText = "🚨 Error: " + error.message;
-        logRadarEvent("GLITCH", "Speech Pipeline Error: " + error.message);
+        logRadarEvent("GLITCH", "AGI Pipeline Error: " + error.message);
         if (isLiveCallActive) {
             setTimeout(function() {
                 isSubmittingSpeech = false;
@@ -812,9 +921,33 @@ async function finalizeAndSubmitUserSpeech() {
     }
 }
 
-// Manual "✅ बात पूरी हुई" button so user can also send immediately without waiting 2.5s
+async function finalizeAndSubmitUserSpeech() {
+    clearSilenceTimer();
+    if (isSubmittingSpeech || isPapaSpeakingOrThinking) return;
+    const fullUserText = (accumulatedFinalTranscript + " " + latestInterimTranscript).replace(/\s+/g, " ").trim();
+    if (!fullUserText) return;
+    await submitQueryToPapaAGI(fullUserText);
+}
+
 finishSpeechBtn.addEventListener("click", function() {
     finalizeAndSubmitUserSpeech();
+});
+
+// ⌨️ Universal AGI Direct Text Command Submission
+agiSendBtn.addEventListener("click", function() {
+    unlockBrowserAudio();
+    const textVal = agiCommandInput.value.trim();
+    if (!textVal) return;
+    agiCommandInput.value = "";
+    try { papaTtsPlayer.pause(); } catch (e) {}
+    isPapaSpeakingOrThinking = false;
+    submitQueryToPapaAGI(textVal);
+});
+
+agiCommandInput.addEventListener("keydown", function(ev) {
+    if (ev.key === "Enter") {
+        agiSendBtn.click();
+    }
 });
 
 // Toggle End-to-End Live Video Call Stream
@@ -834,8 +967,8 @@ liveCallBtn.addEventListener("click", function() {
         isPapaSpeakingOrThinking = true;
         setAvatarVideoState("greeting", true);
         avatarBox.style.borderColor = "#4caf50";
-        statusText.innerText = "🔴 [LIVE CALL STARTED] Papa bol rahe hain...";
-        logRadarEvent("INFO", "Live Call mode started.");
+        statusText.innerText = "🔴 [LIVE AGI CALL STARTED] Papa bol rahe hain...";
+        logRadarEvent("INFO", "Live AGI Call mode started.");
 
         haBetaBolAudio.play().catch(function() {
             isPapaSpeakingOrThinking = false;
@@ -862,9 +995,10 @@ liveCallBtn.addEventListener("click", function() {
     }
 });
 
-// Single-Turn Manual Mic Button
+// Single-Turn Manual Mic Button (Supports Instant Barge-In if Papa is speaking!)
 micBtn.addEventListener("click", function() {
     unlockBrowserAudio();
+    try { papaTtsPlayer.pause(); } catch (e) {}
 
     micBtn.disabled = true;
     micBtn.style.opacity = "0.6";
@@ -912,7 +1046,6 @@ if (recognition) {
                 liveSubtitleBox.innerText = "🗣️ तुम बोल रहे हो: \"" + combinedPreview + "\"";
             }
 
-            // Reset the 2.5-second silence wait timer every time the user speaks a new syllable!
             clearSilenceTimer();
             silenceDebounceTimer = setTimeout(function() {
                 finalizeAndSubmitUserSpeech();
@@ -925,14 +1058,12 @@ if (recognition) {
         micBtn.disabled = false;
         micBtn.style.opacity = "1";
 
-        // If the browser stopped recognition while user still had unsent text in buffer, send it!
         const pendingText = (accumulatedFinalTranscript + " " + latestInterimTranscript).trim();
         if (pendingText && !isSubmittingSpeech && !isPapaSpeakingOrThinking) {
             finalizeAndSubmitUserSpeech();
             return;
         }
 
-        // If Live Call is active and Papa is not speaking, keep the mic open seamlessly
         if (isLiveCallActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech) {
             setTimeout(function() {
                 if (isLiveCallActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech) {
@@ -1029,14 +1160,16 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
 }
 
 // ============================================================================
-// 🚀 1. TURBO SINGLE-HOP PIPELINE (With Live Glitch Telemetry Logging)
+// 🚀 1. UNIVERSAL AGI TURBO SINGLE-HOP PIPELINE (Vision + Search + Memory + Actions)
 // ============================================================================
 async function processSpeechTurbo(userText, base64Frame) {
     isPapaSpeakingOrThinking = true;
     setAvatarVideoState("thinking", false);
     avatarBox.style.borderColor = "#cba6f7";
+    agiActionCard.style.display = "none";
 
     const savedFaces = getSavedFamilyFaces();
+    const longTermMemory = getSavedLongTermMemories();
 
     if (isLiveCallActive) {
         liveSubtitleBox.innerText = "तुम: " + userText + "\n🤔 पापा सोच रहे हैं...";
@@ -1052,7 +1185,8 @@ async function processSpeechTurbo(userText, base64Frame) {
             base64Frame: base64Frame,
             currentFacingMode: currentFacingMode,
             savedFaces: savedFaces,
-            chatHistory: conversationHistory.slice(-6)
+            chatHistory: conversationHistory.slice(-6),
+            longTermMemory: longTermMemory
         })
     });
 
@@ -1063,12 +1197,25 @@ async function processSpeechTurbo(userText, base64Frame) {
         throw new Error(data.error || ("Server HTTP " + res.status));
     }
 
-    // Log speed and any skipped models into Bug & Glitch Radar
+    // 1. If Papa AGI extracted a new permanent family fact, save it automatically!
+    if (data.newMemoryFact) {
+        addNewLongTermMemoryFact(data.newMemoryFact);
+    }
+
+    // 2. If Papa AGI triggered an autonomous action (YouTube / Google Maps / Search), display Action Card!
+    if (data.agiAction && data.agiAction.url) {
+        agiActionCard.style.display = "flex";
+        agiActionText.innerText = data.agiAction.label || "⚡ पापा ने लिंक तैयार किया है:";
+        agiActionLink.href = data.agiAction.url;
+        logRadarEvent("INFO", "Autonomous AGI Action Ready: " + data.agiAction.url);
+    }
+
+    // 3. Log speed and skipped attempts in Bug Radar
     if (data.telemetry) {
         const t = data.telemetry;
         logRadarEvent(
             "INFO",
-            "Reply OK in " + t.totalMs + "ms (AI: " + t.geminiMs + "ms, Voice: " + t.ttsMs + "ms) via " + data.modelUsed
+            "AGI Reply OK in " + t.totalMs + "ms (Brain: " + t.geminiMs + "ms, Voice: " + t.ttsMs + "ms) via " + data.modelUsed
         );
         if (t.skippedAttempts && t.skippedAttempts.length > 0) {
             logRadarEvent("WARN", "Auto-Skipped Models/Keys: " + t.skippedAttempts.join(" | "));
@@ -1125,7 +1272,7 @@ testVoiceBtn.addEventListener("click", async function() {
     unlockBrowserAudio();
     testVoiceBtn.disabled = true;
     try {
-        await speakPapaReply("नमस्ते बेटा, सदा खुश रहो, अब मैं तुम्हारी पूरी बात आराम से सुनूँगा और कभी बीच में नहीं काटूँगा।");
+        await speakPapaReply("नमस्ते बेटा, अब मैं तुम्हारे हर सवाल का जवाब दे सकता हूँ और तुम्हारी हर ज़रूरी बात हमेशा याद रखूँगा।");
     } catch (err) {
         logRadarEvent("GLITCH", "Voice Test Failed: " + err.message);
         statusText.innerText = "🚨 Voice Test Error: " + err.message;
