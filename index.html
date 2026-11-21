@@ -10,6 +10,11 @@
             50% { opacity: 0.55; transform: scale(1.06); }
             100% { opacity: 1; transform: scale(1); }
         }
+        @keyframes pulseLockGlow {
+            0% { box-shadow: 0 0 0 0 rgba(255, 235, 59, 0.7); }
+            50% { box-shadow: 0 0 12px 2px rgba(255, 235, 59, 0.9); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 235, 59, 0.7); }
+        }
         .live-pulse {
             animation: pulseRed 1.4s infinite ease-in-out;
         }
@@ -21,11 +26,23 @@
             color: #cdd6f4;
             font-size: 11px;
             cursor: pointer;
-            transition: transform 0.15s, border-color 0.2s;
+            transition: transform 0.15s, border-color 0.2s, opacity 0.2s;
         }
-        .emo-chip:hover {
+        .emo-chip:hover:not(:disabled) {
             transform: scale(1.05);
             border-color: #ffeb3b;
+        }
+        .is-loading-locked {
+            opacity: 0.45 !important;
+            cursor: not-allowed !important;
+            pointer-events: none;
+        }
+        .emo-chip.is-active-loading {
+            opacity: 1 !important;
+            background: #332d1a !important;
+            color: #ffeb3b !important;
+            border-color: #ffeb3b !important;
+            animation: pulseLockGlow 1.1s infinite ease-in-out;
         }
         .vid-test-btn {
             padding: 5px 8px;
@@ -67,6 +84,11 @@
             <video id="camera-video" width="100%" height="100%" autoplay muted playsinline style="object-fit: cover; width: 100%; height: 100%; transform: scaleX(-1);"></video>
             <span id="cam-mode-badge" style="position: absolute; bottom: 2px; left: 4px; font-size: 9px; background: rgba(0,0,0,0.7); color: #ffeb3b; padding: 1px 4px; border-radius: 4px;">Front</span>
         </div>
+    </div>
+
+    <!-- ⏳ Clean Single-Flight Loading Lock Pill -->
+    <div id="loading-lock-bar" style="display: none; background: #261f3d; border: 1px solid #cba6f7; border-radius: 12px; padding: 6px 12px; margin-bottom: 10px; font-size: 11.5px; color: #f5e0dc; font-weight: bold;">
+        ⏳ पापा जवाब तैयार कर रहे हैं... कृपया थोड़ा रुकें (Overlapping click lock ON)
     </div>
 
     <!-- 🎙️ Steady Google-Style Live Speech Transcript Box + Manual "Send Now" Button -->
@@ -126,7 +148,7 @@
             🎭 Universal 18 Human Emotions (किसी भी भावना पर क्लिक करके तुरंत टेस्ट करें):
         </div>
         <div style="font-size: 10.5px; color: #a6adc8; margin-bottom: 8px;">
-            बातचीत के दौरान पापा अपने-आप इन 18 भावनाओं को महसूस करते हैं, और आप यहाँ क्लिक करके किसी भी मूड में पापा से बात करवा सकते हैं:
+            बातचीत के दौरान पापा अपने-आप इन 18 भावनाओं को महसूस करते हैं, और आप यहाँ क्लिक करके किसी भी मूड में पापा से बात करवा सकते हैं (एक बार में 1 सुरक्षित रिक्वेस्ट चलेगी):
         </div>
         <div id="emotions-grid" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
     </div>
@@ -382,10 +404,13 @@ function resolveEmotionProfile(emotionKey, isSpeakingState) {
         (isSpeakingState ? UNIVERSAL_EMOTION_PROFILES.talking : UNIVERSAL_EMOTION_PROFILES.idle);
 }
 
-// Auto-fixes GitHub Releases URL (converts /releases/tag/ -> /releases/download/ automatically!)
+// Auto-fixes GitHub Releases URL (comma-safe + converts /releases/tag/ -> /releases/download/ automatically!)
 function normalizeReleaseUrl(inputUrl) {
     if (!inputUrl) return "";
     let clean = inputUrl.trim();
+    if (clean.indexOf(",") !== -1) {
+        clean = clean.split(",")[0].trim();
+    }
     if (clean.indexOf("/releases/tag/") !== -1) {
         clean = clean.replace("/releases/tag/", "/releases/download/");
     }
@@ -405,6 +430,7 @@ const liveCallBtn = document.getElementById("live-call-btn");
 const liveStreamBadge = document.getElementById("live-stream-badge");
 const emotionBadge = document.getElementById("emotion-badge");
 const liveSubtitleBox = document.getElementById("live-subtitle-box");
+const loadingLockBar = document.getElementById("loading-lock-bar");
 const liveTranscriptBar = document.getElementById("live-transcript-bar");
 const liveTranscriptText = document.getElementById("live-transcript-text");
 const finishSpeechBtn = document.getElementById("finish-speech-btn");
@@ -470,17 +496,130 @@ let sharedAudioCtx = null;
 let currentEmotionState = "";
 let lastResolvedVideoUrl = "";
 
-// 📞 Master State Locks (Fixes Mic ON/OFF Glitch 100%)
+// 📞 Master State Locks (Fixes Mic ON/OFF Glitch + Overlapping API Request Spam 100%)
 let isLiveCallActive = false;
 let shouldMicBeActive = false;
 let isPapaSpeakingOrThinking = false;
 let isMicCurrentlyListening = false;
 let isSubmittingSpeech = false;
+let isApiRequestInFlight = false;
+let lastRequestStartTime = 0;
+let activeRequestSeq = 0;
+const REQUEST_COOLDOWN_MS = 1000;
+
+let activePlaybackResolver = null;
+let activeWebAudioSource = null;
+let activeAudioObjectUrl = null;
+let singingMusicNodes = [];
 let conversationHistory = [];
 let activeTimerInterval = null;
+const haBetaBolAudio = new Audio("./ha_beta_bol.mp3");
 
 // ============================================================================
-// 🎭 BUILD 18 UNIVERSAL HUMAN EMOTIONS INTERACTIVE GRID
+// 🔒 SINGLE-FLIGHT API LOADING LOCK MANAGER (Prevents Overlapping Requests!)
+// ============================================================================
+function setApiLoadingLock(locked, activeChipEl, customNotice) {
+    isApiRequestInFlight = locked;
+    loadingLockBar.style.display = locked ? "block" : "none";
+    if (customNotice) {
+        loadingLockBar.innerText = customNotice;
+    } else {
+        loadingLockBar.innerText = "⏳ पापा जवाब तैयार कर रहे हैं... कृपया थोड़ा रुकें (Overlapping click lock ON)";
+    }
+
+    const lockedButtons = [
+        micBtn,
+        singSongBtn,
+        agiSendBtn,
+        testVoiceBtn,
+        diagCartesiaBtn,
+        finishSpeechBtn
+    ];
+
+    lockedButtons.forEach(function(btn) {
+        if (!btn) return;
+        btn.disabled = locked;
+        if (locked) {
+            btn.classList.add("is-loading-locked");
+        } else {
+            btn.classList.remove("is-loading-locked");
+        }
+    });
+
+    if (agiCommandInput) {
+        agiCommandInput.disabled = locked;
+        agiCommandInput.style.opacity = locked ? "0.6" : "1";
+    }
+
+    // Lock / unlock all 18 Emotion chips cleanly
+    const emotionChips = emotionsGrid.querySelectorAll(".emo-chip");
+    emotionChips.forEach(function(chip) {
+        chip.disabled = locked;
+        chip.classList.remove("is-active-loading");
+        if (locked) {
+            chip.classList.add("is-loading-locked");
+        } else {
+            chip.classList.remove("is-loading-locked");
+        }
+    });
+
+    if (locked && activeChipEl) {
+        activeChipEl.classList.remove("is-loading-locked");
+        activeChipEl.classList.add("is-active-loading");
+    }
+}
+
+function canStartNewApiRequest() {
+    if (isApiRequestInFlight) {
+        logRadarEvent("INFO", "Click ignored: Previous API request is still loading.");
+        return false;
+    }
+    const elapsed = Date.now() - lastRequestStartTime;
+    if (elapsed < REQUEST_COOLDOWN_MS) {
+        logRadarEvent("INFO", "Click debounced (" + elapsed + "ms cooldown).");
+        return false;
+    }
+    return true;
+}
+
+// Safely stops any active TTS audio, greeting audio, WebAudio buffer, or Harmonium drone without hanging promises
+function stopCurrentPlaybackSafely() {
+    stopSingingHarmoniumDrone();
+    try {
+        haBetaBolAudio.pause();
+        haBetaBolAudio.currentTime = 0;
+    } catch (e) {}
+
+    try {
+        papaTtsPlayer.onplay = null;
+        papaTtsPlayer.onended = null;
+        papaTtsPlayer.onerror = null;
+        papaTtsPlayer.pause();
+        papaTtsPlayer.currentTime = 0;
+    } catch (e) {}
+
+    if (activeWebAudioSource) {
+        try {
+            activeWebAudioSource.onended = null;
+            activeWebAudioSource.stop();
+        } catch (e) {}
+        activeWebAudioSource = null;
+    }
+
+    if (activeAudioObjectUrl) {
+        try { URL.revokeObjectURL(activeAudioObjectUrl); } catch (e) {}
+        activeAudioObjectUrl = null;
+    }
+
+    if (activePlaybackResolver) {
+        const resolvePending = activePlaybackResolver;
+        activePlaybackResolver = null;
+        resolvePending();
+    }
+}
+
+// ============================================================================
+// 🎭 BUILD 18 UNIVERSAL HUMAN EMOTIONS INTERACTIVE GRID (With Loading Lock!)
 // ============================================================================
 const EIGHTEEN_EMOTION_KEYS = [
     "happiness", "sadness", "anger", "fear", "surprise", "disgust", "anticipation", "trust",
@@ -496,11 +635,11 @@ function render18EmotionsGrid() {
         btn.innerText = profile.label;
         btn.style.borderColor = profile.color;
         btn.addEventListener("click", function() {
+            if (!canStartNewApiRequest()) return;
             unlockBrowserAudio();
-            stopSingingHarmoniumDrone();
-            try { papaTtsPlayer.pause(); } catch (e) {}
+            stopCurrentPlaybackSafely();
             isPapaSpeakingOrThinking = false;
-            submitQueryToPapaAGI(profile.sample, emoKey);
+            submitQueryToPapaAGI(profile.sample, emoKey, btn);
         });
         emotionsGrid.appendChild(btn);
     });
@@ -592,8 +731,6 @@ saveReleaseBtn.addEventListener("click", function() {
 // ============================================================================
 // 🎵 WEB AUDIO API HARMONIUM / TANPURA MUSICAL BACKING SYNTHESIZER (For Singing Mode!)
 // ============================================================================
-let singingMusicNodes = [];
-
 function startSingingHarmoniumDrone() {
     stopSingingHarmoniumDrone();
     try {
@@ -805,7 +942,7 @@ fetch(BACKEND_API_URL, {
             setAvatarEmotionState("idle", false);
         }
     }, 4500);
-    statusText.innerText = "✅ Papa Universal AGI + 18 Human Emotions Ready! (Steady Mic + Singing Mode + Live Call ON)\n'📞 Start Live Call', '🎭 18 Emotions', '🎵 गाना सुनें', ya '🎬 7 Videos Fix' check karein.";
+    statusText.innerText = "✅ Papa Universal AGI + 18 Human Emotions Ready! (Click-Lock + Steady Mic + Singing Mode + Live Call ON)\n'📞 Start Live Call', '🎭 18 Emotions', '🎵 गाना सुनें', ya '🎬 7 Videos Fix' check karein.";
 })
 .catch(function(err) {
     if (err.message !== "Wrong PIN") {
@@ -1117,8 +1254,6 @@ let sessionConfirmedText = ""; // Persists across internal browser SpeechRecogni
 let currentInterimText = "";
 let silenceDebounceTimer = null;
 
-const haBetaBolAudio = new Audio("./ha_beta_bol.mp3");
-
 function clearSilenceTimer() {
     if (silenceDebounceTimer) {
         clearTimeout(silenceDebounceTimer);
@@ -1142,7 +1277,7 @@ function stopMicCompletely() {
 
 // Opens the mic & keeps it steady without resetting buffers or flickering UI
 function activateSteadyMicSession(isFreshTurn) {
-    if (!recognition || isPapaSpeakingOrThinking || isSubmittingSpeech) return;
+    if (!recognition || isPapaSpeakingOrThinking || isSubmittingSpeech || isApiRequestInFlight) return;
 
     if (isFreshTurn) {
         sessionConfirmedText = "";
@@ -1176,15 +1311,23 @@ function activateSteadyMicSession(isFreshTurn) {
     }
 }
 
-async function submitQueryToPapaAGI(queryText, forceEmotion) {
+async function submitQueryToPapaAGI(queryText, forceEmotion, triggerChipEl) {
     const cleanText = String(queryText || "").replace(/\s+/g, " ").trim();
     if (!cleanText) return;
+    if (isApiRequestInFlight) {
+        logRadarEvent("INFO", "Blocked overlapping request while previous API call is in progress.");
+        return;
+    }
 
+    const myReqSeq = ++activeRequestSeq;
+    lastRequestStartTime = Date.now();
     // Immediately lock mic OFF so it never turns back on while Papa thinks or speaks!
     stopMicCompletely();
     isSubmittingSpeech = true;
     sessionConfirmedText = "";
     currentInterimText = "";
+
+    setApiLoadingLock(true, triggerChipEl || null);
 
     const cameraFrameBase64 = captureCameraFrameBase64();
     const visionTag = cameraFrameBase64 ? (" (👁️ " + (currentFacingMode === "user" ? "Chehra Pehchan" : "Back Cam") + " ON)") : "";
@@ -1192,31 +1335,36 @@ async function submitQueryToPapaAGI(queryText, forceEmotion) {
     logRadarEvent("INFO", "Full user speech sent (" + cleanText.length + " chars): \"" + cleanText + "\"");
 
     try {
-        await processSpeechTurbo(cleanText, cameraFrameBase64, forceEmotion || null);
+        await processSpeechTurbo(cleanText, cameraFrameBase64, forceEmotion || null, myReqSeq);
     } catch (error) {
-        isPapaSpeakingOrThinking = false;
-        stopSingingHarmoniumDrone();
-        setAvatarEmotionState("idle", false);
-        statusText.innerText = "🚨 Error: " + error.message;
-        logRadarEvent("GLITCH", "AGI Pipeline Error: " + error.message);
-        if (isLiveCallActive) {
-            setTimeout(function() {
-                isSubmittingSpeech = false;
-                activateSteadyMicSession(true);
-            }, 1200);
-            return;
+        if (myReqSeq === activeRequestSeq) {
+            isPapaSpeakingOrThinking = false;
+            stopCurrentPlaybackSafely();
+            setAvatarEmotionState("idle", false);
+            statusText.innerText = "🚨 Error: " + error.message;
+            logRadarEvent("GLITCH", "AGI Pipeline Error: " + error.message);
+            if (isLiveCallActive) {
+                setTimeout(function() {
+                    if (isLiveCallActive && !isApiRequestInFlight && !isPapaSpeakingOrThinking) {
+                        activateSteadyMicSession(true);
+                    }
+                }, 1200);
+            }
         }
     } finally {
-        isSubmittingSpeech = false;
+        if (myReqSeq === activeRequestSeq) {
+            setApiLoadingLock(false);
+            isSubmittingSpeech = false;
+        }
     }
 }
 
 async function finalizeAndSubmitUserSpeech() {
     clearSilenceTimer();
-    if (isSubmittingSpeech || isPapaSpeakingOrThinking) return;
+    if (isSubmittingSpeech || isPapaSpeakingOrThinking || isApiRequestInFlight) return;
     const fullUserText = (sessionConfirmedText + " " + currentInterimText).replace(/\s+/g, " ").trim();
     if (!fullUserText) return;
-    await submitQueryToPapaAGI(fullUserText, null);
+    await submitQueryToPapaAGI(fullUserText, null, null);
 }
 
 finishSpeechBtn.addEventListener("click", function() {
@@ -1225,14 +1373,14 @@ finishSpeechBtn.addEventListener("click", function() {
 
 // ⌨️ Universal AGI Direct Text Command Submission
 agiSendBtn.addEventListener("click", function() {
+    if (!canStartNewApiRequest()) return;
     unlockBrowserAudio();
     const textVal = agiCommandInput.value.trim();
     if (!textVal) return;
     agiCommandInput.value = "";
-    stopSingingHarmoniumDrone();
-    try { papaTtsPlayer.pause(); } catch (e) {}
+    stopCurrentPlaybackSafely();
     isPapaSpeakingOrThinking = false;
-    submitQueryToPapaAGI(textVal, null);
+    submitQueryToPapaAGI(textVal, null, null);
 });
 
 agiCommandInput.addEventListener("keydown", function(ev) {
@@ -1250,13 +1398,13 @@ const SONG_REQUEST_PROMPTS = [
 let songPromptIdx = 0;
 
 singSongBtn.addEventListener("click", function() {
+    if (!canStartNewApiRequest()) return;
     unlockBrowserAudio();
-    stopSingingHarmoniumDrone();
-    try { papaTtsPlayer.pause(); } catch (e) {}
+    stopCurrentPlaybackSafely();
     isPapaSpeakingOrThinking = false;
     const promptToSing = SONG_REQUEST_PROMPTS[songPromptIdx % SONG_REQUEST_PROMPTS.length];
     songPromptIdx++;
-    submitQueryToPapaAGI(promptToSing, "singing");
+    submitQueryToPapaAGI(promptToSing, "singing", null);
 });
 
 // 📞 Toggle End-to-End Live Video Call Stream
@@ -1264,6 +1412,7 @@ liveCallBtn.addEventListener("click", function() {
     unlockBrowserAudio();
 
     if (!isLiveCallActive) {
+        if (isApiRequestInFlight) return;
         isLiveCallActive = true;
         liveCallBtn.innerText = "📴 End Live Call";
         liveCallBtn.style.background = "#4caf50";
@@ -1273,6 +1422,7 @@ liveCallBtn.addEventListener("click", function() {
         liveSubtitleBox.innerText = "पापा जुड़ रहे हैं: 'हाँ बेटा बोल...'";
 
         stopMicCompletely();
+        stopCurrentPlaybackSafely();
         isPapaSpeakingOrThinking = true;
         setAvatarEmotionState("greeting", true);
         statusText.innerText = "🔴 [LIVE AGI CALL STARTED] Papa bol rahe hain...";
@@ -1286,7 +1436,9 @@ liveCallBtn.addEventListener("click", function() {
         isLiveCallActive = false;
         isPapaSpeakingOrThinking = false;
         isSubmittingSpeech = false;
-        stopSingingHarmoniumDrone();
+        activeRequestSeq++;
+        setApiLoadingLock(false);
+        stopCurrentPlaybackSafely();
         stopMicCompletely();
         liveCallBtn.innerText = "📞 Start Live Call";
         liveCallBtn.style.background = "#b71c1c";
@@ -1294,14 +1446,17 @@ liveCallBtn.addEventListener("click", function() {
         liveStreamBadge.style.display = "none";
         liveSubtitleBox.style.display = "none";
         setAvatarEmotionState("idle", false);
-        try { papaTtsPlayer.pause(); } catch (e) {}
         logRadarEvent("INFO", "Live Call mode ended by user.");
         statusText.innerText = "📴 Live Call band kar di gayi hai.\nDubara baat karne ke liye '📞 Start Live Call' ya '🎤 Baat Karo' dabayen.";
     }
 });
 
-// 🎤 Single-Turn Manual Mic Button (Acts as Steady Start / Finish Toggle!)
+// 🎤 Single-Turn Manual Mic Button (Acts as Steady Start / Finish Toggle + Barge-In!)
 micBtn.addEventListener("click", function() {
+    if (isApiRequestInFlight) {
+        logRadarEvent("INFO", "Wait for current response to finish loading before starting mic.");
+        return;
+    }
     unlockBrowserAudio();
 
     if (shouldMicBeActive) {
@@ -1317,9 +1472,7 @@ micBtn.addEventListener("click", function() {
     }
 
     // Stop any ongoing TTS or singing music if user barges in
-    stopSingingHarmoniumDrone();
-    try { papaTtsPlayer.pause(); } catch (e) {}
-
+    stopCurrentPlaybackSafely();
     isPapaSpeakingOrThinking = true;
     statusText.innerText = "Papa bol rahe hain...";
     setAvatarEmotionState("talking", true);
@@ -1331,13 +1484,14 @@ micBtn.addEventListener("click", function() {
 });
 
 haBetaBolAudio.onended = function() {
+    if (isApiRequestInFlight) return;
     isPapaSpeakingOrThinking = false;
     activateSteadyMicSession(true);
 };
 
 if (recognition) {
     recognition.onresult = function(event) {
-        if (!shouldMicBeActive || isPapaSpeakingOrThinking || isSubmittingSpeech) return;
+        if (!shouldMicBeActive || isPapaSpeakingOrThinking || isSubmittingSpeech || isApiRequestInFlight) return;
 
         let newFinalPieces = "";
         let latestInterim = "";
@@ -1379,9 +1533,9 @@ if (recognition) {
         // ANTI-GLITCH SILENT KEEP-ALIVE:
         // If Chrome's SpeechRecognition timed out on silence while `shouldMicBeActive` is still true,
         // silently restart it in 50ms WITHOUT clearing `sessionConfirmedText` or flickering UI!
-        if (shouldMicBeActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech) {
+        if (shouldMicBeActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech && !isApiRequestInFlight) {
             setTimeout(function() {
-                if (shouldMicBeActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech && !isMicCurrentlyListening) {
+                if (shouldMicBeActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech && !isApiRequestInFlight && !isMicCurrentlyListening) {
                     try {
                         recognition.start();
                         isMicCurrentlyListening = true;
@@ -1391,7 +1545,7 @@ if (recognition) {
             return;
         }
 
-        if (!isPapaSpeakingOrThinking && !isSubmittingSpeech) {
+        if (!isPapaSpeakingOrThinking && !isSubmittingSpeech && !isApiRequestInFlight) {
             liveTranscriptBar.style.display = "none";
             micBtn.innerText = "🎤 Baat Karo";
             micBtn.style.background = "#0D8ABC";
@@ -1419,13 +1573,43 @@ if (recognition) {
 // 🔊 Audio Playback Helper (18-Emotion Video + Aura + Emotional Voice Pacing + Harmonium!)
 // ============================================================================
 function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey) {
+    stopCurrentPlaybackSafely();
+
     const arrayBuffer = base64ToArrayBuffer(audioBase64);
     const blob = new Blob([arrayBuffer], { type: "audio/wav" });
     const audioUrl = URL.createObjectURL(blob);
+    activeAudioObjectUrl = audioUrl;
+
     const activeEmotion = emotionKey || "talking";
     const profile = resolveEmotionProfile(activeEmotion, true);
 
     return new Promise(function(resolve) {
+        activePlaybackResolver = resolve;
+
+        function finishPlaybackCleanly() {
+            if (activePlaybackResolver !== resolve) return;
+            activePlaybackResolver = null;
+            activeWebAudioSource = null;
+            isPapaSpeakingOrThinking = false;
+            stopSingingHarmoniumDrone();
+            setAvatarEmotionState("idle", false);
+            if (activeAudioObjectUrl === audioUrl) {
+                URL.revokeObjectURL(audioUrl);
+                activeAudioObjectUrl = null;
+            }
+            resolve();
+
+            if (isLiveCallActive) {
+                setTimeout(function() {
+                    if (isLiveCallActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech && !isApiRequestInFlight) {
+                        activateSteadyMicSession(true);
+                    }
+                }, 400);
+            } else {
+                statusText.innerText = "✅ Main dekh aur sun raha hoon beta... [" + engineLabel + "]";
+            }
+        }
+
         function startAvatarTalking() {
             isPapaSpeakingOrThinking = true;
             stopMicCompletely();
@@ -1449,26 +1633,8 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
             setAvatarEmotionState(activeEmotion, true);
         }
 
-        function stopAvatarTalking() {
-            isPapaSpeakingOrThinking = false;
-            stopSingingHarmoniumDrone();
-            setAvatarEmotionState("idle", false);
-            URL.revokeObjectURL(audioUrl);
-            resolve();
-
-            if (isLiveCallActive) {
-                setTimeout(function() {
-                    if (isLiveCallActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech) {
-                        activateSteadyMicSession(true);
-                    }
-                }, 400);
-            } else {
-                statusText.innerText = "✅ Main dekh aur sun raha hoon beta... [" + engineLabel + "]";
-            }
-        }
-
         papaTtsPlayer.onplay = startAvatarTalking;
-        papaTtsPlayer.onended = stopAvatarTalking;
+        papaTtsPlayer.onended = finishPlaybackCleanly;
         papaTtsPlayer.onerror = async function() {
             logRadarEvent("WARN", "HTML5 Audio fallback -> Using WebAudio API decoder.");
             try {
@@ -1478,21 +1644,22 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
 
                 const decodedBuffer = await sharedAudioCtx.decodeAudioData(arrayBuffer.slice(0));
                 const source = sharedAudioCtx.createBufferSource();
+                activeWebAudioSource = source;
                 source.buffer = decodedBuffer;
                 source.playbackRate.value = profile.rate || 1.0;
                 source.connect(sharedAudioCtx.destination);
                 startAvatarTalking();
-                source.onended = stopAvatarTalking;
+                source.onended = finishPlaybackCleanly;
                 source.start(0);
             } catch (webAudioErr) {
                 logRadarEvent("GLITCH", "WebAudio Playback Error: " + webAudioErr.message);
-                stopAvatarTalking();
+                finishPlaybackCleanly();
             }
         };
 
         papaTtsPlayer.src = audioUrl;
         papaTtsPlayer.play().catch(function() {
-            papaTtsPlayer.onerror();
+            if (papaTtsPlayer.onerror) papaTtsPlayer.onerror();
         });
     });
 }
@@ -1500,6 +1667,14 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
 // ============================================================================
 // ⏰ LIVE TIMER / ALARM HANDLER (When user says "Papa 5 minute ka timer laga do")
 // ============================================================================
+function announceTimerCompleteSafely() {
+    if (isApiRequestInFlight) {
+        setTimeout(announceTimerCompleteSafely, 3000);
+        return;
+    }
+    speakPapaReply("बेटा, तुम्हारा समय पूरा हो गया है, अपना काम देख लो।", "anticipation").catch(function() {});
+}
+
 function startPapaLiveTimer(secondsTotal, labelText) {
     if (activeTimerInterval) clearInterval(activeTimerInterval);
     let remaining = secondsTotal;
@@ -1516,7 +1691,7 @@ function startPapaLiveTimer(secondsTotal, labelText) {
             clearInterval(activeTimerInterval);
             activeTimerInterval = null;
             agiActionText.innerText = "✅ टाइमर पूरा हो गया!";
-            speakPapaReply("बेटा, तुम्हारा समय पूरा हो गया है, अपना काम देख लो।", "anticipation").catch(function() {});
+            announceTimerCompleteSafely();
         }
     }, 1000);
 }
@@ -1524,7 +1699,7 @@ function startPapaLiveTimer(secondsTotal, labelText) {
 // ============================================================================
 // 🚀 1. UNIVERSAL AGI TURBO SINGLE-HOP PIPELINE (18 Emotions + Vision + Search + Singing + Actions)
 // ============================================================================
-async function processSpeechTurbo(userText, base64Frame, forceEmotion) {
+async function processSpeechTurbo(userText, base64Frame, forceEmotion, reqSeq) {
     isPapaSpeakingOrThinking = true;
     stopMicCompletely();
     setAvatarEmotionState("thinking", false);
@@ -1555,11 +1730,20 @@ async function processSpeechTurbo(userText, base64Frame, forceEmotion) {
     });
 
     const data = await res.json();
+
+    // Discard stale response if user ended call while request was in flight
+    if (reqSeq !== activeRequestSeq) {
+        return;
+    }
+
     if (!res.ok || !data.audioBase64) {
         isPapaSpeakingOrThinking = false;
         setAvatarEmotionState("idle", false);
         throw new Error(data.error || ("Server HTTP " + res.status));
     }
+
+    // Release the network loading lock right as audio playback begins (allows natural barge-in)
+    setApiLoadingLock(false);
 
     // 1. Save any new permanent family memory
     if (data.newMemoryFact) {
@@ -1608,54 +1792,73 @@ async function processSpeechTurbo(userText, base64Frame, forceEmotion) {
 // 🎙️ 2. Standalone TTS Helper (Used for 1-Click Voice Test & Timer Alert)
 // ============================================================================
 async function speakPapaReply(aiText, forceEmotion) {
+    if (isApiRequestInFlight) return;
+    const myReqSeq = ++activeRequestSeq;
+    lastRequestStartTime = Date.now();
+    setApiLoadingLock(true, null, "⏳ पापा की आवाज़ तैयार हो रही है...");
+
     setAvatarEmotionState("thinking", false);
     statusText.innerText = "Papa: " + aiText + "\n🔄 Awaaz ban rahi hai...";
 
-    const res = await fetch(BACKEND_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            action: "tts",
-            pin: sessionPIN,
-            text: aiText,
-            forceEmotion: forceEmotion || null
-        })
-    });
+    try {
+        const res = await fetch(BACKEND_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "tts",
+                pin: sessionPIN,
+                text: aiText,
+                forceEmotion: forceEmotion || null
+            })
+        });
 
-    const data = await res.json();
-    if (!res.ok || !data.audioBase64) {
-        setAvatarEmotionState("idle", false);
-        throw new Error(data.error || "TTS Server Error");
+        const data = await res.json();
+        if (myReqSeq !== activeRequestSeq) return;
+
+        if (!res.ok || !data.audioBase64) {
+            setAvatarEmotionState("idle", false);
+            throw new Error(data.error || "TTS Server Error");
+        }
+
+        setApiLoadingLock(false);
+
+        await playAudioBase64WithAvatar(
+            data.audioBase64,
+            aiText,
+            data.engineLabel || "Cloud TTS",
+            forceEmotion || data.emotion || "blessing"
+        );
+    } finally {
+        if (myReqSeq === activeRequestSeq) {
+            setApiLoadingLock(false);
+        }
     }
-
-    await playAudioBase64WithAvatar(
-        data.audioBase64,
-        aiText,
-        data.engineLabel || "Cloud TTS",
-        forceEmotion || data.emotion || "blessing"
-    );
 }
 
 // 1-Click Direct Voice Test Button
 testVoiceBtn.addEventListener("click", async function() {
+    if (!canStartNewApiRequest()) return;
     unlockBrowserAudio();
-    testVoiceBtn.disabled = true;
+    stopCurrentPlaybackSafely();
     try {
         await speakPapaReply("नमस्ते बेटा, अब मैं सभी अठारह मानवीय भावनाओं के साथ तुमसे बात कर सकता हूँ और सदा खुश रहो।", "blessing");
     } catch (err) {
         logRadarEvent("GLITCH", "Voice Test Failed: " + err.message);
         statusText.innerText = "🚨 Voice Test Error: " + err.message;
-    } finally {
-        testVoiceBtn.disabled = false;
     }
 });
 
 // 1-Click Server Key Diagnostic Button
 diagCartesiaBtn.addEventListener("click", async function() {
+    if (!canStartNewApiRequest()) return;
     unlockBrowserAudio();
+    stopCurrentPlaybackSafely();
+    const myReqSeq = ++activeRequestSeq;
+    lastRequestStartTime = Date.now();
+    setApiLoadingLock(true, null, "🔍 सभी Gemini, Groq और 20 Cartesia Keys की जाँच हो रही है...");
+
     diagBox.style.display = "block";
     diagBox.innerText = "🔍 Server par Auto-Discovered Gemini Models & 20 Cartesia Keys check ho rahi hain...\n";
-    diagCartesiaBtn.disabled = true;
 
     try {
         const res = await fetch(BACKEND_API_URL, {
@@ -1664,6 +1867,8 @@ diagCartesiaBtn.addEventListener("click", async function() {
             body: JSON.stringify({ action: "diag", pin: sessionPIN })
         });
         const data = await res.json();
+        if (myReqSeq !== activeRequestSeq) return;
+
         if (data.logs) {
             diagBox.innerText = data.logs.join("\n");
         }
@@ -1672,13 +1877,16 @@ diagCartesiaBtn.addEventListener("click", async function() {
             setAvatarEmotionState("blessing", true);
             const buf = base64ToArrayBuffer(data.audioBase64);
             const url = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
-            // Reset previous chat audio listeners before playing diagnostic sample
+            activeAudioObjectUrl = url;
             papaTtsPlayer.onplay = null;
             papaTtsPlayer.onerror = null;
             try { papaTtsPlayer.playbackRate = 1.0; } catch (e) {}
             papaTtsPlayer.onended = function() {
                 setAvatarEmotionState("idle", false);
-                URL.revokeObjectURL(url);
+                if (activeAudioObjectUrl === url) {
+                    URL.revokeObjectURL(url);
+                    activeAudioObjectUrl = null;
+                }
             };
             papaTtsPlayer.src = url;
             papaTtsPlayer.play().catch(function() {});
@@ -1687,7 +1895,9 @@ diagCartesiaBtn.addEventListener("click", async function() {
         logRadarEvent("GLITCH", "Diagnostic Error: " + err.message);
         diagBox.innerText += "\n🚨 Error: " + err.message;
     } finally {
-        diagCartesiaBtn.disabled = false;
+        if (myReqSeq === activeRequestSeq) {
+            setApiLoadingLock(false);
+        }
     }
 });
 </script>
