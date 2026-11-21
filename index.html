@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Papa Chatbot - Universal AGI, Singing Mode & Steady Mic</title>
+    <title>Papa Chatbot - Universal AGI, 18 Human Emotions & 7-Video Fix</title>
     <style>
         @keyframes pulseRed {
             0% { opacity: 1; transform: scale(1); }
@@ -13,23 +13,47 @@
         .live-pulse {
             animation: pulseRed 1.4s infinite ease-in-out;
         }
+        .emo-chip {
+            padding: 5px 9px;
+            border-radius: 14px;
+            border: 1px solid #45475a;
+            background: #1e1e36;
+            color: #cdd6f4;
+            font-size: 11px;
+            cursor: pointer;
+            transition: transform 0.15s, border-color 0.2s;
+        }
+        .emo-chip:hover {
+            transform: scale(1.05);
+            border-color: #ffeb3b;
+        }
+        .vid-test-btn {
+            padding: 5px 8px;
+            border-radius: 8px;
+            border: 1px solid #fab387;
+            background: #241c1a;
+            color: #fab387;
+            font-size: 10.5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body style="background: #121212; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box;">
 
-<div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 540px; width: 100%; padding: 20px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;">
+<div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 550px; width: 100%; padding: 20px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;">
     
-    <!-- Portrait Video Avatar Box + LIVE Stream HUD -->
-    <div id="avatar-box" style="margin: 0 auto 14px auto; width: 265px; border-radius: 15px; overflow: hidden; border: 4px solid #0D8ABC; box-shadow: 0 0 15px rgba(13, 138, 188, 0.4); transition: border-color 0.3s, box-shadow 0.3s; position: relative; background: #000;">
-        <video id="avatar-video" width="100%" autoplay loop muted playsinline style="height: auto; display: block; object-fit: contain;"></video>
+    <!-- Portrait Video Avatar Box + 18-Emotion Aura Glow + LIVE Stream HUD -->
+    <div id="avatar-box" style="margin: 0 auto 14px auto; width: 265px; border-radius: 15px; overflow: hidden; border: 4px solid #0D8ABC; box-shadow: 0 0 18px rgba(13, 138, 188, 0.45); transition: border-color 0.35s, box-shadow 0.35s; position: relative; background: #000;">
+        <video id="avatar-video" width="100%" autoplay loop muted playsinline preload="auto" style="height: auto; display: block; object-fit: contain;"></video>
 
         <!-- 🔴 LIVE STREAM Indicator Badge (Top-Left) -->
         <div id="live-stream-badge" class="live-pulse" style="display: none; position: absolute; top: 8px; left: 8px; background: rgba(220, 38, 38, 0.92); color: #fff; font-size: 10px; font-weight: bold; padding: 4px 9px; border-radius: 12px; letter-spacing: 0.6px; box-shadow: 0 2px 8px rgba(0,0,0,0.6);">
             🔴 LIVE AGI CALL
         </div>
 
-        <!-- 🎭 Emotion/State Badge (Top-Right) -->
-        <div id="emotion-badge" style="position: absolute; top: 8px; right: 8px; background: rgba(0, 0, 0, 0.65); color: #a6e3a1; font-size: 10px; font-weight: bold; padding: 3px 8px; border-radius: 10px;">
+        <!-- 🎭 Active Universal Human Emotion Badge (Top-Right) -->
+        <div id="emotion-badge" style="position: absolute; top: 8px; right: 8px; background: rgba(0, 0, 0, 0.72); color: #a6e3a1; font-size: 10px; font-weight: bold; padding: 4px 9px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2);">
             😊 शांत (Idle)
         </div>
 
@@ -68,7 +92,7 @@
     <canvas id="face-thumb-canvas" style="display: none;"></canvas>
     <audio id="papa-tts-player" playsinline style="display: none;"></audio>
 
-    <!-- Camera, Family Face, AGI Memory, Release Videos, Share Link & Bug Radar Controls -->
+    <!-- Controls Row: Vision, Cam, 18 Emotions, Parivar, AGI Memory, 7 Videos Fix, Share, Bug Radar -->
     <div style="display: flex; justify-content: center; gap: 5px; margin-bottom: 12px; flex-wrap: wrap;">
         <button id="cam-toggle-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #4caf50; background: #263829; color: #a6e3a1; font-size: 11px; font-weight: bold; cursor: pointer;">
             👁️ Vision: ON
@@ -76,21 +100,60 @@
         <button id="cam-flip-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #0D8ABC; background: #162436; color: #89b4fa; font-size: 11px; font-weight: bold; cursor: pointer;">
             🔄 Cam: Front
         </button>
+        <button id="emotions-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #f472b6; background: #33192b; color: #f9a8d4; font-size: 11px; font-weight: bold; cursor: pointer;">
+            🎭 18 Emotions
+        </button>
         <button id="family-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #ffeb3b; background: #332d1a; color: #ffeb3b; font-size: 11px; font-weight: bold; cursor: pointer;">
             👨‍👩‍👧‍👦 Parivar (0)
         </button>
         <button id="agi-memory-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #89dceb; background: #152b36; color: #89dceb; font-size: 11px; font-weight: bold; cursor: pointer;">
-            🧠 AGI Memory (0)
+            🧠 Memory (0)
         </button>
         <button id="release-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #fab387; background: #33221a; color: #fab387; font-size: 11px; font-weight: bold; cursor: pointer;">
-            🎬 7 Videos
+            🎬 7 Videos Fix
         </button>
         <button id="share-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #cba6f7; background: #2a1f3d; color: #cba6f7; font-size: 11px; font-weight: bold; cursor: pointer;">
             🔗 Share
         </button>
         <button id="bug-radar-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #f38ba8; background: #331a24; color: #f38ba8; font-size: 11px; font-weight: bold; cursor: pointer;">
-            🛠️ Bug Radar (0)
+            🛠️ Radar (0)
         </button>
+    </div>
+
+    <!-- 🎭 18 Universal Human Emotions Interactive Panel -->
+    <div id="emotions-panel" style="display: none; background: #121224; border: 1px solid #f472b6; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: left;">
+        <div style="font-size: 12.5px; font-weight: bold; color: #f9a8d4; margin-bottom: 6px;">
+            🎭 Universal 18 Human Emotions (किसी भी भावना पर क्लिक करके तुरंत टेस्ट करें):
+        </div>
+        <div style="font-size: 10.5px; color: #a6adc8; margin-bottom: 8px;">
+            बातचीत के दौरान पापा अपने-आप इन 18 भावनाओं को महसूस करते हैं, और आप यहाँ क्लिक करके किसी भी मूड में पापा से बात करवा सकते हैं:
+        </div>
+        <div id="emotions-grid" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+    </div>
+
+    <!-- 🎬 7 Release Videos Setup + 1-Click Individual Video Tester -->
+    <div id="release-panel" style="display: none; background: #121224; border: 1px solid #fab387; border-radius: 14px; padding: 14px; margin-bottom: 15px; text-align: left;">
+        <div style="font-size: 13px; font-weight: bold; color: #fab387; margin-bottom: 6px;">
+            🎬 7 Videos Setup & Live Tester (Fixer):
+        </div>
+        <div id="release-status-line" style="font-size: 11px; color: #f38ba8; margin-bottom: 6px; font-weight: bold;">
+            ⚠️ Release Link abhi set nahi hai! (Isliye 7 videos nahi chal rahi thin)
+        </div>
+        <div style="font-size: 11px; color: #cdd6f4; margin-bottom: 8px; line-height: 1.4;">
+            1. GitHub Repository <b>Public</b> honi chahiye.<br>
+            2. Release (v1.0) page ya kisi 1 video ka link copy karke niche paste karein (Code khud <code>/tag/</code> ko <code>/download/</code> bana dega):
+        </div>
+        <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+            <input id="release-url-input" type="text" placeholder="https://github.com/ARPatelStudio/.../releases/download/v1.0/" style="flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #45475a; background: #242438; color: #a6e3a1; font-size: 11px;" />
+            <button id="save-release-btn" style="padding: 8px 12px; border-radius: 8px; border: none; background: #fab387; color: #111; font-size: 12px; font-weight: bold; cursor: pointer;">
+                ✅ Save
+            </button>
+        </div>
+        <div style="font-size: 11px; color: #ffeb3b; margin-bottom: 6px; font-weight: bold;">
+            🧪 1-Click Har Video Chalakar Check Karein:
+        </div>
+        <div id="video-test-grid" style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px;"></div>
+        <div id="video-debug-url" style="font-family: monospace; font-size: 10px; color: #89b4fa; word-break: break-all;"></div>
     </div>
 
     <!-- 🧠 Universal AGI Long-Term Memory Drawer -->
@@ -117,22 +180,6 @@
             <button id="clear-radar-btn" style="background: #313244; color: #cdd6f4; border: none; border-radius: 6px; padding: 3px 8px; font-size: 10px; cursor: pointer;">Clear Log</button>
         </div>
         <div id="bug-radar-log" style="font-family: monospace; font-size: 11px; color: #a6e3a1; max-height: 150px; overflow-y: auto; white-space: pre-wrap; line-height: 1.4;">System X-Ray Active... Koi glitch aane par yahan turant dikhega.</div>
-    </div>
-
-    <!-- 🎬 GitHub Releases (रास्ता A) 1-Click Video Connector Drawer -->
-    <div id="release-panel" style="display: none; background: #121224; border: 1px solid #fab387; border-radius: 14px; padding: 14px; margin-bottom: 15px; text-align: left;">
-        <div style="font-size: 13px; font-weight: bold; color: #fab387; margin-bottom: 6px;">
-            🎬 GitHub Releases (v1.0) Video Link Setup:
-        </div>
-        <div style="font-size: 11px; color: #cdd6f4; margin-bottom: 8px; line-height: 1.4;">
-            GitHub Releases me 7 nayi video upload karne ke baad kisi bhi <b>1 video par Right-Click ➔ Copy Link Address</b> karein aur yahan paste kar dein:
-        </div>
-        <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-            <input id="release-url-input" type="text" placeholder="https://github.com/.../releases/download/v1.0/avatar_greeting.mp4" style="flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #45475a; background: #242438; color: #a6e3a1; font-size: 11px;" />
-            <button id="save-release-btn" style="padding: 8px 12px; border-radius: 8px; border: none; background: #fab387; color: #111; font-size: 12px; font-weight: bold; cursor: pointer;">
-                ✅ Save
-            </button>
-        </div>
     </div>
 
     <!-- Clean Share Link Drawer Panel (NO PIN IN LINK OR MESSAGE) -->
@@ -228,7 +275,7 @@ function logRadarEvent(type, message) {
     const icon = type === "GLITCH" ? "🚨 [GLITCH]" : (type === "WARN" ? "⚠️ [WARN]" : "ℹ️ [INFO]");
     if (type === "GLITCH" || type === "WARN") {
         glitchCount++;
-        bugRadarBtn.innerText = "🛠️ Bug Radar (" + glitchCount + ")";
+        bugRadarBtn.innerText = "🛠️ Radar (" + glitchCount + ")";
     }
     const line = "[" + timeStr + "] " + icon + " " + message;
     console.log(line);
@@ -255,32 +302,17 @@ bugRadarBtn.addEventListener("click", function() {
 
 clearRadarBtn.addEventListener("click", function() {
     glitchCount = 0;
-    bugRadarBtn.innerText = "🛠️ Bug Radar (0)";
+    bugRadarBtn.innerText = "🛠️ Radar (0)";
     bugRadarLog.innerText = "✅ Log cleared. Monitoring active...";
 });
 
 // ============================================================================
-// 🎬 HYBRID 9-VIDEO SYSTEM (Including Singing State Mapping!)
+// 🎭 COMPLETE 18 UNIVERSAL HUMAN EMOTIONS PROFILE MAP + COMPATIBLE ALIASES
+// Maps every single emotion to: Hindi Label + Video File + Aura Color + Voice Pacing Rate!
 // ============================================================================
 const BACKEND_API_URL = "/api/papa";
 const RENDER_BASE_URL = "https://papa-voice-cloud.onrender.com";
 const DEFAULT_SHARE_URL = "https://papachatbot.vercel.app/";
-
-let releaseBaseUrl = localStorage.getItem("papa_release_base_url") || "";
-
-function normalizeReleaseUrl(inputUrl) {
-    if (!inputUrl) return "";
-    let clean = inputUrl.trim();
-    if (clean.toLowerCase().endsWith(".mp4")) {
-        clean = clean.substring(0, clean.lastIndexOf("/") + 1);
-    }
-    if (clean && !clean.endsWith("/")) {
-        clean += "/";
-    }
-    return clean;
-}
-
-releaseBaseUrl = normalizeReleaseUrl(releaseBaseUrl);
 
 const VIDEO_FILENAMES = {
     idle: "avatar_idle.mp4",
@@ -290,23 +322,83 @@ const VIDEO_FILENAMES = {
     thinking: "avatar_thinking.mp4",
     blessing: "avatar_blessing.mp4",
     happy: "avatar_talking_happy.mp4",
-    singing: "avatar_talking_happy.mp4", // Uses happy talking video while Papa sings!
+    singing: "avatar_talking_happy.mp4",
     laughing: "avatar_laughing.mp4",
     caring: "avatar_caring.mp4"
 };
 
-const EMOTION_LABELS = {
-    idle: "😊 शांत (Idle)",
-    talking: "🗣️ बोल रहे हैं",
-    greeting: "🙏 स्वागत (Greeting)",
-    listening: "🎧 ध्यान से सुन रहे हैं",
-    thinking: "🤔 सोच रहे हैं...",
-    blessing: "🙌 आशीर्वाद (Blessing)",
-    happy: "😊 खुश होकर बात",
-    singing: "🎵 पापा गाना गा रहे हैं",
-    laughing: "😄 हँसी-खुशी (Laughing)",
-    caring: "❤️ स्नेह और दुलार (Caring)"
+const UNIVERSAL_EMOTION_PROFILES = {
+    // 8 Primary Human Emotions
+    happiness:      { label: "😊 खुशी (Happiness)",      videoKey: "happy",     color: "#4ade80", rate: 1.03, sample: "पापा आज मुझे बहुत बड़ी खुशी मिली है!" },
+    sadness:        { label: "😢 दुख (Sadness)",          videoKey: "caring",    color: "#60a5fa", rate: 0.94, sample: "पापा आज मेरा मन बहुत उदास और अकेला लग रहा है।" },
+    anger:          { label: "😠 गुस्सा (Anger)",         videoKey: "talking",   color: "#ef4444", rate: 1.04, sample: "पापा आज मैंने लापरवाही कर दी, आप मुझे प्यार से डाँटिए।" },
+    fear:           { label: "😨 डर (Fear)",              videoKey: "caring",    color: "#a855f7", rate: 0.96, sample: "पापा मुझे आने वाले कल और अनजान चीज़ों से डर लग रहा है।" },
+    surprise:       { label: "😲 आश्चर्य (Surprise)",      videoKey: "happy",     color: "#facc15", rate: 1.05, sample: "पापा आपके लिए एक बहुत बड़ा और चौंकाने वाला सरप्राइज है!" },
+    disgust:        { label: "🤢 घृणा (Disgust)",         videoKey: "talking",   color: "#84cc16", rate: 0.98, sample: "पापा आज बाहर बहुत गंदगी और बुरी चीज़ें देखकर मन खराब हो गया।" },
+    anticipation:   { label: "⏳ प्रत्याशा (Anticipation)", videoKey: "happy",    color: "#fb923c", rate: 1.02, sample: "पापा मैं एक नए शुभ अवसर का बेसब्री से इंतज़ार कर रहा हूँ।" },
+    trust:          { label: "🤝 विश्वास (Trust)",         videoKey: "blessing",  color: "#2dd4bf", rate: 0.98, sample: "पापा मुझे आप पर और खुद पर पूरा भरोसा है।" },
+
+    // 10 Secondary Human Emotions
+    love:           { label: "❤️ प्यार (Love)",           videoKey: "caring",    color: "#f43f5e", rate: 0.96, sample: "पापा मैं आपसे और अपने पूरे परिवार से बहुत प्यार करता हूँ।" },
+    jealousy:       { label: "😒 ईर्ष्या (Jealousy)",      videoKey: "caring",    color: "#a3e635", rate: 0.97, sample: "पापा दूसरों की तरक्की देखकर मन में थोड़ी ईर्ष्या आती है, समझाओ।" },
+    shame:          { label: "😳 शर्म (Shame)",           videoKey: "caring",    color: "#fb7185", rate: 0.95, sample: "पापा मुझे सबके सामने थोड़ी शर्म और झिझक महसूस हुई।" },
+    guilt:          { label: "😔 अपराधबोध (Guilt)",       videoKey: "caring",    color: "#818cf8", rate: 0.94, sample: "पापा मुझसे एक गलती हो गई है और मुझे बहुत अपराधबोध हो रहा है।" },
+    pride:          { label: "🏆 गर्व (Pride)",           videoKey: "happy",     color: "#fbbf24", rate: 1.02, sample: "पापा मैंने अपनी मेहनत से एक नया मुकाम हासिल किया है!" },
+    hope:           { label: "🌟 उम्मीद (Hope)",          videoKey: "blessing",  color: "#38bdf8", rate: 0.99, sample: "पापा मुझे पूरी उम्मीद है कि आने वाला समय बहुत अच्छा होगा।" },
+    disappointment: { label: "😞 निराशा (Disappointment)", videoKey: "caring",   color: "#94a3b8", rate: 0.94, sample: "पापा मैंने बहुत कोशिश की पर काम नहीं बना, निराशा हो रही है।" },
+    empathy:        { label: "🫂 सहानुभूति (Empathy)",    videoKey: "caring",    color: "#22d3ee", rate: 0.95, sample: "पापा आज किसी दुखी इंसान को देखकर मेरे मन में गहरी सहानुभूति जागी।" },
+    compassion:     { label: "💗 करुणा (Compassion)",   videoKey: "caring",    color: "#ec4899", rate: 0.94, sample: "पापा हमें ज़रूरतमंद लोगों के प्रति करुणा और दया कैसे रखनी चाहिए?" },
+    anxiety:        { label: "😰 बेचैनी (Anxiety)",       videoKey: "caring",    color: "#c084fc", rate: 0.93, sample: "पापा आज बहुत टेंशन और बेचैनी हो रही है, मन शांत नहीं है।" },
+
+    // Core Operational & Special Papa States
+    idle:           { label: "😊 शांत (Idle)",           videoKey: "idle",      color: "#0D8ABC", rate: 1.0 },
+    talking:        { label: "🗣️ बोल रहे हैं",            videoKey: "talking",   color: "#4caf50", rate: 1.0 },
+    greeting:       { label: "🙏 स्वागत (Greeting)",      videoKey: "greeting",  color: "#38bdf8", rate: 1.0 },
+    listening:      { label: "🎧 ध्यान से सुन रहे हैं",    videoKey: "listening", color: "#ffeb3b", rate: 1.0 },
+    thinking:       { label: "🤔 सोच रहे हैं...",          videoKey: "thinking",  color: "#cba6f7", rate: 1.0 },
+    blessing:       { label: "🙌 आशीर्वाद (Blessing)",    videoKey: "blessing",  color: "#f59e0b", rate: 0.97 },
+    laughing:       { label: "😄 हँसी-खुशी (Laughing)",   videoKey: "laughing",  color: "#4ade80", rate: 1.03 },
+    singing:        { label: "🎵 पापा गाना गा रहे हैं",     videoKey: "happy",     color: "#f472b6", rate: 0.96 },
+    caring:         { label: "❤️ स्नेह और दुलार (Caring)", videoKey: "caring",   color: "#f472b6", rate: 0.95 }
 };
+
+const EMOTION_ALIAS_MAP = {
+    happy: "happiness",
+    sad: "sadness",
+    angry: "anger",
+    scared: "fear",
+    surprised: "surprise",
+    proud: "pride",
+    anxious: "anxiety",
+    disappointed: "disappointment",
+    empathetic: "empathy",
+    compassionate: "compassion"
+};
+
+function resolveEmotionProfile(emotionKey, isSpeakingState) {
+    const rawKey = String(emotionKey || "").toLowerCase().trim();
+    const mappedKey = EMOTION_ALIAS_MAP[rawKey] || rawKey;
+    return UNIVERSAL_EMOTION_PROFILES[mappedKey] ||
+        (isSpeakingState ? UNIVERSAL_EMOTION_PROFILES.talking : UNIVERSAL_EMOTION_PROFILES.idle);
+}
+
+// Auto-fixes GitHub Releases URL (converts /releases/tag/ -> /releases/download/ automatically!)
+function normalizeReleaseUrl(inputUrl) {
+    if (!inputUrl) return "";
+    let clean = inputUrl.trim();
+    if (clean.indexOf("/releases/tag/") !== -1) {
+        clean = clean.replace("/releases/tag/", "/releases/download/");
+    }
+    if (clean.toLowerCase().endsWith(".mp4")) {
+        clean = clean.substring(0, clean.lastIndexOf("/") + 1);
+    }
+    if (clean && !clean.endsWith("/")) {
+        clean += "/";
+    }
+    return clean;
+}
+
+let releaseBaseUrl = normalizeReleaseUrl(localStorage.getItem("papa_release_base_url") || "");
 
 // DOM Elements
 const liveCallBtn = document.getElementById("live-call-btn");
@@ -337,6 +429,11 @@ const camPreviewBox = document.getElementById("cam-preview-box");
 const camModeBadge = document.getElementById("cam-mode-badge");
 const camToggleBtn = document.getElementById("cam-toggle-btn");
 const camFlipBtn = document.getElementById("cam-flip-btn");
+
+const emotionsBtn = document.getElementById("emotions-btn");
+const emotionsPanel = document.getElementById("emotions-panel");
+const emotionsGrid = document.getElementById("emotions-grid");
+
 const familyBtn = document.getElementById("family-btn");
 const familyPanel = document.getElementById("family-panel");
 const familyNameInput = document.getElementById("family-name-input");
@@ -353,8 +450,11 @@ const savedMemoryList = document.getElementById("saved-memory-list");
 
 const releaseBtn = document.getElementById("release-btn");
 const releasePanel = document.getElementById("release-panel");
+const releaseStatusLine = document.getElementById("release-status-line");
 const releaseUrlInput = document.getElementById("release-url-input");
 const saveReleaseBtn = document.getElementById("save-release-btn");
+const videoTestGrid = document.getElementById("video-test-grid");
+const videoDebugUrl = document.getElementById("video-debug-url");
 
 const shareBtn = document.getElementById("share-btn");
 const sharePanel = document.getElementById("share-panel");
@@ -367,32 +467,126 @@ let activeCameraStream = null;
 let isVisionEnabled = true;
 let currentFacingMode = "user";
 let sharedAudioCtx = null;
-let currentVideoState = "";
+let currentEmotionState = "";
 let lastResolvedVideoUrl = "";
 
 // 📞 Master State Locks (Fixes Mic ON/OFF Glitch 100%)
 let isLiveCallActive = false;
-let shouldMicBeActive = false;       // True ONLY when we genuinely want the mic open
+let shouldMicBeActive = false;
 let isPapaSpeakingOrThinking = false;
 let isMicCurrentlyListening = false;
 let isSubmittingSpeech = false;
 let conversationHistory = [];
 let activeTimerInterval = null;
 
-releaseUrlInput.value = releaseBaseUrl;
+// ============================================================================
+// 🎭 BUILD 18 UNIVERSAL HUMAN EMOTIONS INTERACTIVE GRID
+// ============================================================================
+const EIGHTEEN_EMOTION_KEYS = [
+    "happiness", "sadness", "anger", "fear", "surprise", "disgust", "anticipation", "trust",
+    "love", "jealousy", "shame", "guilt", "pride", "hope", "disappointment", "empathy", "compassion", "anxiety"
+];
+
+function render18EmotionsGrid() {
+    emotionsGrid.innerHTML = "";
+    EIGHTEEN_EMOTION_KEYS.forEach(function(emoKey) {
+        const profile = UNIVERSAL_EMOTION_PROFILES[emoKey];
+        const btn = document.createElement("button");
+        btn.className = "emo-chip";
+        btn.innerText = profile.label;
+        btn.style.borderColor = profile.color;
+        btn.addEventListener("click", function() {
+            unlockBrowserAudio();
+            stopSingingHarmoniumDrone();
+            try { papaTtsPlayer.pause(); } catch (e) {}
+            isPapaSpeakingOrThinking = false;
+            submitQueryToPapaAGI(profile.sample, emoKey);
+        });
+        emotionsGrid.appendChild(btn);
+    });
+}
+render18EmotionsGrid();
+
+emotionsBtn.addEventListener("click", function() {
+    emotionsPanel.style.display = emotionsPanel.style.display === "none" ? "block" : "none";
+});
+
+// ============================================================================
+// 🎬 7 RELEASE VIDEOS MANAGER & 1-CLICK DIAGNOSTIC TESTER
+// ============================================================================
+function updateReleaseStatusUI() {
+    releaseUrlInput.value = releaseBaseUrl;
+    if (releaseBaseUrl) {
+        releaseStatusLine.innerText = "✅ Release Link Active: " + releaseBaseUrl;
+        releaseStatusLine.style.color = "#a6e3a1";
+        releaseBtn.innerText = "🎬 7 Videos ✅";
+    } else {
+        releaseStatusLine.innerText = "⚠️ Release Link set nahi hai! Niche paste karke Save karein (ya Vercel me GITHUB_RELEASE_URL dalein).";
+        releaseStatusLine.style.color = "#f38ba8";
+        releaseBtn.innerText = "🎬 7 Videos Fix";
+    }
+}
+
+const SEVEN_NEW_VIDEOS = [
+    { key: "greeting",  title: "1. Greeting" },
+    { key: "listening", title: "2. Listening" },
+    { key: "thinking",  title: "3. Thinking" },
+    { key: "blessing",  title: "4. Blessing" },
+    { key: "happy",     title: "5. Happy Talk" },
+    { key: "laughing",  title: "6. Laughing" },
+    { key: "caring",    title: "7. Caring" }
+];
+
+function renderVideoTestButtons() {
+    videoTestGrid.innerHTML = "";
+    SEVEN_NEW_VIDEOS.forEach(function(vItem) {
+        const btn = document.createElement("button");
+        btn.className = "vid-test-btn";
+        btn.innerText = "▶️ " + vItem.title;
+        btn.addEventListener("click", function() {
+            const fileName = VIDEO_FILENAMES[vItem.key];
+            const testUrl = releaseBaseUrl ? (releaseBaseUrl + fileName) : ("./" + fileName);
+            videoDebugUrl.innerText = "⏳ Testing URL: " + testUrl;
+            videoDebugUrl.style.color = "#ffeb3b";
+
+            // Force direct load test without silent hiding so user sees exact result!
+            currentEmotionState = "";
+            lastResolvedVideoUrl = "";
+            avatarVideo.onerror = function() {
+                avatarVideo.onplaying = null;
+                videoDebugUrl.innerText = "❌ FAILED TO LOAD: " + testUrl + " (Check: 1. Repo Public hai? 2. File name exact '" + fileName + "' hai? 3. Release link sahi hai?)";
+                videoDebugUrl.style.color = "#f38ba8";
+                logRadarEvent("GLITCH", "Video Test Failed: " + testUrl);
+            };
+            avatarVideo.onplaying = function() {
+                videoDebugUrl.innerText = "✅ PLAYING PERFECTLY: " + testUrl;
+                videoDebugUrl.style.color = "#a6e3a1";
+                avatarVideo.onplaying = null;
+            };
+            avatarVideo.pause();
+            avatarVideo.src = testUrl;
+            avatarVideo.load();
+            safePlayVideo(avatarVideo);
+            emotionBadge.innerText = "🧪 Testing: " + fileName;
+        });
+        videoTestGrid.appendChild(btn);
+    });
+}
+renderVideoTestButtons();
+updateReleaseStatusUI();
 
 releaseBtn.addEventListener("click", function() {
-    releaseUrlInput.value = releaseBaseUrl;
+    updateReleaseStatusUI();
     releasePanel.style.display = releasePanel.style.display === "none" ? "block" : "none";
 });
 
 saveReleaseBtn.addEventListener("click", function() {
     releaseBaseUrl = normalizeReleaseUrl(releaseUrlInput.value);
     localStorage.setItem("papa_release_base_url", releaseBaseUrl);
-    releaseUrlInput.value = releaseBaseUrl;
-    logRadarEvent("INFO", "Release Video URL updated: " + (releaseBaseUrl || "Local Mode"));
-    statusText.innerText = "✅ GitHub Releases Video Link Save ho gaya!\n" + (releaseBaseUrl || "(Local Folder Mode)");
-    setAvatarVideoState("greeting", false);
+    updateReleaseStatusUI();
+    logRadarEvent("INFO", "Release Video Base URL saved: " + (releaseBaseUrl || "Local Mode"));
+    statusText.innerText = "✅ 7 Videos Link Save ho gaya! Ab upar '▶️ 1. Greeting' par click karke test karein.";
+    setAvatarEmotionState("greeting", false);
 });
 
 // ============================================================================
@@ -412,7 +606,6 @@ function startSingingHarmoniumDrone() {
         const frequencies = [130.81, 196.00, 261.63, 329.63];
         const masterGain = sharedAudioCtx.createGain();
         masterGain.gain.setValueAtTime(0.001, sharedAudioCtx.currentTime);
-        // Very gentle volume (0.045) so Papa's singing voice remains 100% clear in front
         masterGain.gain.linearRampToValueAtTime(0.045, sharedAudioCtx.currentTime + 0.8);
         masterGain.connect(sharedAudioCtx.destination);
 
@@ -421,10 +614,8 @@ function startSingingHarmoniumDrone() {
             const filter = sharedAudioCtx.createBiquadFilter();
             osc.type = idx % 2 === 0 ? "sine" : "triangle";
             osc.frequency.setValueAtTime(freq, sharedAudioCtx.currentTime);
-
             filter.type = "lowpass";
             filter.frequency.setValueAtTime(420, sharedAudioCtx.currentTime);
-
             osc.connect(filter);
             filter.connect(masterGain);
             osc.start();
@@ -475,7 +666,7 @@ function addNewLongTermMemoryFact(factText) {
 
 function renderLongTermMemoriesUI() {
     const memories = getSavedLongTermMemories();
-    agiMemoryBtn.innerText = "🧠 AGI Memory (" + memories.length + ")";
+    agiMemoryBtn.innerText = "🧠 Memory (" + memories.length + ")";
 
     if (memories.length === 0) {
         savedMemoryList.innerHTML = "<span style='color:#a6adc8;'>Abhi koi permanent memory save nahi hai. Aap bol kar ('Papa yaad rakhna...') ya upar likh kar save kar sakte hain.</span>";
@@ -514,7 +705,7 @@ saveMemoryBtn.addEventListener("click", function() {
 renderLongTermMemoriesUI();
 
 // ============================================================================
-// 🎬 ZERO-FLICKER SAFE VIDEO SWITCHER
+// 🎬 FIXED VIDEO SWITCHER (Uses .load() + 18-Emotion Aura Glow + Smart Fallback!)
 // ============================================================================
 function safePlayVideo(videoEl) {
     const playPromise = videoEl.play();
@@ -523,46 +714,68 @@ function safePlayVideo(videoEl) {
     }
 }
 
-function setAvatarVideoState(stateKey, isSpeakingState) {
-    const fileName = VIDEO_FILENAMES[stateKey] || (isSpeakingState ? VIDEO_FILENAMES.talking : VIDEO_FILENAMES.idle);
-    emotionBadge.innerText = EMOTION_LABELS[stateKey] || EMOTION_LABELS.idle;
+function setAvatarEmotionState(emotionKey, isSpeakingState) {
+    const profile = resolveEmotionProfile(emotionKey, isSpeakingState);
+    const videoKey = profile.videoKey || (isSpeakingState ? "talking" : "idle");
+    const fileName = VIDEO_FILENAMES[videoKey] || (isSpeakingState ? "avatar_talking.mp4" : "avatar_idle.mp4");
 
-    const isBaseLocalVideo = (stateKey === "idle" || stateKey === "talking");
+    // Apply Visual Emotion Badge & Dynamic Emotion Aura Glow (keeps red Live Call border when idle on Live Call)
+    const activeBorderColor = (emotionKey === "idle" && isLiveCallActive) ? "#ff5252" : profile.color;
+    emotionBadge.innerText = profile.label;
+    emotionBadge.style.color = profile.color;
+    avatarBox.style.borderColor = activeBorderColor;
+    avatarBox.style.boxShadow = "0 0 22px " + activeBorderColor + "88";
+
+    const isBaseLocalVideo = (videoKey === "idle" || videoKey === "talking");
     const primaryUrl = (!isBaseLocalVideo && releaseBaseUrl)
         ? (releaseBaseUrl + fileName)
         : ("./" + fileName);
     const localCandidateUrl = "./" + fileName;
     const safeFallbackUrl = isSpeakingState ? "./avatar_talking.mp4" : "./avatar_idle.mp4";
 
-    if (currentVideoState === stateKey && lastResolvedVideoUrl === primaryUrl && !avatarVideo.paused) {
+    if (currentEmotionState === emotionKey && lastResolvedVideoUrl === primaryUrl && !avatarVideo.paused) {
         return;
     }
-    currentVideoState = stateKey;
+    currentEmotionState = emotionKey;
     lastResolvedVideoUrl = primaryUrl;
 
+    // Clear any stale test listener from the 1-Click Video Tester
+    avatarVideo.onplaying = null;
     let triedLocalFallback = false;
 
     avatarVideo.onerror = function() {
         if (!triedLocalFallback && primaryUrl !== localCandidateUrl) {
             triedLocalFallback = true;
+            logRadarEvent("WARN", "Release video failed (" + primaryUrl + "), trying local ./" + fileName);
             lastResolvedVideoUrl = localCandidateUrl;
             avatarVideo.src = localCandidateUrl;
+            avatarVideo.load();
             safePlayVideo(avatarVideo);
             return;
         }
         avatarVideo.onerror = null;
         if (lastResolvedVideoUrl !== safeFallbackUrl) {
+            logRadarEvent("WARN", "Video '" + fileName + "' unavailable -> Fallback to " + safeFallbackUrl + " (Set Public Release Link in 🎬 7 Videos Fix)");
             lastResolvedVideoUrl = safeFallbackUrl;
             avatarVideo.src = safeFallbackUrl;
+            avatarVideo.load();
             safePlayVideo(avatarVideo);
         }
     };
 
+    // CRITICAL FIX: Explicit pause -> src -> load() -> play() fixes frozen video transitions on Mobile & Chrome!
+    avatarVideo.pause();
     avatarVideo.src = primaryUrl;
+    avatarVideo.load();
     safePlayVideo(avatarVideo);
 }
 
-setAvatarVideoState("idle", false);
+// Backward-compatible alias so legacy calls never break
+function setAvatarVideoState(stateKey, isSpeakingState) {
+    return setAvatarEmotionState(stateKey, isSpeakingState);
+}
+
+setAvatarEmotionState("idle", false);
 
 // Verify PIN with Backend on startup
 fetch(BACKEND_API_URL, {
@@ -581,18 +794,18 @@ fetch(BACKEND_API_URL, {
     if (data && data.releaseBaseUrl) {
         releaseBaseUrl = normalizeReleaseUrl(data.releaseBaseUrl);
         localStorage.setItem("papa_release_base_url", releaseBaseUrl);
-        releaseUrlInput.value = releaseBaseUrl;
+        updateReleaseStatusUI();
     }
     if (data && data.autoDiscoveredModels) {
         logRadarEvent("INFO", "Auto-Discovered Gemini Models: " + data.autoDiscoveredModels.join(", "));
     }
-    setAvatarVideoState("greeting", false);
+    setAvatarEmotionState("greeting", false);
     setTimeout(function() {
-        if (currentVideoState === "greeting" && !isPapaSpeakingOrThinking && !shouldMicBeActive) {
-            setAvatarVideoState("idle", false);
+        if (currentEmotionState === "greeting" && !isPapaSpeakingOrThinking && !shouldMicBeActive) {
+            setAvatarEmotionState("idle", false);
         }
-    }, 4200);
-    statusText.innerText = "✅ Universal Papa AGI Ready! (Steady Mic + Singing Mode + Live Call ON)\n'📞 Start Live Call' ya '🎵 गाना सुनें' dabayen!";
+    }, 4500);
+    statusText.innerText = "✅ Papa Universal AGI + 18 Human Emotions Ready! (Steady Mic + Singing Mode + Live Call ON)\n'📞 Start Live Call', '🎭 18 Emotions', '🎵 गाना सुनें', ya '🎬 7 Videos Fix' check karein.";
 })
 .catch(function(err) {
     if (err.message !== "Wrong PIN") {
@@ -946,8 +1159,7 @@ function activateSteadyMicSession(isFreshTurn) {
         liveTranscriptText.innerText = "🎤 आप आराम से पूरी बात बोलिए (माइक चालू और स्थिर है)...";
     }
 
-    setAvatarVideoState("listening", false);
-    avatarBox.style.borderColor = "#ffeb3b";
+    setAvatarEmotionState("listening", false);
 
     if (isLiveCallActive) {
         liveSubtitleBox.innerText = "🎤 आप बोलिए, पापा आपकी पूरी बात ध्यान से सुन रहे हैं...";
@@ -964,7 +1176,7 @@ function activateSteadyMicSession(isFreshTurn) {
     }
 }
 
-async function submitQueryToPapaAGI(queryText) {
+async function submitQueryToPapaAGI(queryText, forceEmotion) {
     const cleanText = String(queryText || "").replace(/\s+/g, " ").trim();
     if (!cleanText) return;
 
@@ -980,12 +1192,11 @@ async function submitQueryToPapaAGI(queryText) {
     logRadarEvent("INFO", "Full user speech sent (" + cleanText.length + " chars): \"" + cleanText + "\"");
 
     try {
-        await processSpeechTurbo(cleanText, cameraFrameBase64);
+        await processSpeechTurbo(cleanText, cameraFrameBase64, forceEmotion || null);
     } catch (error) {
         isPapaSpeakingOrThinking = false;
         stopSingingHarmoniumDrone();
-        setAvatarVideoState("idle", false);
-        avatarBox.style.borderColor = "#0D8ABC";
+        setAvatarEmotionState("idle", false);
         statusText.innerText = "🚨 Error: " + error.message;
         logRadarEvent("GLITCH", "AGI Pipeline Error: " + error.message);
         if (isLiveCallActive) {
@@ -1005,7 +1216,7 @@ async function finalizeAndSubmitUserSpeech() {
     if (isSubmittingSpeech || isPapaSpeakingOrThinking) return;
     const fullUserText = (sessionConfirmedText + " " + currentInterimText).replace(/\s+/g, " ").trim();
     if (!fullUserText) return;
-    await submitQueryToPapaAGI(fullUserText);
+    await submitQueryToPapaAGI(fullUserText, null);
 }
 
 finishSpeechBtn.addEventListener("click", function() {
@@ -1021,7 +1232,7 @@ agiSendBtn.addEventListener("click", function() {
     stopSingingHarmoniumDrone();
     try { papaTtsPlayer.pause(); } catch (e) {}
     isPapaSpeakingOrThinking = false;
-    submitQueryToPapaAGI(textVal);
+    submitQueryToPapaAGI(textVal, null);
 });
 
 agiCommandInput.addEventListener("keydown", function(ev) {
@@ -1045,7 +1256,7 @@ singSongBtn.addEventListener("click", function() {
     isPapaSpeakingOrThinking = false;
     const promptToSing = SONG_REQUEST_PROMPTS[songPromptIdx % SONG_REQUEST_PROMPTS.length];
     songPromptIdx++;
-    submitQueryToPapaAGI(promptToSing);
+    submitQueryToPapaAGI(promptToSing, "singing");
 });
 
 // 📞 Toggle End-to-End Live Video Call Stream
@@ -1060,12 +1271,10 @@ liveCallBtn.addEventListener("click", function() {
         liveStreamBadge.style.display = "block";
         liveSubtitleBox.style.display = "block";
         liveSubtitleBox.innerText = "पापा जुड़ रहे हैं: 'हाँ बेटा बोल...'";
-        avatarBox.style.boxShadow = "0 0 25px rgba(255, 82, 82, 0.7)";
 
         stopMicCompletely();
         isPapaSpeakingOrThinking = true;
-        setAvatarVideoState("greeting", true);
-        avatarBox.style.borderColor = "#4caf50";
+        setAvatarEmotionState("greeting", true);
         statusText.innerText = "🔴 [LIVE AGI CALL STARTED] Papa bol rahe hain...";
         logRadarEvent("INFO", "Live AGI Call mode started.");
 
@@ -1084,9 +1293,7 @@ liveCallBtn.addEventListener("click", function() {
         liveCallBtn.style.borderColor = "#ff5252";
         liveStreamBadge.style.display = "none";
         liveSubtitleBox.style.display = "none";
-        setAvatarVideoState("idle", false);
-        avatarBox.style.borderColor = "#0D8ABC";
-        avatarBox.style.boxShadow = "0 0 15px rgba(13, 138, 188, 0.4)";
+        setAvatarEmotionState("idle", false);
         try { papaTtsPlayer.pause(); } catch (e) {}
         logRadarEvent("INFO", "Live Call mode ended by user.");
         statusText.innerText = "📴 Live Call band kar di gayi hai.\nDubara baat karne ke liye '📞 Start Live Call' ya '🎤 Baat Karo' dabayen.";
@@ -1097,15 +1304,13 @@ liveCallBtn.addEventListener("click", function() {
 micBtn.addEventListener("click", function() {
     unlockBrowserAudio();
 
-    // If mic is already listening, clicking it again finishes speech or stops mic cleanly
     if (shouldMicBeActive) {
         const spokenSoFar = (sessionConfirmedText + " " + currentInterimText).trim();
         if (spokenSoFar) {
             finalizeAndSubmitUserSpeech();
         } else {
             stopMicCompletely();
-            setAvatarVideoState("idle", false);
-            avatarBox.style.borderColor = "#0D8ABC";
+            setAvatarEmotionState("idle", false);
             statusText.innerText = "✅ Mic band kar diya gaya hai. Jab chahein '🎤 Baat Karo' dabayen.";
         }
         return;
@@ -1117,8 +1322,7 @@ micBtn.addEventListener("click", function() {
 
     isPapaSpeakingOrThinking = true;
     statusText.innerText = "Papa bol rahe hain...";
-    setAvatarVideoState("talking", true);
-    avatarBox.style.borderColor = "#4caf50";
+    setAvatarEmotionState("talking", true);
 
     haBetaBolAudio.play().catch(function() {
         isPapaSpeakingOrThinking = false;
@@ -1191,8 +1395,7 @@ if (recognition) {
             liveTranscriptBar.style.display = "none";
             micBtn.innerText = "🎤 Baat Karo";
             micBtn.style.background = "#0D8ABC";
-            setAvatarVideoState("idle", false);
-            avatarBox.style.borderColor = "#0D8ABC";
+            setAvatarEmotionState("idle", false);
         }
     };
 
@@ -1213,18 +1416,24 @@ if (recognition) {
 }
 
 // ============================================================================
-// 🔊 Shared Audio Playback Helper (Plays Emotion Video + Singing Harmonium Backing!)
+// 🔊 Audio Playback Helper (18-Emotion Video + Aura + Emotional Voice Pacing + Harmonium!)
 // ============================================================================
 function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey) {
     const arrayBuffer = base64ToArrayBuffer(audioBase64);
     const blob = new Blob([arrayBuffer], { type: "audio/wav" });
     const audioUrl = URL.createObjectURL(blob);
     const activeEmotion = emotionKey || "talking";
+    const profile = resolveEmotionProfile(activeEmotion, true);
 
     return new Promise(function(resolve) {
         function startAvatarTalking() {
             isPapaSpeakingOrThinking = true;
             stopMicCompletely();
+
+            // Apply subtle emotional voice pacing (calmer for sadness/compassion, lively for happiness/surprise)
+            try {
+                papaTtsPlayer.playbackRate = profile.rate || 1.0;
+            } catch (e) {}
 
             // 🎵 If Papa is singing, start soft Harmonium/Tanpura background music!
             if (activeEmotion === "singing") {
@@ -1234,20 +1443,16 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
             }
 
             if (isLiveCallActive) {
-                liveSubtitleBox.innerText = (activeEmotion === "singing" ? "🎵 पापा गा रहे हैं: " : "पापा: ") + aiText;
+                liveSubtitleBox.innerText = profile.label + ": " + aiText;
             }
-            statusText.innerText =
-                (activeEmotion === "singing" ? "🎵 Papa gaana ga rahe hain [" : "✅ Papa bol rahe hain [") +
-                engineLabel + "]:\n\"" + aiText + "\"";
-            setAvatarVideoState(activeEmotion, true);
-            avatarBox.style.borderColor = activeEmotion === "singing" ? "#f472b6" : "#4caf50";
+            statusText.innerText = profile.label + " [" + engineLabel + "]:\n\"" + aiText + "\"";
+            setAvatarEmotionState(activeEmotion, true);
         }
 
         function stopAvatarTalking() {
             isPapaSpeakingOrThinking = false;
             stopSingingHarmoniumDrone();
-            setAvatarVideoState("idle", false);
-            avatarBox.style.borderColor = isLiveCallActive ? "#ff5252" : "#0D8ABC";
+            setAvatarEmotionState("idle", false);
             URL.revokeObjectURL(audioUrl);
             resolve();
 
@@ -1274,6 +1479,7 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
                 const decodedBuffer = await sharedAudioCtx.decodeAudioData(arrayBuffer.slice(0));
                 const source = sharedAudioCtx.createBufferSource();
                 source.buffer = decodedBuffer;
+                source.playbackRate.value = profile.rate || 1.0;
                 source.connect(sharedAudioCtx.destination);
                 startAvatarTalking();
                 source.onended = stopAvatarTalking;
@@ -1310,19 +1516,18 @@ function startPapaLiveTimer(secondsTotal, labelText) {
             clearInterval(activeTimerInterval);
             activeTimerInterval = null;
             agiActionText.innerText = "✅ टाइमर पूरा हो गया!";
-            speakPapaReply("बेटा, तुम्हारा समय पूरा हो गया है, अपना काम देख लो।").catch(function() {});
+            speakPapaReply("बेटा, तुम्हारा समय पूरा हो गया है, अपना काम देख लो।", "anticipation").catch(function() {});
         }
     }, 1000);
 }
 
 // ============================================================================
-// 🚀 1. UNIVERSAL AGI TURBO SINGLE-HOP PIPELINE (Vision + Search + Singing + Actions)
+// 🚀 1. UNIVERSAL AGI TURBO SINGLE-HOP PIPELINE (18 Emotions + Vision + Search + Singing + Actions)
 // ============================================================================
-async function processSpeechTurbo(userText, base64Frame) {
+async function processSpeechTurbo(userText, base64Frame, forceEmotion) {
     isPapaSpeakingOrThinking = true;
     stopMicCompletely();
-    setAvatarVideoState("thinking", false);
-    avatarBox.style.borderColor = "#cba6f7";
+    setAvatarEmotionState("thinking", false);
     agiActionCard.style.display = "none";
     agiActionLink.style.display = "inline-block";
 
@@ -1344,14 +1549,15 @@ async function processSpeechTurbo(userText, base64Frame) {
             currentFacingMode: currentFacingMode,
             savedFaces: savedFaces,
             chatHistory: conversationHistory.slice(-6),
-            longTermMemory: longTermMemory
+            longTermMemory: longTermMemory,
+            forceEmotion: forceEmotion || null
         })
     });
 
     const data = await res.json();
     if (!res.ok || !data.audioBase64) {
         isPapaSpeakingOrThinking = false;
-        setAvatarVideoState("idle", false);
+        setAvatarEmotionState("idle", false);
         throw new Error(data.error || ("Server HTTP " + res.status));
     }
 
@@ -1377,7 +1583,7 @@ async function processSpeechTurbo(userText, base64Frame) {
         const t = data.telemetry;
         logRadarEvent(
             "INFO",
-            "AGI Reply OK in " + t.totalMs + "ms (Brain: " + t.geminiMs + "ms, Voice: " + t.ttsMs + "ms) via " + data.modelUsed
+            "AGI Reply [" + (data.emotion || "talking") + "] in " + t.totalMs + "ms (Brain: " + t.geminiMs + "ms, Voice: " + t.ttsMs + "ms) via " + data.modelUsed
         );
         if (t.skippedAttempts && t.skippedAttempts.length > 0) {
             logRadarEvent("WARN", "Auto-Skipped Models/Keys: " + t.skippedAttempts.join(" | "));
@@ -1402,7 +1608,7 @@ async function processSpeechTurbo(userText, base64Frame) {
 // 🎙️ 2. Standalone TTS Helper (Used for 1-Click Voice Test & Timer Alert)
 // ============================================================================
 async function speakPapaReply(aiText, forceEmotion) {
-    setAvatarVideoState("thinking", false);
+    setAvatarEmotionState("thinking", false);
     statusText.innerText = "Papa: " + aiText + "\n🔄 Awaaz ban rahi hai...";
 
     const res = await fetch(BACKEND_API_URL, {
@@ -1418,7 +1624,7 @@ async function speakPapaReply(aiText, forceEmotion) {
 
     const data = await res.json();
     if (!res.ok || !data.audioBase64) {
-        setAvatarVideoState("idle", false);
+        setAvatarEmotionState("idle", false);
         throw new Error(data.error || "TTS Server Error");
     }
 
@@ -1435,7 +1641,7 @@ testVoiceBtn.addEventListener("click", async function() {
     unlockBrowserAudio();
     testVoiceBtn.disabled = true;
     try {
-        await speakPapaReply("नमस्ते बेटा, अब माइक बिल्कुल स्थिर है और मैं तुम्हारे लिए गाना और भजन भी गा सकता हूँ।");
+        await speakPapaReply("नमस्ते बेटा, अब मैं सभी अठारह मानवीय भावनाओं के साथ तुमसे बात कर सकता हूँ और सदा खुश रहो।", "blessing");
     } catch (err) {
         logRadarEvent("GLITCH", "Voice Test Failed: " + err.message);
         statusText.innerText = "🚨 Voice Test Error: " + err.message;
@@ -1463,11 +1669,16 @@ diagCartesiaBtn.addEventListener("click", async function() {
         }
         if (data.foundWorking && data.audioBase64) {
             statusText.innerText = "🎉 " + data.activeKeyLabel + " 100% ACTIVE!";
-            setAvatarVideoState("blessing", true);
+            setAvatarEmotionState("blessing", true);
             const buf = base64ToArrayBuffer(data.audioBase64);
             const url = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+            // Reset previous chat audio listeners before playing diagnostic sample
+            papaTtsPlayer.onplay = null;
+            papaTtsPlayer.onerror = null;
+            try { papaTtsPlayer.playbackRate = 1.0; } catch (e) {}
             papaTtsPlayer.onended = function() {
-                setAvatarVideoState("idle", false);
+                setAvatarEmotionState("idle", false);
+                URL.revokeObjectURL(url);
             };
             papaTtsPlayer.src = url;
             papaTtsPlayer.play().catch(function() {});
