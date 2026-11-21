@@ -92,7 +92,7 @@
     <canvas id="face-thumb-canvas" style="display: none;"></canvas>
     <audio id="papa-tts-player" playsinline style="display: none;"></audio>
 
-    <!-- Controls Row: Vision, Cam, Parivar, 18 Emotions, AGI Memory, 7 Videos, Share, Bug Radar -->
+    <!-- Controls Row: Vision, Cam, 18 Emotions, Parivar, AGI Memory, 7 Videos Fix, Share, Bug Radar -->
     <div style="display: flex; justify-content: center; gap: 5px; margin-bottom: 12px; flex-wrap: wrap;">
         <button id="cam-toggle-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #4caf50; background: #263829; color: #a6e3a1; font-size: 11px; font-weight: bold; cursor: pointer;">
             👁️ Vision: ON
@@ -120,7 +120,7 @@
         </button>
     </div>
 
-    <!-- 🎭 NEW: 18 Universal Human Emotions Interactive Panel -->
+    <!-- 🎭 18 Universal Human Emotions Interactive Panel -->
     <div id="emotions-panel" style="display: none; background: #121224; border: 1px solid #f472b6; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: left;">
         <div style="font-size: 12.5px; font-weight: bold; color: #f9a8d4; margin-bottom: 6px;">
             🎭 Universal 18 Human Emotions (किसी भी भावना पर क्लिक करके तुरंत टेस्ट करें):
@@ -131,7 +131,7 @@
         <div id="emotions-grid" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
     </div>
 
-    <!-- 🎬 UPDATED: 7 Release Videos Setup + 1-Click Individual Video Tester -->
+    <!-- 🎬 7 Release Videos Setup + 1-Click Individual Video Tester -->
     <div id="release-panel" style="display: none; background: #121224; border: 1px solid #fab387; border-radius: 14px; padding: 14px; margin-bottom: 15px; text-align: left;">
         <div style="font-size: 13px; font-weight: bold; color: #fab387; margin-bottom: 6px;">
             🎬 7 Videos Setup & Live Tester (Fixer):
@@ -162,7 +162,7 @@
             🧠 Papa AGI Permanent Memory (हमेशा याद रहने वाली बातें):
         </div>
         <div style="font-size: 11px; color: #cdd6f4; margin-bottom: 8px;">
-            Yahan parivar ki koi bhi khas baat likhein—Papa ise hamesha yaad rakhenge:
+            Yahan parivar ki koi bhi khas baat likhein (jaise: <b>Amit ka birthday 15 August hai</b> ya <b>Mummy ko subah BP ki dawa leni hai</b>)—Papa ise hamesha yaad rakhenge:
         </div>
         <div style="display: flex; gap: 6px; margin-bottom: 10px;">
             <input id="agi-memory-input" type="text" placeholder="Jaise: Hamare ghar me sabko chai pasand hai..." style="flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #45475a; background: #242438; color: #fff; font-size: 12px;" />
@@ -307,8 +307,8 @@ clearRadarBtn.addEventListener("click", function() {
 });
 
 // ============================================================================
-// 🎭 COMPLETE 18 UNIVERSAL HUMAN EMOTIONS PROFILE MAP
-// Maps every single emotion to: Hindi Label + Video File + Aura Color + Subtle Voice Rate!
+// 🎭 COMPLETE 18 UNIVERSAL HUMAN EMOTIONS PROFILE MAP + COMPATIBLE ALIASES
+// Maps every single emotion to: Hindi Label + Video File + Aura Color + Voice Pacing Rate!
 // ============================================================================
 const BACKEND_API_URL = "/api/papa";
 const RENDER_BASE_URL = "https://papa-voice-cloud.onrender.com";
@@ -322,6 +322,7 @@ const VIDEO_FILENAMES = {
     thinking: "avatar_thinking.mp4",
     blessing: "avatar_blessing.mp4",
     happy: "avatar_talking_happy.mp4",
+    singing: "avatar_talking_happy.mp4",
     laughing: "avatar_laughing.mp4",
     caring: "avatar_caring.mp4"
 };
@@ -358,8 +359,28 @@ const UNIVERSAL_EMOTION_PROFILES = {
     blessing:       { label: "🙌 आशीर्वाद (Blessing)",    videoKey: "blessing",  color: "#f59e0b", rate: 0.97 },
     laughing:       { label: "😄 हँसी-खुशी (Laughing)",   videoKey: "laughing",  color: "#4ade80", rate: 1.03 },
     singing:        { label: "🎵 पापा गाना गा रहे हैं",     videoKey: "happy",     color: "#f472b6", rate: 0.96 },
-    caring:         { label: "❤️ स्नेह और दुलार",          videoKey: "caring",    color: "#f472b6", rate: 0.95 }
+    caring:         { label: "❤️ स्नेह और दुलार (Caring)", videoKey: "caring",   color: "#f472b6", rate: 0.95 }
 };
+
+const EMOTION_ALIAS_MAP = {
+    happy: "happiness",
+    sad: "sadness",
+    angry: "anger",
+    scared: "fear",
+    surprised: "surprise",
+    proud: "pride",
+    anxious: "anxiety",
+    disappointed: "disappointment",
+    empathetic: "empathy",
+    compassionate: "compassion"
+};
+
+function resolveEmotionProfile(emotionKey, isSpeakingState) {
+    const rawKey = String(emotionKey || "").toLowerCase().trim();
+    const mappedKey = EMOTION_ALIAS_MAP[rawKey] || rawKey;
+    return UNIVERSAL_EMOTION_PROFILES[mappedKey] ||
+        (isSpeakingState ? UNIVERSAL_EMOTION_PROFILES.talking : UNIVERSAL_EMOTION_PROFILES.idle);
+}
 
 // Auto-fixes GitHub Releases URL (converts /releases/tag/ -> /releases/download/ automatically!)
 function normalizeReleaseUrl(inputUrl) {
@@ -449,6 +470,7 @@ let sharedAudioCtx = null;
 let currentEmotionState = "";
 let lastResolvedVideoUrl = "";
 
+// 📞 Master State Locks (Fixes Mic ON/OFF Glitch 100%)
 let isLiveCallActive = false;
 let shouldMicBeActive = false;
 let isPapaSpeakingOrThinking = false;
@@ -531,6 +553,7 @@ function renderVideoTestButtons() {
             currentEmotionState = "";
             lastResolvedVideoUrl = "";
             avatarVideo.onerror = function() {
+                avatarVideo.onplaying = null;
                 videoDebugUrl.innerText = "❌ FAILED TO LOAD: " + testUrl + " (Check: 1. Repo Public hai? 2. File name exact '" + fileName + "' hai? 3. Release link sahi hai?)";
                 videoDebugUrl.style.color = "#f38ba8";
                 logRadarEvent("GLITCH", "Video Test Failed: " + testUrl);
@@ -567,7 +590,7 @@ saveReleaseBtn.addEventListener("click", function() {
 });
 
 // ============================================================================
-// 🎵 WEB AUDIO API HARMONIUM / TANPURA MUSICAL BACKING SYNTHESIZER
+// 🎵 WEB AUDIO API HARMONIUM / TANPURA MUSICAL BACKING SYNTHESIZER (For Singing Mode!)
 // ============================================================================
 let singingMusicNodes = [];
 
@@ -579,6 +602,7 @@ function startSingingHarmoniumDrone() {
         if (!sharedAudioCtx) sharedAudioCtx = new AudioCtx();
         if (sharedAudioCtx.state === "suspended") sharedAudioCtx.resume();
 
+        // Warm Indian Sa - Pa - Sa (C3, G3, C4, E4) soft ambient harmonium/tanpura chord
         const frequencies = [130.81, 196.00, 261.63, 329.63];
         const masterGain = sharedAudioCtx.createGain();
         masterGain.gain.setValueAtTime(0.001, sharedAudioCtx.currentTime);
@@ -645,7 +669,7 @@ function renderLongTermMemoriesUI() {
     agiMemoryBtn.innerText = "🧠 Memory (" + memories.length + ")";
 
     if (memories.length === 0) {
-        savedMemoryList.innerHTML = "<span style='color:#a6adc8;'>Abhi koi permanent memory save nahi hai.</span>";
+        savedMemoryList.innerHTML = "<span style='color:#a6adc8;'>Abhi koi permanent memory save nahi hai. Aap bol kar ('Papa yaad rakhna...') ya upar likh kar save kar sakte hain.</span>";
         return;
     }
 
@@ -691,17 +715,16 @@ function safePlayVideo(videoEl) {
 }
 
 function setAvatarEmotionState(emotionKey, isSpeakingState) {
-    const profile = UNIVERSAL_EMOTION_PROFILES[emotionKey] ||
-        (isSpeakingState ? UNIVERSAL_EMOTION_PROFILES.talking : UNIVERSAL_EMOTION_PROFILES.idle);
-
+    const profile = resolveEmotionProfile(emotionKey, isSpeakingState);
     const videoKey = profile.videoKey || (isSpeakingState ? "talking" : "idle");
     const fileName = VIDEO_FILENAMES[videoKey] || (isSpeakingState ? "avatar_talking.mp4" : "avatar_idle.mp4");
 
-    // Apply Visual Emotion Badge & Dynamic Emotion Aura Glow!
+    // Apply Visual Emotion Badge & Dynamic Emotion Aura Glow (keeps red Live Call border when idle on Live Call)
+    const activeBorderColor = (emotionKey === "idle" && isLiveCallActive) ? "#ff5252" : profile.color;
     emotionBadge.innerText = profile.label;
     emotionBadge.style.color = profile.color;
-    avatarBox.style.borderColor = profile.color;
-    avatarBox.style.boxShadow = "0 0 22px " + profile.color + "88";
+    avatarBox.style.borderColor = activeBorderColor;
+    avatarBox.style.boxShadow = "0 0 22px " + activeBorderColor + "88";
 
     const isBaseLocalVideo = (videoKey === "idle" || videoKey === "talking");
     const primaryUrl = (!isBaseLocalVideo && releaseBaseUrl)
@@ -716,6 +739,8 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
     currentEmotionState = emotionKey;
     lastResolvedVideoUrl = primaryUrl;
 
+    // Clear any stale test listener from the 1-Click Video Tester
+    avatarVideo.onplaying = null;
     let triedLocalFallback = false;
 
     avatarVideo.onerror = function() {
@@ -743,6 +768,11 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
     avatarVideo.src = primaryUrl;
     avatarVideo.load();
     safePlayVideo(avatarVideo);
+}
+
+// Backward-compatible alias so legacy calls never break
+function setAvatarVideoState(stateKey, isSpeakingState) {
+    return setAvatarEmotionState(stateKey, isSpeakingState);
 }
 
 setAvatarEmotionState("idle", false);
@@ -775,7 +805,7 @@ fetch(BACKEND_API_URL, {
             setAvatarEmotionState("idle", false);
         }
     }, 4500);
-    statusText.innerText = "✅ Papa Universal AGI + 18 Human Emotions Ready!\n'📞 Start Live Call', '🎭 18 Emotions', ya '🎬 7 Videos Fix' check karein.";
+    statusText.innerText = "✅ Papa Universal AGI + 18 Human Emotions Ready! (Steady Mic + Singing Mode + Live Call ON)\n'📞 Start Live Call', '🎭 18 Emotions', '🎵 गाना सुनें', ya '🎬 7 Videos Fix' check karein.";
 })
 .catch(function(err) {
     if (err.message !== "Wrong PIN") {
@@ -1066,7 +1096,7 @@ function captureCameraFrameBase64() {
 startCamera("user");
 
 // ============================================================================
-// 🎤 ANTI-GLITCH STEADY FULL-SPEECH LISTENER
+// 🎤 ANTI-GLITCH STEADY FULL-SPEECH LISTENER (Never turns ON/OFF randomly!)
 // ============================================================================
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (!SpeechRecognition) {
@@ -1082,8 +1112,8 @@ if (recognition) {
     recognition.maxAlternatives = 1;
 }
 
-const SILENCE_WAIT_MS = 2600;
-let sessionConfirmedText = "";
+const SILENCE_WAIT_MS = 2600; // Waits 2.6 seconds after last spoken word before sending
+let sessionConfirmedText = ""; // Persists across internal browser SpeechRecognition restarts!
 let currentInterimText = "";
 let silenceDebounceTimer = null;
 
@@ -1110,6 +1140,7 @@ function stopMicCompletely() {
     isMicCurrentlyListening = false;
 }
 
+// Opens the mic & keeps it steady without resetting buffers or flickering UI
 function activateSteadyMicSession(isFreshTurn) {
     if (!recognition || isPapaSpeakingOrThinking || isSubmittingSpeech) return;
 
@@ -1149,6 +1180,7 @@ async function submitQueryToPapaAGI(queryText, forceEmotion) {
     const cleanText = String(queryText || "").replace(/\s+/g, " ").trim();
     if (!cleanText) return;
 
+    // Immediately lock mic OFF so it never turns back on while Papa thinks or speaks!
     stopMicCompletely();
     isSubmittingSpeech = true;
     sessionConfirmedText = "";
@@ -1157,7 +1189,7 @@ async function submitQueryToPapaAGI(queryText, forceEmotion) {
     const cameraFrameBase64 = captureCameraFrameBase64();
     const visionTag = cameraFrameBase64 ? (" (👁️ " + (currentFacingMode === "user" ? "Chehra Pehchan" : "Back Cam") + " ON)") : "";
     statusText.innerText = "Tum: \"" + cleanText + "\"\n🤔 Papa AGI soch rahe hain" + visionTag + "...";
-    logRadarEvent("INFO", "Input sent (" + cleanText.length + " chars): \"" + cleanText + "\"");
+    logRadarEvent("INFO", "Full user speech sent (" + cleanText.length + " chars): \"" + cleanText + "\"");
 
     try {
         await processSpeechTurbo(cleanText, cameraFrameBase64, forceEmotion || null);
@@ -1191,6 +1223,7 @@ finishSpeechBtn.addEventListener("click", function() {
     finalizeAndSubmitUserSpeech();
 });
 
+// ⌨️ Universal AGI Direct Text Command Submission
 agiSendBtn.addEventListener("click", function() {
     unlockBrowserAudio();
     const textVal = agiCommandInput.value.trim();
@@ -1267,7 +1300,7 @@ liveCallBtn.addEventListener("click", function() {
     }
 });
 
-// 🎤 Single-Turn Manual Mic Button
+// 🎤 Single-Turn Manual Mic Button (Acts as Steady Start / Finish Toggle!)
 micBtn.addEventListener("click", function() {
     unlockBrowserAudio();
 
@@ -1283,6 +1316,7 @@ micBtn.addEventListener("click", function() {
         return;
     }
 
+    // Stop any ongoing TTS or singing music if user barges in
     stopSingingHarmoniumDrone();
     try { papaTtsPlayer.pause(); } catch (e) {}
 
@@ -1308,6 +1342,7 @@ if (recognition) {
         let newFinalPieces = "";
         let latestInterim = "";
 
+        // Use event.resultIndex so earlier confirmed words are NEVER lost or duplicated!
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const piece = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
@@ -1330,6 +1365,7 @@ if (recognition) {
                 liveSubtitleBox.innerText = "🗣️ तुम बोल रहे हो: \"" + combinedPreview + "\"";
             }
 
+            // Reset 2.6s silence wait timer on every new word spoken
             clearSilenceTimer();
             silenceDebounceTimer = setTimeout(function() {
                 finalizeAndSubmitUserSpeech();
@@ -1340,6 +1376,9 @@ if (recognition) {
     recognition.onend = function() {
         isMicCurrentlyListening = false;
 
+        // ANTI-GLITCH SILENT KEEP-ALIVE:
+        // If Chrome's SpeechRecognition timed out on silence while `shouldMicBeActive` is still true,
+        // silently restart it in 50ms WITHOUT clearing `sessionConfirmedText` or flickering UI!
         if (shouldMicBeActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech) {
             setTimeout(function() {
                 if (shouldMicBeActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech && !isMicCurrentlyListening) {
@@ -1362,9 +1401,12 @@ if (recognition) {
 
     recognition.onerror = function(event) {
         isMicCurrentlyListening = false;
+
+        // Ignore harmless 'no-speech' or 'aborted' events so mic never glitches off
         if (event.error === "no-speech" || event.error === "aborted") {
             return;
         }
+
         logRadarEvent("WARN", "Mic Recognition Warning: " + event.error);
         if (event.error === "not-allowed" || event.error === "service-not-allowed") {
             shouldMicBeActive = false;
@@ -1374,25 +1416,26 @@ if (recognition) {
 }
 
 // ============================================================================
-// 🔊 Audio Playback Helper (18-Emotion Video + Aura + Emotional Voice Pacing!)
+// 🔊 Audio Playback Helper (18-Emotion Video + Aura + Emotional Voice Pacing + Harmonium!)
 // ============================================================================
 function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey) {
     const arrayBuffer = base64ToArrayBuffer(audioBase64);
     const blob = new Blob([arrayBuffer], { type: "audio/wav" });
     const audioUrl = URL.createObjectURL(blob);
     const activeEmotion = emotionKey || "talking";
-    const profile = UNIVERSAL_EMOTION_PROFILES[activeEmotion] || UNIVERSAL_EMOTION_PROFILES.talking;
+    const profile = resolveEmotionProfile(activeEmotion, true);
 
     return new Promise(function(resolve) {
         function startAvatarTalking() {
             isPapaSpeakingOrThinking = true;
             stopMicCompletely();
 
-            // Apply subtle emotional voice pacing (e.g., calmer 0.94x for sadness/compassion, lively 1.04x for happiness/surprise)
+            // Apply subtle emotional voice pacing (calmer for sadness/compassion, lively for happiness/surprise)
             try {
                 papaTtsPlayer.playbackRate = profile.rate || 1.0;
             } catch (e) {}
 
+            // 🎵 If Papa is singing, start soft Harmonium/Tanpura background music!
             if (activeEmotion === "singing") {
                 startSingingHarmoniumDrone();
             } else {
@@ -1455,7 +1498,7 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
 }
 
 // ============================================================================
-// ⏰ LIVE TIMER / ALARM HANDLER
+// ⏰ LIVE TIMER / ALARM HANDLER (When user says "Papa 5 minute ka timer laga do")
 // ============================================================================
 function startPapaLiveTimer(secondsTotal, labelText) {
     if (activeTimerInterval) clearInterval(activeTimerInterval);
@@ -1479,7 +1522,7 @@ function startPapaLiveTimer(secondsTotal, labelText) {
 }
 
 // ============================================================================
-// 🚀 1. UNIVERSAL AGI TURBO SINGLE-HOP PIPELINE (18 Emotions + Vision + Search + Singing)
+// 🚀 1. UNIVERSAL AGI TURBO SINGLE-HOP PIPELINE (18 Emotions + Vision + Search + Singing + Actions)
 // ============================================================================
 async function processSpeechTurbo(userText, base64Frame, forceEmotion) {
     isPapaSpeakingOrThinking = true;
@@ -1518,10 +1561,12 @@ async function processSpeechTurbo(userText, base64Frame, forceEmotion) {
         throw new Error(data.error || ("Server HTTP " + res.status));
     }
 
+    // 1. Save any new permanent family memory
     if (data.newMemoryFact) {
         addNewLongTermMemoryFact(data.newMemoryFact);
     }
 
+    // 2. Execute Autonomous AGI Actions (Timer, YouTube, Maps, WhatsApp, Search)
     if (data.agiAction) {
         if (data.agiAction.type === "SET_TIMER" && data.agiAction.seconds) {
             startPapaLiveTimer(data.agiAction.seconds, data.agiAction.label);
@@ -1533,6 +1578,7 @@ async function processSpeechTurbo(userText, base64Frame, forceEmotion) {
         }
     }
 
+    // 3. Log speed and skipped attempts in Bug Radar
     if (data.telemetry) {
         const t = data.telemetry;
         logRadarEvent(
@@ -1626,8 +1672,13 @@ diagCartesiaBtn.addEventListener("click", async function() {
             setAvatarEmotionState("blessing", true);
             const buf = base64ToArrayBuffer(data.audioBase64);
             const url = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+            // Reset previous chat audio listeners before playing diagnostic sample
+            papaTtsPlayer.onplay = null;
+            papaTtsPlayer.onerror = null;
+            try { papaTtsPlayer.playbackRate = 1.0; } catch (e) {}
             papaTtsPlayer.onended = function() {
                 setAvatarEmotionState("idle", false);
+                URL.revokeObjectURL(url);
             };
             papaTtsPlayer.src = url;
             papaTtsPlayer.play().catch(function() {});
