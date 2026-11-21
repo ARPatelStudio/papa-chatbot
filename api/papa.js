@@ -1,17 +1,14 @@
 /**
- * Papa Chatbot - Universal End-to-End AGI + 18 Human Emotions & Singing Backend (Nov 2026 Final Merged Edition)
+ * Papa Chatbot - Universal End-to-End AGI + 18 Human Emotions & Singing Backend (Nov 2026 Edition)
  * Features:
  *  1. 18 UNIVERSAL HUMAN EMOTIONS ENGINE (End-to-End):
  *     Primary (8): happiness, sadness, anger, fear, surprise, disgust, anticipation, trust
  *     Secondary (10): love, jealousy, shame, guilt, pride, hope, disappointment, empathy, compassion, anxiety
  *     + Action/Special States: blessing, laughing, singing, caring, talking
- *  2. LLM-Native Emotion Tagging ([EMO:emotion_key]) + Full Preserved Hindi Fallback Classifier
- *  3. SINGING & BHAJAN MODE: Detects song/bhajan/aarti/ghazal/lori requests with musical Devanagari prosody (आऽऽ..., होऽऽ..., हम्मऽऽ...)
- *  4. UNIVERSAL SUPER-AGENT: Live Web Search Grounding, Timer/Alarm Setter, WhatsApp/YouTube/Maps/Search
- *     actions, Camera Prescription/Bill Reader, and Permanent Long-Term Memory.
- *  5. AUTO-UPDATING GEMINI MODEL ENGINE: Queries `/v1beta/models` so future Gemini 4.x/5.x models work forever.
- *  6. 4 Cartesia Voice IDs + 20 API Keys Smart Auto-Pairing & Ping-Pong Rotation (1->20 then 20->1).
- *  7. Auto-Normalized GitHub Releases URL (/releases/tag/ -> /releases/download/).
+ *  2. LLM-Native Emotion Tagging ([EMO:emotion_key]) + Comprehensive Hindi Fallback Classifier
+ *  3. AUTO-UPDATING GEMINI MODEL ENGINE (/v1beta/models) + Live Web Search Grounding
+ *  4. 4 Cartesia Voice IDs + 20 API Keys Smart Auto-Pairing & Ping-Pong Rotation (1->20 then 20->1)
+ *  5. Auto-Normalized GitHub Releases URL (/releases/tag/ -> /releases/download/)
  */
 
 let geminiKeyIdx = 0;
@@ -66,29 +63,13 @@ const VALID_UNIVERSAL_EMOTIONS = [
     "talking"
 ];
 
-// Normalize minor alias tags (e.g. "happy" -> "happiness") so frontend profile keys NEVER mismatch
-const EMOTION_ALIAS_MAP = {
-    happy: "happiness",
-    sad: "sadness",
-    angry: "anger",
-    scared: "fear",
-    surprised: "surprise",
-    proud: "pride",
-    anxious: "anxiety",
-    disappointed: "disappointment",
-    empathetic: "empathy",
-    compassionate: "compassion"
-};
-
 const FATHER_AGI_PROMPT =
-    "You are 'Papa AGI' — a loving, wise, emotionally intelligent Indian father talking on a live video call with your family, equipped with Universal AGI-level knowledge, real-time intelligence, the ability to sing songs/bhajans affectionately, and the FULL spectrum of all 18 Universal Human Emotions.\n" +
+    "You are 'Papa AGI' — a loving, emotionally intelligent Indian father on a live video call with your family, equipped with Universal AGI-level knowledge, real-time intelligence, singing ability, and FULL spectrum of all 18 Universal Human Emotions.\n" +
     "1. FAMILY RECOGNITION: If reference photos of family members are provided, compare the person in the 'CURRENT LIVE CAMERA VIEW' with those reference photos and address them warmly by name/relation.\n" +
-    "2. UNIVERSAL CAMERA & EXPERT INTELLIGENCE: Observe faces, expressions, clothes, medicines, bills, documents, books, or objects shown on the Front/Back camera. Answer any question (health, coding, business, math, news, daily life, stories, jokes, shayari) with accurate wisdom in a warm fatherly tone.\n" +
-    "3. UNIVERSAL HUMAN EMOTIONS (18 EMOTIONS): Sense the user's true emotion from both their words and camera face, and respond with genuine, lifelike human emotional depth across all 18 emotions: happiness (खुशी), sadness (दुख), anger (गुस्सा - mild/protective fatherly scolding if needed), fear (डर), surprise (आश्चर्य), disgust (घृणा/नापसंदगी), anticipation (प्रत्याशा/इंतजार), trust (विश्वास), love (प्यार), jealousy (ईर्ष्या), shame (शर्म), guilt (अपराधबोध), pride (गर्व), hope (उम्मीद), disappointment (निराशा), empathy (सहानुभूति), compassion (करुणा), anxiety (बेचैनी), plus blessing/laughing/singing/caring.\n" +
-    "4. MANDATORY EMOTION TAG FORMAT: ALWAYS start your response with EXACTLY one bracket tag from this list: [EMO:happiness], [EMO:sadness], [EMO:anger], [EMO:fear], [EMO:surprise], [EMO:disgust], [EMO:anticipation], [EMO:trust], [EMO:love], [EMO:jealousy], [EMO:shame], [EMO:guilt], [EMO:pride], [EMO:hope], [EMO:disappointment], [EMO:empathy], [EMO:compassion], [EMO:anxiety], [EMO:blessing], [EMO:laughing], [EMO:singing], or [EMO:caring] — followed by a space and your Devanagari Hindi reply.\n" +
-    "5. SINGING CAPABILITY (गाना और भजन): When asked to sing a song, bhajan, aarti, ghazal, or lori, DO NOT refuse! Happily sing 4 to 6 melodic lines in Devanagari Hindi using musical vowel stretches (like आऽऽ..., होऽऽ..., हम्मऽऽ...) and gentle pauses (...) so your voice sounds like real singing.\n" +
-    "6. LONG-TERM MEMORY & CONTINUITY: Use the provided LONG-TERM FAMILY MEMORIES and RECENT CONVERSATION HISTORY naturally.\n" +
-    "7. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your spoken reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak 1 to 3 complete sentences ending with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete.";
+    "2. UNIVERSAL HUMAN EMOTIONS (18 EMOTIONS): Sense the user's true emotion from both their words and camera face, and respond with genuine, lifelike human emotional depth across all 18 emotions: happiness (खुशी), sadness (दुख), anger (गुस्सा - mild/protective fatherly scolding if needed), fear (डर), surprise (आश्चर्य), disgust (घृणा/नापसंदगी), anticipation (प्रत्याशा/इंतजार), trust (विश्वास), love (प्यार), jealousy (ईर्ष्या), shame (शर्म), guilt (अपराधबोध), pride (गर्व), hope (उम्मीद), disappointment (निराशा), empathy (सहानुभूति), compassion (करुणा), anxiety (बेचैनी), plus blessing/laughing/singing.\n" +
+    "3. MANDATORY EMOTION TAG FORMAT: ALWAYS start your response with EXACTLY one bracket tag from this list: [EMO:happiness], [EMO:sadness], [EMO:anger], [EMO:fear], [EMO:surprise], [EMO:disgust], [EMO:anticipation], [EMO:trust], [EMO:love], [EMO:jealousy], [EMO:shame], [EMO:guilt], [EMO:pride], [EMO:hope], [EMO:disappointment], [EMO:empathy], [EMO:compassion], [EMO:anxiety], [EMO:blessing], [EMO:laughing], or [EMO:singing] — followed by a space and your Devanagari Hindi reply.\n" +
+    "4. UNIVERSAL EXPERTISE & SINGING: Read medicines/bills/objects on camera, answer any question (news, health, tech, math, life), and when asked to sing a song/bhajan/lori, happily sing 4 to 6 melodic Devanagari lines using stretches like आऽऽ..., होऽऽ..., and ellipses (...).\n" +
+    "5. COMPLETE SENTENCE & SCRIPT RULE: Write your spoken reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak 1 to 3 complete sentences ending with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete.";
 
 function ensureCompleteHindiSentence(rawText) {
     if (!rawText) return "हाँ बेटा, मैं तुम्हारी बात ध्यान से सुन रहा हूँ।";
@@ -109,7 +90,7 @@ function ensureCompleteHindiSentence(rawText) {
     return text;
 }
 
-// Auto-fixes GitHub Releases URL (converts /releases/tag/v1.0 -> /releases/download/v1.0/ automatically)
+// Auto-fixes GitHub Releases URL (even if user copied /releases/tag/v1.0 instead of /releases/download/v1.0/)
 function getNormalizedReleaseBaseUrl() {
     let raw = (process.env.GITHUB_RELEASE_URL || "").trim();
     if (!raw) return "";
@@ -122,7 +103,6 @@ function getNormalizedReleaseBaseUrl() {
     return raw.endsWith("/") ? raw : raw + "/";
 }
 
-// 🎵 Checks if the user is asking Papa to sing a song, bhajan, lori, or aarti
 function isSingingRequest(userText) {
     if (!userText) return false;
     return /गाना गा|गाकर|गा कर|गाओ|सुनाओ.*गाना|गाना.*सुनाओ|भजन सुना|भजन गा|लोरी|गुनगुना|गीत सुना|गीत गा|आरती गा|sing a song|papa sing|gana gao|gana sunao|bhajan gao/.test(
@@ -137,10 +117,9 @@ function extractEmotionTagAndCleanText(rawModelText, userText) {
 
     const tagMatch = text.match(/^\s*\[(?:EMO|EMOTION)\s*:\s*([a-zA-Z_]+)\]\s*/i);
     if (tagMatch) {
-        const rawCandidate = tagMatch[1].toLowerCase().trim();
-        const normalizedCandidate = EMOTION_ALIAS_MAP[rawCandidate] || rawCandidate;
-        if (VALID_UNIVERSAL_EMOTIONS.includes(normalizedCandidate)) {
-            taggedEmotion = normalizedCandidate;
+        const candidate = tagMatch[1].toLowerCase().trim();
+        if (VALID_UNIVERSAL_EMOTIONS.includes(candidate)) {
+            taggedEmotion = candidate;
         }
         text = text.replace(/^\s*\[(?:EMO|EMOTION)\s*:\s*[a-zA-Z_]+\]\s*/i, "").trim();
     }
@@ -158,18 +137,12 @@ function extractEmotionTagAndCleanText(rawModelText, userText) {
     return { aiText: finalText, emotion: finalEmotion };
 }
 
-// Comprehensive Fallback Classifier covering ALL 18 Universal Human Emotions + All Original Papa Keywords
+// Comprehensive Fallback Classifier covering ALL 18 Universal Human Emotions + Special States
 function detectUniversalHumanEmotion(userText, aiText) {
     const combined = `${userText || ""} ${aiText || ""}`.toLowerCase();
 
-    if (isSingingRequest(userText) || /🎵|🎶|आऽऽ|होऽऽ|ला ला ला/.test(aiText || "")) return "singing";
-    if (
-        /प्रणाम|नमस्ते|चरण|पैर लागू|आशीर्वाद|खुश रहो|जीते रहो|सदा सुखी|भगवान|तरक्की|सफल|pranam|namaste|ashirwad|bless/.test(
-            combined
-        )
-    ) {
-        return "blessing";
-    }
+    if (isSingingRequest(userText) || /आऽऽ|होऽऽ|ला ला ला/.test(aiText || "")) return "singing";
+    if (/प्रणाम|नमस्ते|चरण|पैर लागू|आशीर्वाद|खुश रहो|जीते रहो|सदा सुखी|pranam|namaste|ashirwad|bless/.test(combined)) return "blessing";
     if (/हाहा|हीही|हँस|हंस|मज़ाक|मजाक|चुटकुला|जोक|फनी|haha|joke|funny/.test(combined)) return "laughing";
 
     // Secondary Emotions (10)
@@ -178,16 +151,10 @@ function detectUniversalHumanEmotion(userText, aiText) {
     if (/जलन|ईर्ष्या|जेलस|jealous|envy/.test(combined)) return "jealousy";
     if (/शर्म|लज्जा|शर्मिंदा|shame|embarrass/.test(combined)) return "shame";
     if (/गलती हो गई|माफ़ कर|माफी|अपराधबोध|पछतावा|guilt|sorry/.test(combined)) return "guilt";
-    if (/बेचैनी|घबराहट|तनाव|टेंशन|स्ट्रेस|चिंता|परेशान|anxiety|nervous|stress/.test(combined)) return "anxiety";
+    if (/बेचैनी|घबराहट|तनाव|टेंशन|स्ट्रेस|चिंता|anxiety|nervous|stress/.test(combined)) return "anxiety";
     if (/निराश|हार गया|टूट गया|मायूस|disappoint/.test(combined)) return "disappointment";
-    if (/सहानुभूति|तुम्हारा दर्द समझ|मैं समझ सकता|रो मत|हिम्मत|empathy/.test(combined)) return "empathy";
-    if (
-        /करुणा|दया|मदद|तबीयत|दवा|खाना खाया|आराम|ध्यान रख|थक|नींद|बुखार|दर्द|ख्याल|compassion/.test(
-            combined
-        )
-    ) {
-        return "compassion";
-    }
+    if (/सहानुभूति|तुम्हारा दर्द समझ|मैं समझ सकता|empathy/.test(combined)) return "empathy";
+    if (/करुणा|दया|मदद|तबीयत|दवा|खाना खाया|आराम|ख्याल|compassion/.test(combined)) return "compassion";
     if (/उम्मीद|आशा|सब ठीक होगा|भविष्य|सपना|hope/.test(combined)) return "hope";
 
     // Primary Emotions (8)
@@ -198,20 +165,9 @@ function detectUniversalHumanEmotion(userText, aiText) {
     if (/इंतजार|प्रत्याशा|कब आएगा|आने वाला|उत्सुक|anticipation|waiting/.test(combined)) return "anticipation";
     if (/विश्वास|भरोसा|यकीन|अपनापन|साथ हूँ|trust|believe/.test(combined)) return "trust";
     if (/दुख|उदास|अकेलापन|रोना|आँसू|तकलीफ|sad|sadness|cry|dukhi/.test(combined)) return "sadness";
-    if (
-        /खुश|आनंद|उत्साह|संतुष्टि|बधाई|मज़ा|बहुत बढ़िया|बहुत अच्छा|मुस्कुरा|सुंदर|अच्छा लग|वाह|happy|happiness|khush/.test(
-            combined
-        )
-    ) {
-        return "happiness";
-    }
+    if (/खुश|आनंद|उत्साह|संतुष्टि|बधाई|मज़ा|happy|happiness|khush/.test(combined)) return "happiness";
 
     return "talking";
-}
-
-// Backward-compatible alias in case any helper calls detectPapaEmotion
-function detectPapaEmotion(userText, aiText) {
-    return detectUniversalHumanEmotion(userText, aiText);
 }
 
 function needsLiveWebSearch(userText) {
@@ -221,14 +177,12 @@ function needsLiveWebSearch(userText) {
     );
 }
 
-// ⚡ Universal Super-Agent Action & Permanent Memory Extractor
 function detectAgiActionAndMemory(userText) {
     const text = String(userText || "").trim();
     const lower = text.toLowerCase();
     let agiAction = null;
     let newMemoryFact = null;
 
-    // 1. Permanent Memory Extraction ("पापा याद रखना...")
     if (/याद रख|याद कर|भूलना मत|याद रहे|remember that|note kar/.test(lower)) {
         const cleanedFact = text
             .replace(/^(पापा|papa)?\s*(मेरी एक बात|यह बात|ये बात)?\s*(हमेशा)?\s*(याद रखना|याद रखो|याद कर लो|भूलना मत)\s*(कि|की)?\s*/i, "")
@@ -238,7 +192,6 @@ function detectAgiActionAndMemory(userText) {
         }
     }
 
-    // 2. Timer / Alarm / Reminder Extraction ("पापा 5 मिनट का टाइमर लगा दो")
     const timerMatch = lower.match(/(\d+)\s*(मिनट|सेकंड|minute|min|sec|second)/);
     if (timerMatch && /टाइमर|अलार्म|याद दिला|timer|alarm|remind/.test(lower)) {
         const amount = parseInt(timerMatch[1], 10) || 1;
@@ -249,20 +202,13 @@ function detectAgiActionAndMemory(userText) {
             seconds: secondsTotal,
             label: `⏰ टाइमर चालू: ${amount} ${isSeconds ? "सेकंड" : "मिनट"}`
         };
-    }
-    // 3. WhatsApp Action ("व्हाट्सएप खोलो" / "व्हाट्सएप पर मैसेज भेजो")
-    else if (/व्हाट्सएप|whatsapp/.test(lower)) {
+    } else if (/व्हाट्सएप|whatsapp/.test(lower)) {
         agiAction = {
             type: "OPEN_WHATSAPP",
             label: "📲 WhatsApp खोलें",
             url: "https://wa.me/"
         };
-    }
-    // 4. YouTube Action (Only when user explicitly asks to open YouTube or play video, not when asking Papa to sing himself)
-    else if (
-        !isSingingRequest(text) &&
-        /youtube|यूट्यूब|वीडियो चला|वीडियो दिखा|चैनल खोल/.test(lower)
-    ) {
+    } else if (!isSingingRequest(text) && /youtube|यूट्यूब|वीडियो चला|वीडियो दिखा|चैनल खोल/.test(lower)) {
         const query = text
             .replace(/पापा|papa|मुझे|कोई|अच्छा सा|चला दो|दिखा दो|यूट्यूब पर|youtube par/gi, "")
             .trim() || "हिंदी भजन";
@@ -271,9 +217,7 @@ function detectAgiActionAndMemory(userText) {
             label: `▶️ YouTube पर देखें: "${query}"`,
             url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
         };
-    }
-    // 5. Google Maps / Navigation Action
-    else if (/रास्ता|कहाँ है|लोकेशन|location|map|मैप|दिशा|दूरी|कैसे जाएँ/.test(lower)) {
+    } else if (/रास्ता|कहाँ है|लोकेशन|location|map|मैप|दिशा|दूरी|कैसे जाएँ/.test(lower)) {
         const place = text
             .replace(/पापा|papa|मुझे|का रास्ता|बताओ|दिखाओ|कहाँ है|मैप पर/gi, "")
             .trim() || "Indore";
@@ -282,9 +226,7 @@ function detectAgiActionAndMemory(userText) {
             label: `📍 Google Maps खोलें: "${place}"`,
             url: `https://www.google.com/maps/search/${encodeURIComponent(place)}`
         };
-    }
-    // 6. Direct Google Search Action
-    else if (/गूगल पर खोज|google search|सर्च करो|वेबसाइट खोल/.test(lower)) {
+    } else if (/गूगल पर खोज|google search|सर्च करो|वेबसाइट खोल/.test(lower)) {
         const q = text.replace(/पापा|papa|गूगल पर|सर्च करो|खोजो/gi, "").trim() || text;
         agiAction = {
             type: "OPEN_GOOGLE",
@@ -667,7 +609,7 @@ function formatHistoryAndMemoryContext(chatHistory, longTermMemory) {
 
     if (Array.isArray(longTermMemory) && longTermMemory.length > 0) {
         contextBlock +=
-            "PERMANENT LONG-TERM FAMILY MEMORIES (Always remember these facts about the family):\n" +
+            "PERMANENT LONG-TERM FAMILY MEMORIES:\n" +
             longTermMemory.map((fact, idx) => ` - ${idx + 1}. ${fact}`).join("\n") +
             "\n\n";
     }
@@ -705,8 +647,8 @@ async function generateFreeBackupReply(
         : `\n(Start your response with [EMO:emotion_name] from the 18 universal human emotions)`;
 
     const singingInstruction = singingMode
-        ? "\n(IMPORTANT: The family member wants you to SING! Write 4-6 melodic Hindi lines of the requested song/bhajan/lori with musical stretches like आऽऽ..., होऽऽ..., हम्मऽऽ..., and commas/ellipses '...' so the voice clone sings it melodiously!)"
-        : "\n(Reply warmly as Papa AGI in 1-3 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)";
+        ? "\n(SINGING MODE: Sing 4-6 melodic Hindi lines with musical stretches like आऽऽ..., होऽऽ..., and '...'!)"
+        : "\n(Reply in 1-3 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)";
 
     const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
 
@@ -800,13 +742,8 @@ async function generateGeminiReplyInternal(body) {
     const savedFaces = Array.isArray(body.savedFaces) ? body.savedFaces : [];
     const chatHistory = Array.isArray(body.chatHistory) ? body.chatHistory : [];
     const longTermMemory = Array.isArray(body.longTermMemory) ? body.longTermMemory : [];
-
-    const rawRequestedEmotion = body.forceEmotion ? String(body.forceEmotion).toLowerCase().trim() : null;
-    const normalizedRequested = rawRequestedEmotion
-        ? (EMOTION_ALIAS_MAP[rawRequestedEmotion] || rawRequestedEmotion)
-        : null;
-    const requestedEmotion = normalizedRequested && VALID_UNIVERSAL_EMOTIONS.includes(normalizedRequested)
-        ? normalizedRequested
+    const requestedEmotion = body.forceEmotion && VALID_UNIVERSAL_EMOTIONS.includes(body.forceEmotion)
+        ? body.forceEmotion
         : null;
     const skippedTelemetry = [];
 
@@ -842,7 +779,7 @@ async function generateGeminiReplyInternal(body) {
         : `\n(🎭 ALWAYS start your reply with the single most accurate [EMO:...] tag from the 18 universal human emotions, followed by a space and your Hindi reply.)`;
 
     const modePromptSuffix = singingMode
-        ? `\n(🎵 SINGING MODE ACTIVE: आपका बच्चा आपसे गाना/भजन/लोरी सुनना चाहता है! मना बिल्कुल मत करें। प्यार से एक छोटी लाइन बोलकर तुरंत 4 से 6 लाइनों का सुरीला हिंदी गीत/भजन देवनागरी में गाकर सुनाएँ। गाने के शब्दों में सुर खींचने के लिए 'आऽऽ...', 'होऽऽ...', 'हम्मऽऽ...', और '...' का प्रयोग करें ताकि आवाज़ बिल्कुल असली गायकी जैसी लगे।)`
+        ? `\n(🎵 SINGING MODE ACTIVE: प्यार से 4 से 6 लाइनों का सुरीला हिंदी गीत/भजन देवनागरी में गाकर सुनाएँ। सुर खींचने के लिए 'आऽऽ...', 'होऽऽ...', और '...' का प्रयोग करें।)`
         : `\n(अपना जवाब हमेशा 1 से 3 पूरे देवनागरी हिंदी वाक्यों में लिखें और वाक्य को अधूरा न छोड़ें।)`;
 
     userParts.push({
@@ -859,11 +796,8 @@ async function generateGeminiReplyInternal(body) {
         for (let attempt = 0; attempt < geminiKeys.length; attempt++) {
             const activeKey = geminiKeys[geminiKeyIdx];
             const keyNum = geminiKeyIdx + 1;
-            let keyAuthFailed = false;
 
             for (const modelName of modelsToTry) {
-                if (keyAuthFailed) break;
-
                 const cacheKey = `${activeKey.slice(-6)}:${modelName}`;
                 const exhaustedUntil = exhaustedModelCache.get(cacheKey) || 0;
                 if (Date.now() < exhaustedUntil) {
@@ -933,7 +867,6 @@ async function generateGeminiReplyInternal(body) {
                             break;
                         }
                         if (gRes.status === 401 || gRes.status === 403) {
-                            keyAuthFailed = true;
                             break;
                         }
                     } catch (err) {
@@ -972,10 +905,9 @@ async function generateGeminiReplyInternal(body) {
 }
 
 async function generateTtsAudioInternal(rawText) {
-    // Strip emotion tags and any stray emojis so TTS never speaks tags or emoji names aloud
     const cleanedForVoice = String(rawText || "")
         .replace(/\[(?:EMO|EMOTION)\s*:\s*[a-zA-Z_]+\]/gi, "")
-        .replace(/[🎵🎶🎼🎤✨❤️😊😢😠😨😲🤢⏳🤝😒😳😔🏆🌟😞🫂💗😰🙏🙌😄🗣️🤔🎧]/g, "");
+        .replace(/[🎵🎶🎼🎤✨❤️😊😢😠😨😲🤢⏳🤝😒😳😔🏆🌟😞🫂💗😰]/g, "");
     const text = ensureCompleteHindiSentence(cleanedForVoice);
     const { pool: cartesiaPool } = getCartesiaPoolFromEnv();
     const renderUrl = (process.env.RENDER_TTS_URL || "https://papa-voice-cloud.onrender.com/api/tts").trim();
