@@ -1,17 +1,16 @@
 /**
- * Papa Chatbot - Universal End-to-End AGI + 18 Human Emotions & Singing Backend (Nov 2026 Final Merged Edition)
+ * Papa Chatbot - Universal End-to-End AGI + 18 Human Emotions & Quota-Resilient Backend (Nov 2026 Final Merged Edition)
  * Features:
- *  1. 18 UNIVERSAL HUMAN EMOTIONS ENGINE (End-to-End):
+ *  1. QUOTA-SMART GEMINI RANKING: Prioritizes high-quota `flash-lite` & `flash` models BEFORE low-quota flagship models.
+ *  2. 65-SECOND RPM COOLDOWN + TIMEOUT GUARD: Fixes 20-minute 429 lockouts, misleading error text & Vercel 504 timeouts.
+ *  3. 3-LAYER UNBREAKABLE BACKUP: Multi-Key Groq Pool -> Pollinations (Vision + Text-Only Retry) -> 18-Emotion Offline Shield.
+ *  4. 18 UNIVERSAL HUMAN EMOTIONS ENGINE (End-to-End):
  *     Primary (8): happiness, sadness, anger, fear, surprise, disgust, anticipation, trust
  *     Secondary (10): love, jealousy, shame, guilt, pride, hope, disappointment, empathy, compassion, anxiety
  *     + Action/Special States: blessing, laughing, singing, caring, talking
- *  2. LLM-Native Emotion Tagging ([EMO:emotion_key]) + Full Preserved Hindi Fallback Classifier
- *  3. SINGING & BHAJAN MODE: Detects song/bhajan/aarti/ghazal/lori requests with musical Devanagari prosody (आऽऽ..., होऽऽ..., हम्मऽऽ...)
- *  4. UNIVERSAL SUPER-AGENT: Live Web Search Grounding, Timer/Alarm Setter, WhatsApp/YouTube/Maps/Search
- *     actions, Camera Prescription/Bill Reader, and Permanent Long-Term Memory.
- *  5. AUTO-UPDATING GEMINI MODEL ENGINE: Queries `/v1beta/models` so future Gemini 4.x/5.x models work forever.
+ *  5. SINGING & BHAJAN MODE + LIVE GOOGLE SEARCH + SUPER-AGENT ACTIONS (Memory, Timer, WhatsApp, YouTube, Maps, Search).
  *  6. 4 Cartesia Voice IDs + 20 API Keys Smart Auto-Pairing & Ping-Pong Rotation (1->20 then 20->1).
- *  7. Auto-Normalized GitHub Releases URL (/releases/tag/ -> /releases/download/).
+ *  7. Auto-Normalized GitHub Releases URL (/releases/tag/ -> /releases/download/ + comma-safe parser).
  */
 
 let geminiKeyIdx = 0;
@@ -20,21 +19,25 @@ let geminiKeyDir = 1; // 1 = Forward (1->5), -1 = Reverse (5->1)
 let cartesiaKeyIdx = 0;
 let cartesiaKeyDir = 1; // 1 = Forward (1->20), -1 = Reverse (20->1)
 
+let groqKeyIdx = 0;
+
 const exhaustedModelCache = new Map();
 const keyVoiceLockCache = new Map();
 
 let cachedDiscoveredModels = null;
 let lastModelDiscoveryTime = 0;
 
+// High-quota Flash-Lite & Flash models placed FIRST to minimize HTTP 429 rate limits
 const NOV_2026_ACTIVE_MODELS = [
     "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
     "gemini-3.8-flash",
+    "gemini-3.6-flash",
+    "gemini-flash-lite-latest",
+    "gemini-flash-latest",
     "gemini-4-hydrogen",
     "gemini-4-argon",
-    "gemini-4-carbon",
-    "gemini-flash-lite-latest",
-    "gemini-flash-latest"
+    "gemini-4-carbon"
 ];
 
 const VALID_UNIVERSAL_EMOTIONS = [
@@ -109,10 +112,13 @@ function ensureCompleteHindiSentence(rawText) {
     return text;
 }
 
-// Auto-fixes GitHub Releases URL (converts /releases/tag/v1.0 -> /releases/download/v1.0/ automatically)
+// Auto-fixes GitHub Releases URL (handles comma-pasted lists, /releases/tag/ -> /releases/download/, and .mp4 filenames)
 function getNormalizedReleaseBaseUrl() {
     let raw = (process.env.GITHUB_RELEASE_URL || "").trim();
     if (!raw) return "";
+    if (raw.includes(",")) {
+        raw = raw.split(",")[0].trim();
+    }
     if (raw.includes("/releases/tag/")) {
         raw = raw.replace("/releases/tag/", "/releases/download/");
     }
@@ -327,8 +333,32 @@ function getGeminiKeysFromEnv() {
     return keys;
 }
 
+// Multi-Key Groq Parser (Free 14,400+ req/day high-speed backup!)
+function getGroqKeysFromEnv() {
+    const keys = [];
+    const addKey = (raw) => {
+        if (!raw) return;
+        String(raw)
+            .split(/[\s,;]+/)
+            .forEach((part) => {
+                const clean = part.replace(/["']/g, "").trim();
+                if (clean && clean.length > 15 && !keys.includes(clean)) {
+                    keys.push(clean);
+                }
+            });
+    };
+    addKey(process.env.GROQ_API_KEY);
+    addKey(process.env.GROQ_KEYS);
+    addKey(process.env.GROQ_API_KEYS);
+    for (let i = 1; i <= 5; i++) {
+        addKey(process.env[`GROQ_API_KEY_${i}`]);
+        addKey(process.env[`GROQ_KEY_${i}`]);
+    }
+    return keys;
+}
+
 // ============================================================================
-// 🔄 SELF-UPDATING GEMINI MODEL AUTO-DISCOVERY ENGINE
+// 🔄 QUOTA-SMART GEMINI MODEL AUTO-DISCOVERY ENGINE (Flash-Lite FIRST!)
 // ============================================================================
 function scoreGeminiModelForChat(modelId) {
     const id = modelId.toLowerCase();
@@ -344,13 +374,15 @@ function scoreGeminiModelForChat(modelId) {
     const verMatch = id.match(/gemini-(\d+(?:\.\d+)?)/);
     const versionNum = verMatch ? parseFloat(verMatch[1]) : 3.0;
 
-    let score = versionNum * 100;
-    if (id.includes("flash-lite")) score += 45;
-    else if (id.includes("flash")) score += 35;
-    else if (id.includes("hydrogen") || id.includes("argon")) score += 25;
-    else if (id.includes("carbon") || id.includes("pro")) score += 10;
+    // Prioritize high-quota flash-lite & flash tiers ABOVE low-quota flagship/preview tiers
+    let tierScore = 100;
+    if (id.includes("flash-lite")) tierScore = 600;
+    else if (id.includes("flash")) tierScore = 450;
+    else if (id.includes("hydrogen") || id.includes("argon")) tierScore = 250;
+    else if (id.includes("carbon") || id.includes("neon") || id.includes("pro")) tierScore = 150;
 
-    if (id.includes("preview") || id.includes("exp")) score -= 15;
+    let score = tierScore + versionNum * 20;
+    if (id.includes("preview") || id.includes("exp")) score -= 30;
     return score;
 }
 
@@ -398,7 +430,7 @@ async function getAutoUpdatedGeminiModelsList(apiKey) {
             }
 
             if (finalMerged.length > 0) {
-                cachedDiscoveredModels = finalMerged.slice(0, 8);
+                cachedDiscoveredModels = finalMerged.slice(0, 6);
                 lastModelDiscoveryTime = Date.now();
                 return cachedDiscoveredModels;
             }
@@ -407,7 +439,7 @@ async function getAutoUpdatedGeminiModelsList(apiKey) {
         clearTimeout(timer);
     }
 
-    return NOV_2026_ACTIVE_MODELS;
+    return NOV_2026_ACTIVE_MODELS.slice(0, 6);
 }
 
 // ============================================================================
@@ -684,6 +716,44 @@ function formatHistoryAndMemoryContext(chatHistory, longTermMemory) {
     return contextBlock;
 }
 
+// Layer 3 Emergency 18-Emotion Local Hindi Fallback (Ensures zero crashes even during rapid burst clicks!)
+function generateEmergencyEmotionReply(userText, requestedEmotion, singingMode) {
+    const emo = requestedEmotion || (singingMode ? "singing" : detectUniversalHumanEmotion(userText, ""));
+    const bank = {
+        happiness: "वाह बेटा, तुम्हारी खुशी सुनकर मेरा दिल भी बाग-बाग हो गया! भगवान करे तुम्हारे जीवन में ऐसे ही खुशियाँ आती रहें।",
+        sadness: "अरे बेटा, उदास मत हो, मैं तुम्हारी बात समझ रहा हूँ। हर कठिन समय गुजर जाता है, हिम्मत रखो और अपना ख्याल रखो।",
+        anger: "बेटा, लापरवाही बिल्कुल अच्छी बात नहीं है, समय और काम की कद्र करना सीखो। आगे से ध्यान रखना, ठीक है?",
+        fear: "बेटा, डरने की कोई बात नहीं है। गहरी सांस लो, शांत मन से सोचो और पूरे साहस के साथ आगे बढ़ो।",
+        surprise: "अरे वाह बेटा, यह तो सच में बड़ी हैरानी और खुशी की बात है! जल्दी बताओ क्या खास बात है?",
+        disgust: "हाँ बेटा, गंदगी और बुरी चीज़ों से मन खराब होना स्वाभाविक है। हमें खुद स्वच्छता और अच्छे विचारों को अपनाना चाहिए।",
+        anticipation: "बहुत बढ़िया बेटा, अच्छे अवसर का इंतज़ार हमेशा मीठा होता है। अपनी तैयारी पूरी रखो, शुभ समय ज़रूर आएगा।",
+        trust: "बेटा, खुद पर और सच्चाई पर भरोसा रखना ही सबसे बड़ी ताकत है। तुम्हारा यही विश्वास तुम्हें आगे बढ़ाएगा।",
+        love: "बेटा, परिवार का प्यार और अपनापन ही दुनिया की सबसे बड़ी दौलत है। सबके साथ मिल-जुलकर खुश रहो।",
+        jealousy: "बेटा, दूसरों की तरक्की से ईर्ष्या करने के बजाय उनसे सीख लेकर अपनी मेहनत बढ़ाओ। तुम्हारा समय भी ज़रूर आएगा।",
+        shame: "बेटा, इसमें शर्म या झिझक की कोई बात नहीं है। इंसान अनुभव से ही आत्मविश्वास सीखता है, सिर उठाकर आगे बढ़ो।",
+        guilt: "बेटा, गलती इंसान से ही होती है, लेकिन उसे मान लेना और सुधारना सबसे बड़ी समझदारी है। मन हल्का करो और आगे सही करो।",
+        pride: "शाबाश बेटा! तुम्हारी मेहनत और लगन देखकर मुझे बहुत गर्व हो रहा है। ऐसे ही ऊँचाइयाँ छूते रहो।",
+        hope: "बेटा, उम्मीद की किरण कभी मत छोड़ना। मेहनत और अच्छे कर्मों का फल हमेशा मीठा और उज्ज्वल होता है।",
+        disappointment: "निराश मत हो बेटा, एक बार काम न बनने का मतलब हार नहीं होता। थोड़ी देर आराम करो और नए जोश से फिर कोशिश करो।",
+        empathy: "बेटा, दूसरों का दुख समझना बहुत बड़े दिल की निशानी है। तुम्हारी यह संवेदनशीलता तुम्हें एक नेक इंसान बनाती है।",
+        compassion: "बेटा, ज़रूरतमंद की मदद करना और करुणा रखना सबसे बड़ा धर्म है। जितना हो सके, विनम्रता से सबका भला करो।",
+        anxiety: "बेटा, इतनी बेचैनी और टेंशन मत लो। एक गिलास पानी पियो, गहरी सांस लो और एक बार में सिर्फ़ एक ही काम पर ध्यान दो।",
+        blessing: "सदा खुश रहो बेटा, खूब तरक्की करो और हमेशा स्वस्थ व सुरक्षित रहो।",
+        laughing: "हाहा, क्या बढ़िया बात कही तुमने बेटा! ऐसे ही हँसते-मुस्कुराते रहा करो।",
+        singing: "अच्छा बेटा, सुनो... सुख के सब साथी, दुख में न कोईऽऽ... मेरे राम, मेरे राम, तेरा नाम एक साँचा, दूजा न कोईऽऽ...",
+        caring: "अपना पूरा ध्यान रखो बेटा, समय पर खाना खाओ और पर्याप्त आराम करो।",
+        talking: "हाँ बेटा, मैं तुम्हारी बात सुन रहा हूँ। थोड़ा सा रुककर फिर बोलो, मैं ध्यान से सुन रहा हूँ।"
+    };
+
+    return {
+        aiText: ensureCompleteHindiSentence(bank[emo] || bank.talking),
+        emotion: emo,
+        geminiKeyUsed: "Local-Shield",
+        modelUsed: "18-Emotion-Offline-Shield"
+    };
+}
+
+// 3-Layer Unbreakable Backup Generator: Multi-Key Groq -> Pollinations (Vision + Text-Only Retry) -> Local Shield
 async function generateFreeBackupReply(
     userText,
     base64Frame,
@@ -692,7 +762,8 @@ async function generateFreeBackupReply(
     chatHistory,
     longTermMemory,
     singingMode,
-    requestedEmotion
+    requestedEmotion,
+    skippedTelemetry
 ) {
     let familyHint = "";
     if (currentFacingMode === "user" && Array.isArray(savedFaces) && savedFaces.length > 0) {
@@ -710,89 +781,120 @@ async function generateFreeBackupReply(
 
     const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
 
-    if (process.env.GROQ_API_KEY) {
+    // LAYER 1: Multi-Key Groq Pool (Fastest Free 14,400 req/day backup)
+    const groqKeys = getGroqKeysFromEnv();
+    if (groqKeys.length > 0) {
+        for (let gAttempt = 0; gAttempt < groqKeys.length; gAttempt++) {
+            const activeGroqKey = groqKeys[groqKeyIdx % groqKeys.length];
+            groqKeyIdx = (groqKeyIdx + 1) % groqKeys.length;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 6000);
+            try {
+                const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: "POST",
+                    signal: controller.signal,
+                    headers: {
+                        "Authorization": `Bearer ${activeGroqKey}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: "llama-3.3-70b-versatile",
+                        messages: [
+                            { role: "system", content: FATHER_AGI_PROMPT + familyHint },
+                            { role: "user", content: contextText + `Family member said: "${userText}"` + emotionHint + singingInstruction }
+                        ],
+                        max_tokens: 360,
+                        temperature: 0.72
+                    })
+                });
+                clearTimeout(timer);
+                const groqData = await groqRes.json();
+                const text = groqData?.choices?.[0]?.message?.content;
+                if (groqRes.ok && text) {
+                    const parsed = extractEmotionTagAndCleanText(text, userText);
+                    return {
+                        aiText: parsed.aiText,
+                        emotion: requestedEmotion || parsed.emotion,
+                        geminiKeyUsed: "Groq-Backup",
+                        modelUsed: "Groq-Llama-3.3-70B"
+                    };
+                }
+                if (skippedTelemetry) skippedTelemetry.push(`Groq -> HTTP ${groqRes.status}`);
+            } catch (e) {
+                clearTimeout(timer);
+                if (skippedTelemetry) skippedTelemetry.push(`Groq -> ${e.message}`);
+            }
+        }
+    }
+
+    // LAYER 2: Pollinations Free AI (Tries Vision first if frame exists, then instant Text-Only fallback!)
+    const pollAttempts = base64Frame
+        ? [
+              { model: "openai", withImage: true },
+              { model: "openai-fast", withImage: false }
+          ]
+        : [
+              { model: "openai", withImage: false },
+              { model: "openai-fast", withImage: false }
+          ];
+
+    for (const cfg of pollAttempts) {
+        const userContent = cfg.withImage
+            ? [
+                  {
+                      type: "text",
+                      text: contextText + `Family member now said: "${userText}"` + emotionHint + singingInstruction
+                  },
+                  {
+                      type: "image_url",
+                      image_url: { url: `data:image/jpeg;base64,${base64Frame}` }
+                  }
+              ]
+            : contextText + `Family member now said: "${userText}"` + emotionHint + singingInstruction;
+
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6500);
         try {
-            const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            const freeRes = await fetch("https://text.pollinations.ai/openai", {
                 method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${process.env.GROQ_API_KEY.trim()}`,
-                    "Content-Type": "application/json"
-                },
+                signal: controller.signal,
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
+                    model: cfg.model,
                     messages: [
                         { role: "system", content: FATHER_AGI_PROMPT + familyHint },
-                        { role: "user", content: contextText + `Family member said: "${userText}"` + emotionHint + singingInstruction }
-                    ],
-                    max_tokens: 360,
-                    temperature: 0.72
+                        { role: "user", content: userContent }
+                    ]
                 })
             });
-            const groqData = await groqRes.json();
-            const text = groqData?.choices?.[0]?.message?.content;
-            if (groqRes.ok && text) {
-                const parsed = extractEmotionTagAndCleanText(text, userText);
-                return {
-                    aiText: parsed.aiText,
-                    emotion: requestedEmotion || parsed.emotion,
-                    geminiKeyUsed: "Backup",
-                    modelUsed: "Groq-Llama-3.3"
-                };
+            clearTimeout(timer);
+
+            if (freeRes.ok) {
+                const freeData = await freeRes.json();
+                const reply = freeData?.choices?.[0]?.message?.content;
+                if (reply && reply.trim()) {
+                    const parsed = extractEmotionTagAndCleanText(reply, userText);
+                    return {
+                        aiText: parsed.aiText,
+                        emotion: requestedEmotion || parsed.emotion,
+                        geminiKeyUsed: "Auto-Backup",
+                        modelUsed: cfg.withImage ? "Free-AGI-Vision" : "Free-AGI-Fast"
+                    };
+                }
             }
-        } catch (_) {}
-    }
-
-    const userContent = [
-        {
-            type: "text",
-            text: contextText + `Family member now said: "${userText}"` + emotionHint + singingInstruction
+            if (skippedTelemetry) skippedTelemetry.push(`Pollinations(${cfg.model}) -> HTTP ${freeRes.status}`);
+        } catch (e) {
+            clearTimeout(timer);
+            if (skippedTelemetry) skippedTelemetry.push(`Pollinations(${cfg.model}) -> ${e.message}`);
         }
-    ];
-    if (base64Frame) {
-        userContent.push({
-            type: "image_url",
-            image_url: { url: `data:image/jpeg;base64,${base64Frame}` }
-        });
     }
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 9000);
-    try {
-        const freeRes = await fetch("https://text.pollinations.ai/openai", {
-            method: "POST",
-            signal: controller.signal,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                model: "openai",
-                messages: [
-                    { role: "system", content: FATHER_AGI_PROMPT + familyHint },
-                    { role: "user", content: userContent }
-                ]
-            })
-        });
-        clearTimeout(timer);
-
-        if (freeRes.ok) {
-            const freeData = await freeRes.json();
-            const reply = freeData?.choices?.[0]?.message?.content;
-            if (reply && reply.trim()) {
-                const parsed = extractEmotionTagAndCleanText(reply, userText);
-                return {
-                    aiText: parsed.aiText,
-                    emotion: requestedEmotion || parsed.emotion,
-                    geminiKeyUsed: "Auto-Backup",
-                    modelUsed: "Free-AGI-Fallback"
-                };
-            }
-        }
-    } catch (_) {
-        clearTimeout(timer);
-    }
-
-    return null;
+    // LAYER 3: Emergency 18-Emotion Offline Hindi Shield (Zero crash even if user clicks rapidly!)
+    return generateEmergencyEmotionReply(userText, requestedEmotion, singingMode);
 }
 
 async function generateGeminiReplyInternal(body) {
+    const geminiLoopStart = Date.now();
     const geminiKeys = getGeminiKeysFromEnv();
     const userText = body.userText || "नमस्ते पापा";
     const base64Frame = body.base64Frame || null;
@@ -849,24 +951,38 @@ async function generateGeminiReplyInternal(body) {
         text: contextText + `Family member now said: "${userText}"` + forcedEmotionPrompt + modePromptSuffix
     });
 
-    let lastError = "No Gemini keys configured";
+    let lastError = geminiKeys.length > 0
+        ? "All Gemini keys currently in 65s rate-limit cooldown"
+        : "No Gemini keys configured";
 
     if (geminiKeys.length > 0) {
         if (geminiKeyIdx >= geminiKeys.length) geminiKeyIdx = 0;
 
         const modelsToTry = await getAutoUpdatedGeminiModelsList(geminiKeys[geminiKeyIdx]);
+        let skippedDueToCooldownCount = 0;
+        let hitTimeBudget = false;
 
         for (let attempt = 0; attempt < geminiKeys.length; attempt++) {
+            if (Date.now() - geminiLoopStart > 6500) {
+                hitTimeBudget = true;
+                break;
+            }
+
             const activeKey = geminiKeys[geminiKeyIdx];
             const keyNum = geminiKeyIdx + 1;
             let keyAuthFailed = false;
 
             for (const modelName of modelsToTry) {
                 if (keyAuthFailed) break;
+                if (Date.now() - geminiLoopStart > 6500) {
+                    hitTimeBudget = true;
+                    break;
+                }
 
                 const cacheKey = `${activeKey.slice(-6)}:${modelName}`;
                 const exhaustedUntil = exhaustedModelCache.get(cacheKey) || 0;
                 if (Date.now() < exhaustedUntil) {
+                    skippedDueToCooldownCount++;
                     continue;
                 }
 
@@ -874,7 +990,7 @@ async function generateGeminiReplyInternal(body) {
 
                 for (const withSearchTool of toolModes) {
                     const controller = new AbortController();
-                    const timer = setTimeout(() => controller.abort(), 8500);
+                    const timer = setTimeout(() => controller.abort(), 7000);
                     try {
                         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
                         const payload = {
@@ -924,12 +1040,14 @@ async function generateGeminiReplyInternal(body) {
                         lastError = data?.error?.message || `HTTP ${gRes.status} on ${modelName}`;
                         skippedTelemetry.push(`G-Key#${keyNum} ${modelName} -> HTTP ${gRes.status}`);
 
+                        // 404 (Retired model): cooldown 6 hours
                         if (gRes.status === 404) {
                             exhaustedModelCache.set(cacheKey, Date.now() + 6 * 60 * 60 * 1000);
                             break;
                         }
+                        // 429 (RPM/Quota limit): short 65-second cooldown instead of 20 minutes!
                         if (gRes.status === 429 || gRes.status === 400) {
-                            exhaustedModelCache.set(cacheKey, Date.now() + 20 * 60 * 1000);
+                            exhaustedModelCache.set(cacheKey, Date.now() + 65 * 1000);
                             break;
                         }
                         if (gRes.status === 401 || gRes.status === 403) {
@@ -949,6 +1067,12 @@ async function generateGeminiReplyInternal(body) {
             geminiKeyIdx = shifted.idx;
             geminiKeyDir = shifted.dir;
         }
+
+        if (hitTimeBudget) {
+            skippedTelemetry.push("Gemini retry loop hit 6.5s budget -> Fast-shifting to Backup Brain");
+        } else if (skippedDueToCooldownCount > 0 && skippedTelemetry.length === 0) {
+            skippedTelemetry.push(`Gemini ${geminiKeys.length} keys cooling down (65s RPM window) -> Using Backup Brain`);
+        }
     }
 
     const backupReply = await generateFreeBackupReply(
@@ -959,7 +1083,8 @@ async function generateGeminiReplyInternal(body) {
         chatHistory,
         longTermMemory,
         singingMode,
-        requestedEmotion
+        requestedEmotion,
+        skippedTelemetry
     );
     if (backupReply) {
         backupReply.agiAction = agiAction;
@@ -1060,6 +1185,10 @@ export default async function handler(req, res) {
             const ttsResult = await generateTtsAudioInternal(chatResult.aiText);
             const ttsMs = Date.now() - t1;
 
+            const brainBadge = typeof chatResult.geminiKeyUsed === "number"
+                ? `G-Key #${chatResult.geminiKeyUsed}`
+                : chatResult.geminiKeyUsed;
+
             return res.status(200).json({
                 aiText: chatResult.aiText,
                 emotion: chatResult.emotion || "talking",
@@ -1068,7 +1197,7 @@ export default async function handler(req, res) {
                 agiAction: chatResult.agiAction || null,
                 newMemoryFact: chatResult.newMemoryFact || null,
                 audioBase64: ttsResult.audioBase64,
-                engineLabel: `G-Key #${chatResult.geminiKeyUsed} (${chatResult.modelUsed}) | ${ttsResult.engineLabel}`,
+                engineLabel: `${brainBadge} (${chatResult.modelUsed}) | ${ttsResult.engineLabel}`,
                 telemetry: {
                     totalMs: Date.now() - startTimeMs,
                     geminiMs,
@@ -1108,6 +1237,7 @@ export default async function handler(req, res) {
 
     if (action === "diag") {
         const geminiKeys = getGeminiKeysFromEnv();
+        const groqKeys = getGroqKeysFromEnv();
         const { pool: cartesiaPool, allVoices } = getCartesiaPoolFromEnv();
         const logs = [];
         let firstSuccessAudio = null;
@@ -1117,9 +1247,9 @@ export default async function handler(req, res) {
             ? await getAutoUpdatedGeminiModelsList(geminiKeys[0])
             : NOV_2026_ACTIVE_MODELS;
 
-        logs.push(`🔄 AUTO-DISCOVERED LIVE GEMINI MODELS: ${liveModels.slice(0, 5).join(", ")}`);
+        logs.push(`🔄 AUTO-DISCOVERED LIVE GEMINI MODELS (High-Quota First): ${liveModels.slice(0, 5).join(", ")}`);
         logs.push(`🎭 UNIVERSAL EMOTIONS LOADED: 18 Human Emotions + 5 Papa States`);
-        logs.push(`🧠 GEMINI KEYS FOUND: ${geminiKeys.length}`);
+        logs.push(`🧠 GEMINI KEYS FOUND: ${geminiKeys.length} | ⚡ GROQ BACKUP KEYS FOUND: ${groqKeys.length}`);
 
         for (let g = 0; g < geminiKeys.length; g++) {
             const gKey = geminiKeys[g];
@@ -1127,7 +1257,7 @@ export default async function handler(req, res) {
             let keyWorked = false;
             let lastGStatus = "";
 
-            for (const testModel of liveModels.slice(0, 4)) {
+            for (const testModel of liveModels.slice(0, 3)) {
                 try {
                     const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/${testModel}:generateContent?key=${gKey}`;
                     const gRes = await fetch(gUrl, {
@@ -1151,7 +1281,7 @@ export default async function handler(req, res) {
                 }
             }
             if (!keyWorked) {
-                logs.push(`⚠️ Gemini Key #${g + 1} (${masked}): Quota Full (${lastGStatus}) -> Auto-Backup AI Ready`);
+                logs.push(`⚠️ Gemini Key #${g + 1} (${masked}): Quota Full (${lastGStatus}) -> Backup AI Ready`);
             }
         }
 
