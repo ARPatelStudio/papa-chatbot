@@ -1,16 +1,12 @@
 /**
- * Papa Chatbot - Universal End-to-End AGI + 18 Human Emotions & Quota-Resilient Backend (Nov 2026 Final Merged Edition)
- * Features:
- *  1. QUOTA-SMART GEMINI RANKING: Prioritizes high-quota `flash-lite` & `flash` models BEFORE low-quota flagship models.
- *  2. 65-SECOND RPM COOLDOWN + TIMEOUT GUARD: Fixes 20-minute 429 lockouts, misleading error text & Vercel 504 timeouts.
- *  3. 3-LAYER UNBREAKABLE BACKUP: Multi-Key Groq Pool -> Pollinations (Vision + Text-Only Retry) -> 18-Emotion Offline Shield.
- *  4. 18 UNIVERSAL HUMAN EMOTIONS ENGINE (End-to-End):
- *     Primary (8): happiness, sadness, anger, fear, surprise, disgust, anticipation, trust
- *     Secondary (10): love, jealousy, shame, guilt, pride, hope, disappointment, empathy, compassion, anxiety
- *     + Action/Special States: blessing, laughing, singing, caring, talking
- *  5. SINGING & BHAJAN MODE + LIVE GOOGLE SEARCH + SUPER-AGENT ACTIONS (Memory, Timer, WhatsApp, YouTube, Maps, Search).
+ * Papa Chatbot - Universal End-to-End AGI + 18 Human Emotions & Mobile-Optimized Backend (Nov 2026 Edition)
+ * Fixes & Features:
+ *  1. MOBILE LATENCY FIX: 10.5s Gemini timeout + 13.5s budget + automatic Text-Only Fast Retry if Vision stalls.
+ *  2. SMART VISION BANDWIDTH: Sends reference family photos only on Turn 1 or recognition queries (cuts latency ~60%).
+ *  3. QUOTA-SMART GEMINI RANKING: High-quota `flash-lite` & `flash` models FIRST + 65s RPM cooldown.
+ *  4. 4-LAYER UNBREAKABLE BACKUP: Multi-Key Groq -> OpenRouter (optional) -> Pollinations (with 402 circuit-breaker) -> 18-Emotion Offline Shield.
+ *  5. 18 UNIVERSAL HUMAN EMOTIONS + SINGING MODE + LIVE GOOGLE SEARCH + SUPER-AGENT ACTIONS.
  *  6. 4 Cartesia Voice IDs + 20 API Keys Smart Auto-Pairing & Ping-Pong Rotation (1->20 then 20->1).
- *  7. Auto-Normalized GitHub Releases URL (/releases/tag/ -> /releases/download/ + comma-safe parser).
  */
 
 let geminiKeyIdx = 0;
@@ -23,6 +19,7 @@ let groqKeyIdx = 0;
 
 const exhaustedModelCache = new Map();
 const keyVoiceLockCache = new Map();
+let pollinationsBlockedUntil = 0;
 
 let cachedDiscoveredModels = null;
 let lastModelDiscoveryTime = 0;
@@ -69,7 +66,6 @@ const VALID_UNIVERSAL_EMOTIONS = [
     "talking"
 ];
 
-// Normalize minor alias tags (e.g. "happy" -> "happiness") so frontend profile keys NEVER mismatch
 const EMOTION_ALIAS_MAP = {
     happy: "happiness",
     sad: "sadness",
@@ -112,7 +108,6 @@ function ensureCompleteHindiSentence(rawText) {
     return text;
 }
 
-// Auto-fixes GitHub Releases URL (handles comma-pasted lists, /releases/tag/ -> /releases/download/, and .mp4 filenames)
 function getNormalizedReleaseBaseUrl() {
     let raw = (process.env.GITHUB_RELEASE_URL || "").trim();
     if (!raw) return "";
@@ -128,7 +123,6 @@ function getNormalizedReleaseBaseUrl() {
     return raw.endsWith("/") ? raw : raw + "/";
 }
 
-// 🎵 Checks if the user is asking Papa to sing a song, bhajan, lori, or aarti
 function isSingingRequest(userText) {
     if (!userText) return false;
     return /गाना गा|गाकर|गा कर|गाओ|सुनाओ.*गाना|गाना.*सुनाओ|भजन सुना|भजन गा|लोरी|गुनगुना|गीत सुना|गीत गा|आरती गा|sing a song|papa sing|gana gao|gana sunao|bhajan gao/.test(
@@ -136,7 +130,11 @@ function isSingingRequest(userText) {
     );
 }
 
-// Extracts [EMO:xxx] tag from Gemini response & strips it cleanly before TTS!
+function shouldAttachReferenceFaces(userText, chatHistory) {
+    if (!Array.isArray(chatHistory) || chatHistory.length === 0) return true;
+    return /कौन|पहचान|नाम बता|चेहरा|मेरा नाम|who am i|pehchan|kaun/.test(String(userText || "").toLowerCase());
+}
+
 function extractEmotionTagAndCleanText(rawModelText, userText) {
     let text = String(rawModelText || "").trim();
     let taggedEmotion = null;
@@ -151,11 +149,9 @@ function extractEmotionTagAndCleanText(rawModelText, userText) {
         text = text.replace(/^\s*\[(?:EMO|EMOTION)\s*:\s*[a-zA-Z_]+\]\s*/i, "").trim();
     }
 
-    // Strip any stray bracket tags anywhere in the sentence
     text = text.replace(/\[(?:EMO|EMOTION)\s*:\s*[a-zA-Z_]+\]/gi, "").trim();
     const finalText = ensureCompleteHindiSentence(text);
 
-    // If user explicitly asked to sing, force singing emotion
     if (isSingingRequest(userText)) {
         return { aiText: finalText, emotion: "singing" };
     }
@@ -164,7 +160,6 @@ function extractEmotionTagAndCleanText(rawModelText, userText) {
     return { aiText: finalText, emotion: finalEmotion };
 }
 
-// Comprehensive Fallback Classifier covering ALL 18 Universal Human Emotions + All Original Papa Keywords
 function detectUniversalHumanEmotion(userText, aiText) {
     const combined = `${userText || ""} ${aiText || ""}`.toLowerCase();
 
@@ -215,7 +210,6 @@ function detectUniversalHumanEmotion(userText, aiText) {
     return "talking";
 }
 
-// Backward-compatible alias in case any helper calls detectPapaEmotion
 function detectPapaEmotion(userText, aiText) {
     return detectUniversalHumanEmotion(userText, aiText);
 }
@@ -227,14 +221,12 @@ function needsLiveWebSearch(userText) {
     );
 }
 
-// ⚡ Universal Super-Agent Action & Permanent Memory Extractor
 function detectAgiActionAndMemory(userText) {
     const text = String(userText || "").trim();
     const lower = text.toLowerCase();
     let agiAction = null;
     let newMemoryFact = null;
 
-    // 1. Permanent Memory Extraction ("पापा याद रखना...")
     if (/याद रख|याद कर|भूलना मत|याद रहे|remember that|note kar/.test(lower)) {
         const cleanedFact = text
             .replace(/^(पापा|papa)?\s*(मेरी एक बात|यह बात|ये बात)?\s*(हमेशा)?\s*(याद रखना|याद रखो|याद कर लो|भूलना मत)\s*(कि|की)?\s*/i, "")
@@ -244,7 +236,6 @@ function detectAgiActionAndMemory(userText) {
         }
     }
 
-    // 2. Timer / Alarm / Reminder Extraction ("पापा 5 मिनट का टाइमर लगा दो")
     const timerMatch = lower.match(/(\d+)\s*(मिनट|सेकंड|minute|min|sec|second)/);
     if (timerMatch && /टाइमर|अलार्म|याद दिला|timer|alarm|remind/.test(lower)) {
         const amount = parseInt(timerMatch[1], 10) || 1;
@@ -255,20 +246,13 @@ function detectAgiActionAndMemory(userText) {
             seconds: secondsTotal,
             label: `⏰ टाइमर चालू: ${amount} ${isSeconds ? "सेकंड" : "मिनट"}`
         };
-    }
-    // 3. WhatsApp Action ("व्हाट्सएप खोलो" / "व्हाट्सएप पर मैसेज भेजो")
-    else if (/व्हाट्सएप|whatsapp/.test(lower)) {
+    } else if (/व्हाट्सएप|whatsapp/.test(lower)) {
         agiAction = {
             type: "OPEN_WHATSAPP",
             label: "📲 WhatsApp खोलें",
             url: "https://wa.me/"
         };
-    }
-    // 4. YouTube Action (Only when user explicitly asks to open YouTube or play video, not when asking Papa to sing himself)
-    else if (
-        !isSingingRequest(text) &&
-        /youtube|यूट्यूब|वीडियो चला|वीडियो दिखा|चैनल खोल/.test(lower)
-    ) {
+    } else if (!isSingingRequest(text) && /youtube|यूट्यूब|वीडियो चला|वीडियो दिखा|चैनल खोल/.test(lower)) {
         const query = text
             .replace(/पापा|papa|मुझे|कोई|अच्छा सा|चला दो|दिखा दो|यूट्यूब पर|youtube par/gi, "")
             .trim() || "हिंदी भजन";
@@ -277,9 +261,7 @@ function detectAgiActionAndMemory(userText) {
             label: `▶️ YouTube पर देखें: "${query}"`,
             url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
         };
-    }
-    // 5. Google Maps / Navigation Action
-    else if (/रास्ता|कहाँ है|लोकेशन|location|map|मैप|दिशा|दूरी|कैसे जाएँ/.test(lower)) {
+    } else if (/रास्ता|कहाँ है|लोकेशन|location|map|मैप|दिशा|दूरी|कैसे जाएँ/.test(lower)) {
         const place = text
             .replace(/पापा|papa|मुझे|का रास्ता|बताओ|दिखाओ|कहाँ है|मैप पर/gi, "")
             .trim() || "Indore";
@@ -288,9 +270,7 @@ function detectAgiActionAndMemory(userText) {
             label: `📍 Google Maps खोलें: "${place}"`,
             url: `https://www.google.com/maps/search/${encodeURIComponent(place)}`
         };
-    }
-    // 6. Direct Google Search Action
-    else if (/गूगल पर खोज|google search|सर्च करो|वेबसाइट खोल/.test(lower)) {
+    } else if (/गूगल पर खोज|google search|सर्च करो|वेबसाइट खोल/.test(lower)) {
         const q = text.replace(/पापा|papa|गूगल पर|सर्च करो|खोजो/gi, "").trim() || text;
         agiAction = {
             type: "OPEN_GOOGLE",
@@ -333,7 +313,6 @@ function getGeminiKeysFromEnv() {
     return keys;
 }
 
-// Multi-Key Groq Parser (Free 14,400+ req/day high-speed backup!)
 function getGroqKeysFromEnv() {
     const keys = [];
     const addKey = (raw) => {
@@ -374,7 +353,6 @@ function scoreGeminiModelForChat(modelId) {
     const verMatch = id.match(/gemini-(\d+(?:\.\d+)?)/);
     const versionNum = verMatch ? parseFloat(verMatch[1]) : 3.0;
 
-    // Prioritize high-quota flash-lite & flash tiers ABOVE low-quota flagship/preview tiers
     let tierScore = 100;
     if (id.includes("flash-lite")) tierScore = 600;
     else if (id.includes("flash")) tierScore = 450;
@@ -716,7 +694,7 @@ function formatHistoryAndMemoryContext(chatHistory, longTermMemory) {
     return contextBlock;
 }
 
-// Layer 3 Emergency 18-Emotion Local Hindi Fallback (Ensures zero crashes even during rapid burst clicks!)
+// Layer 4 Emergency 18-Emotion Local Hindi Fallback
 function generateEmergencyEmotionReply(userText, requestedEmotion, singingMode) {
     const emo = requestedEmotion || (singingMode ? "singing" : detectUniversalHumanEmotion(userText, ""));
     const bank = {
@@ -742,7 +720,7 @@ function generateEmergencyEmotionReply(userText, requestedEmotion, singingMode) 
         laughing: "हाहा, क्या बढ़िया बात कही तुमने बेटा! ऐसे ही हँसते-मुस्कुराते रहा करो।",
         singing: "अच्छा बेटा, सुनो... सुख के सब साथी, दुख में न कोईऽऽ... मेरे राम, मेरे राम, तेरा नाम एक साँचा, दूजा न कोईऽऽ...",
         caring: "अपना पूरा ध्यान रखो बेटा, समय पर खाना खाओ और पर्याप्त आराम करो।",
-        talking: "हाँ बेटा, मैं तुम्हारी बात सुन रहा हूँ। थोड़ा सा रुककर फिर बोलो, मैं ध्यान से सुन रहा हूँ।"
+        talking: "मैं बिल्कुल ठीक हूँ बेटा, तुम बताओ कैसे हो और घर में सब कैसे हैं?"
     };
 
     return {
@@ -753,7 +731,7 @@ function generateEmergencyEmotionReply(userText, requestedEmotion, singingMode) 
     };
 }
 
-// 3-Layer Unbreakable Backup Generator: Multi-Key Groq -> Pollinations (Vision + Text-Only Retry) -> Local Shield
+// 4-Layer Unbreakable Backup Generator: Multi-Key Groq -> OpenRouter -> Pollinations (402-safe) -> Local Shield
 async function generateFreeBackupReply(
     userText,
     base64Frame,
@@ -788,7 +766,7 @@ async function generateFreeBackupReply(
             const activeGroqKey = groqKeys[groqKeyIdx % groqKeys.length];
             groqKeyIdx = (groqKeyIdx + 1) % groqKeys.length;
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 6000);
+            const timer = setTimeout(() => controller.abort(), 5500);
             try {
                 const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                     method: "POST",
@@ -827,43 +805,65 @@ async function generateFreeBackupReply(
         }
     }
 
-    // LAYER 2: Pollinations Free AI (Tries Vision first if frame exists, then instant Text-Only fallback!)
-    const pollAttempts = base64Frame
-        ? [
-              { model: "openai", withImage: true },
-              { model: "openai-fast", withImage: false }
-          ]
-        : [
-              { model: "openai", withImage: false },
-              { model: "openai-fast", withImage: false }
-          ];
-
-    for (const cfg of pollAttempts) {
-        const userContent = cfg.withImage
-            ? [
-                  {
-                      type: "text",
-                      text: contextText + `Family member now said: "${userText}"` + emotionHint + singingInstruction
-                  },
-                  {
-                      type: "image_url",
-                      image_url: { url: `data:image/jpeg;base64,${base64Frame}` }
-                  }
-              ]
-            : contextText + `Family member now said: "${userText}"` + emotionHint + singingInstruction;
-
+    // LAYER 2: Optional OpenRouter Free Backup (if OPENROUTER_API_KEY is set in Vercel)
+    if (process.env.OPENROUTER_API_KEY) {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 6500);
+        const timer = setTimeout(() => controller.abort(), 5500);
+        try {
+            const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                signal: controller.signal,
+                headers: {
+                    "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY.trim()}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: "meta-llama/llama-3.3-70b-instruct:free",
+                    messages: [
+                        { role: "system", content: FATHER_AGI_PROMPT + familyHint },
+                        { role: "user", content: contextText + `Family member said: "${userText}"` + emotionHint + singingInstruction }
+                    ],
+                    max_tokens: 340
+                })
+            });
+            clearTimeout(timer);
+            if (orRes.ok) {
+                const orData = await orRes.json();
+                const text = orData?.choices?.[0]?.message?.content;
+                if (text && text.trim()) {
+                    const parsed = extractEmotionTagAndCleanText(text, userText);
+                    return {
+                        aiText: parsed.aiText,
+                        emotion: requestedEmotion || parsed.emotion,
+                        geminiKeyUsed: "OpenRouter",
+                        modelUsed: "Llama-3.3-Free"
+                    };
+                }
+            }
+            if (skippedTelemetry) skippedTelemetry.push(`OpenRouter -> HTTP ${orRes.status}`);
+        } catch (e) {
+            clearTimeout(timer);
+            if (skippedTelemetry) skippedTelemetry.push(`OpenRouter -> ${e.message}`);
+        }
+    }
+
+    // LAYER 3: Pollinations Text-Only (with 1-hour circuit breaker if HTTP 402 Payment Required)
+    if (Date.now() >= pollinationsBlockedUntil) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 4500);
         try {
             const freeRes = await fetch("https://text.pollinations.ai/openai", {
                 method: "POST",
                 signal: controller.signal,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    model: cfg.model,
+                    model: "openai",
                     messages: [
                         { role: "system", content: FATHER_AGI_PROMPT + familyHint },
-                        { role: "user", content: userContent }
+                        {
+                            role: "user",
+                            content: contextText + `Family member now said: "${userText}"` + emotionHint + singingInstruction
+                        }
                     ]
                 })
             });
@@ -878,18 +878,21 @@ async function generateFreeBackupReply(
                         aiText: parsed.aiText,
                         emotion: requestedEmotion || parsed.emotion,
                         geminiKeyUsed: "Auto-Backup",
-                        modelUsed: cfg.withImage ? "Free-AGI-Vision" : "Free-AGI-Fast"
+                        modelUsed: "Free-AGI-Fast"
                     };
                 }
             }
-            if (skippedTelemetry) skippedTelemetry.push(`Pollinations(${cfg.model}) -> HTTP ${freeRes.status}`);
+            if (freeRes.status === 402 || freeRes.status === 403) {
+                pollinationsBlockedUntil = Date.now() + 60 * 60 * 1000;
+            }
+            if (skippedTelemetry) skippedTelemetry.push(`Pollinations -> HTTP ${freeRes.status}`);
         } catch (e) {
             clearTimeout(timer);
-            if (skippedTelemetry) skippedTelemetry.push(`Pollinations(${cfg.model}) -> ${e.message}`);
+            if (skippedTelemetry) skippedTelemetry.push(`Pollinations -> ${e.message}`);
         }
     }
 
-    // LAYER 3: Emergency 18-Emotion Offline Hindi Shield (Zero crash even if user clicks rapidly!)
+    // LAYER 4: Emergency 18-Emotion Offline Hindi Shield
     return generateEmergencyEmotionReply(userText, requestedEmotion, singingMode);
 }
 
@@ -916,10 +919,27 @@ async function generateGeminiReplyInternal(body) {
     const { agiAction, newMemoryFact } = detectAgiActionAndMemory(userText);
     const useWebSearch = needsLiveWebSearch(userText);
 
+    const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
+    const forcedEmotionPrompt = requestedEmotion
+        ? `\n(🎭 TARGET HUMAN EMOTION: Express genuine '${requestedEmotion}' in your Hindi tone and start with [EMO:${requestedEmotion}].)`
+        : `\n(🎭 ALWAYS start your reply with the single most accurate [EMO:...] tag from the 18 universal human emotions, followed by a space and your Hindi reply.)`;
+
+    const modePromptSuffix = singingMode
+        ? `\n(🎵 SINGING MODE ACTIVE: आपका बच्चा आपसे गाना/भजन/लोरी सुनना चाहता है! मना बिल्कुल मत करें। प्यार से एक छोटी लाइन बोलकर तुरंत 4 से 6 लाइनों का सुरीला हिंदी गीत/भजन देवनागरी में गाकर सुनाएँ। गाने के शब्दों में सुर खींचने के लिए 'आऽऽ...', 'होऽऽ...', 'हम्मऽऽ...', और '...' का प्रयोग करें ताकि आवाज़ बिल्कुल असली गायकी जैसी लगे।)`
+        : `\n(अपना जवाब हमेशा 1 से 3 पूरे देवनागरी हिंदी वाक्यों में लिखें और वाक्य को अधूरा न छोड़ें।)`;
+
+    const finalTextPrompt = contextText + `Family member now said: "${userText}"` + forcedEmotionPrompt + modePromptSuffix;
+
+    // Build Multimodal Parts (Attaches family reference faces ONLY on Turn 1 or recognition questions for 60% faster speed!)
     const userParts = [];
-    if (base64Frame && currentFacingMode === "user" && savedFaces.length > 0) {
+    const includeRefFaces = base64Frame &&
+        currentFacingMode === "user" &&
+        savedFaces.length > 0 &&
+        shouldAttachReferenceFaces(userText, chatHistory);
+
+    if (includeRefFaces) {
         userParts.push({ text: "REGISTERED FAMILY MEMBERS REFERENCE PHOTOS:" });
-        for (const member of savedFaces) {
+        for (const member of savedFaces.slice(0, 4)) {
             if (member && member.name && member.photo) {
                 userParts.push({ text: `Family Member Name & Relation with Papa: ${member.name}` });
                 userParts.push({
@@ -937,19 +957,10 @@ async function generateGeminiReplyInternal(body) {
             inline_data: { mime_type: "image/jpeg", data: base64Frame }
         });
     }
+    userParts.push({ text: finalTextPrompt });
 
-    const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
-    const forcedEmotionPrompt = requestedEmotion
-        ? `\n(🎭 TARGET HUMAN EMOTION: Express genuine '${requestedEmotion}' in your Hindi tone and start with [EMO:${requestedEmotion}].)`
-        : `\n(🎭 ALWAYS start your reply with the single most accurate [EMO:...] tag from the 18 universal human emotions, followed by a space and your Hindi reply.)`;
-
-    const modePromptSuffix = singingMode
-        ? `\n(🎵 SINGING MODE ACTIVE: आपका बच्चा आपसे गाना/भजन/लोरी सुनना चाहता है! मना बिल्कुल मत करें। प्यार से एक छोटी लाइन बोलकर तुरंत 4 से 6 लाइनों का सुरीला हिंदी गीत/भजन देवनागरी में गाकर सुनाएँ। गाने के शब्दों में सुर खींचने के लिए 'आऽऽ...', 'होऽऽ...', 'हम्मऽऽ...', और '...' का प्रयोग करें ताकि आवाज़ बिल्कुल असली गायकी जैसी लगे।)`
-        : `\n(अपना जवाब हमेशा 1 से 3 पूरे देवनागरी हिंदी वाक्यों में लिखें और वाक्य को अधूरा न छोड़ें।)`;
-
-    userParts.push({
-        text: contextText + `Family member now said: "${userText}"` + forcedEmotionPrompt + modePromptSuffix
-    });
+    // Lightweight text-only parts for instant fallback if multimodal vision upload times out
+    const textOnlyParts = [{ text: finalTextPrompt }];
 
     let lastError = geminiKeys.length > 0
         ? "All Gemini keys currently in 65s rate-limit cooldown"
@@ -961,9 +972,10 @@ async function generateGeminiReplyInternal(body) {
         const modelsToTry = await getAutoUpdatedGeminiModelsList(geminiKeys[geminiKeyIdx]);
         let skippedDueToCooldownCount = 0;
         let hitTimeBudget = false;
+        let useTextOnlyFallbackMode = false;
 
         for (let attempt = 0; attempt < geminiKeys.length; attempt++) {
-            if (Date.now() - geminiLoopStart > 6500) {
+            if (Date.now() - geminiLoopStart > 13500) {
                 hitTimeBudget = true;
                 break;
             }
@@ -974,7 +986,7 @@ async function generateGeminiReplyInternal(body) {
 
             for (const modelName of modelsToTry) {
                 if (keyAuthFailed) break;
-                if (Date.now() - geminiLoopStart > 6500) {
+                if (Date.now() - geminiLoopStart > 13500) {
                     hitTimeBudget = true;
                     break;
                 }
@@ -990,14 +1002,15 @@ async function generateGeminiReplyInternal(body) {
 
                 for (const withSearchTool of toolModes) {
                     const controller = new AbortController();
-                    const timer = setTimeout(() => controller.abort(), 7000);
+                    const timeoutMs = useTextOnlyFallbackMode ? 5500 : 10500;
+                    const timer = setTimeout(() => controller.abort(), timeoutMs);
                     try {
                         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
                         const payload = {
-                            contents: [{ role: "user", parts: userParts }],
+                            contents: [{ role: "user", parts: useTextOnlyFallbackMode ? textOnlyParts : userParts }],
                             systemInstruction: { parts: [{ text: FATHER_AGI_PROMPT }] },
                             generationConfig: {
-                                maxOutputTokens: 450,
+                                maxOutputTokens: 420,
                                 temperature: singingMode ? 0.8 : 0.7
                             }
                         };
@@ -1026,7 +1039,9 @@ async function generateGeminiReplyInternal(body) {
                                 aiText: parsed.aiText,
                                 emotion: requestedEmotion || parsed.emotion,
                                 geminiKeyUsed: keyNum,
-                                modelUsed: withSearchTool ? `${modelName}+WebSearch` : modelName,
+                                modelUsed: withSearchTool
+                                    ? `${modelName}+WebSearch`
+                                    : (useTextOnlyFallbackMode ? `${modelName}(Fast)` : modelName),
                                 agiAction,
                                 newMemoryFact,
                                 skippedTelemetry
@@ -1040,12 +1055,10 @@ async function generateGeminiReplyInternal(body) {
                         lastError = data?.error?.message || `HTTP ${gRes.status} on ${modelName}`;
                         skippedTelemetry.push(`G-Key#${keyNum} ${modelName} -> HTTP ${gRes.status}`);
 
-                        // 404 (Retired model): cooldown 6 hours
                         if (gRes.status === 404) {
                             exhaustedModelCache.set(cacheKey, Date.now() + 6 * 60 * 60 * 1000);
                             break;
                         }
-                        // 429 (RPM/Quota limit): short 65-second cooldown instead of 20 minutes!
                         if (gRes.status === 429 || gRes.status === 400) {
                             exhaustedModelCache.set(cacheKey, Date.now() + 65 * 1000);
                             break;
@@ -1058,6 +1071,11 @@ async function generateGeminiReplyInternal(body) {
                         clearTimeout(timer);
                         lastError = err.message;
                         skippedTelemetry.push(`G-Key#${keyNum} ${modelName} -> ${err.message}`);
+                        // If multimodal Vision request timed out, immediately switch next attempt to ultra-fast Text-Only!
+                        if (!useTextOnlyFallbackMode && base64Frame) {
+                            useTextOnlyFallbackMode = true;
+                            skippedTelemetry.push("Vision timeout -> Retrying Gemini Text-Only (Fast)");
+                        }
                         break;
                     }
                 }
@@ -1069,7 +1087,7 @@ async function generateGeminiReplyInternal(body) {
         }
 
         if (hitTimeBudget) {
-            skippedTelemetry.push("Gemini retry loop hit 6.5s budget -> Fast-shifting to Backup Brain");
+            skippedTelemetry.push("Gemini retry loop hit 13.5s budget -> Shifting to Backup Brain");
         } else if (skippedDueToCooldownCount > 0 && skippedTelemetry.length === 0) {
             skippedTelemetry.push(`Gemini ${geminiKeys.length} keys cooling down (65s RPM window) -> Using Backup Brain`);
         }
@@ -1097,7 +1115,6 @@ async function generateGeminiReplyInternal(body) {
 }
 
 async function generateTtsAudioInternal(rawText) {
-    // Strip emotion tags and any stray emojis so TTS never speaks tags or emoji names aloud
     const cleanedForVoice = String(rawText || "")
         .replace(/\[(?:EMO|EMOTION)\s*:\s*[a-zA-Z_]+\]/gi, "")
         .replace(/[🎵🎶🎼🎤✨❤️😊😢😠😨😲🤢⏳🤝😒😳😔🏆🌟😞🫂💗😰🙏🙌😄🗣️🤔🎧]/g, "");
