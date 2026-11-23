@@ -1,12 +1,13 @@
 /**
- * Papa Chatbot - Universal End-to-End AGI + 18 Human Emotions & Mobile-Optimized Backend (Nov 2026 Edition)
- * Fixes & Features:
- *  1. MOBILE LATENCY FIX: 10.5s Gemini timeout + 13.5s budget + automatic Text-Only Fast Retry if Vision stalls.
- *  2. SMART VISION BANDWIDTH: Sends reference family photos only on Turn 1 or recognition queries (cuts latency ~60%).
- *  3. QUOTA-SMART GEMINI RANKING: High-quota `flash-lite` & `flash` models FIRST + 65s RPM cooldown.
- *  4. 4-LAYER UNBREAKABLE BACKUP: Multi-Key Groq -> OpenRouter (optional) -> Pollinations (with 402 circuit-breaker) -> 18-Emotion Offline Shield.
- *  5. 18 UNIVERSAL HUMAN EMOTIONS + SINGING MODE + LIVE GOOGLE SEARCH + SUPER-AGENT ACTIONS.
- *  6. 4 Cartesia Voice IDs + 20 API Keys Smart Auto-Pairing & Ping-Pong Rotation (1->20 then 20->1).
+ * Papa Chatbot - Universal End-to-End AGI, Gboard Neural Audio & Singing Backend (Nov 2026 Clean Edition)
+ * Features:
+ *  1. END-TO-END NATIVE AUDIO STREAM: Accepts WebRTC audioBase64 directly into Gemini (and Groq Whisper backup).
+ *  2. CLEAN NATURAL PAPA TONE: 18-emotion system removed; uses lightweight video mood mapping for your 9 avatar videos.
+ *  3. MOBILE LATENCY OPTIMIZED: 10.5s Gemini timeout + 13.5s budget + automatic Fast Audio/Text Retry if Vision stalls.
+ *  4. QUOTA-SMART GEMINI RANKING: High-quota `flash-lite` & `flash` models FIRST + 65s RPM cooldown.
+ *  5. 4-LAYER BACKUP: Multi-Key Groq (Whisper + Llama 3.3) -> OpenRouter -> Pollinations (402-safe) -> Clean Hindi Shield.
+ *  6. SINGING & BHAJAN MODE + LIVE GOOGLE SEARCH + SUPER-AGENT ACTIONS (Memory, Timer, WhatsApp, YouTube, Maps, Search).
+ *  7. 4 Cartesia Voice IDs + 20 API Keys Smart Auto-Pairing & Ping-Pong Rotation (1->20 then 20->1).
  */
 
 let geminiKeyIdx = 0;
@@ -37,57 +38,13 @@ const NOV_2026_ACTIVE_MODELS = [
     "gemini-4-carbon"
 ];
 
-const VALID_UNIVERSAL_EMOTIONS = [
-    // 8 Primary Human Emotions
-    "happiness",
-    "sadness",
-    "anger",
-    "fear",
-    "surprise",
-    "disgust",
-    "anticipation",
-    "trust",
-    // 10 Secondary Human Emotions
-    "love",
-    "jealousy",
-    "shame",
-    "guilt",
-    "pride",
-    "hope",
-    "disappointment",
-    "empathy",
-    "compassion",
-    "anxiety",
-    // Special Papa States
-    "blessing",
-    "laughing",
-    "singing",
-    "caring",
-    "talking"
-];
-
-const EMOTION_ALIAS_MAP = {
-    happy: "happiness",
-    sad: "sadness",
-    angry: "anger",
-    scared: "fear",
-    surprised: "surprise",
-    proud: "pride",
-    anxious: "anxiety",
-    disappointed: "disappointment",
-    empathetic: "empathy",
-    compassionate: "compassion"
-};
-
 const FATHER_AGI_PROMPT =
-    "You are 'Papa AGI' — a loving, wise, emotionally intelligent Indian father talking on a live video call with your family, equipped with Universal AGI-level knowledge, real-time intelligence, the ability to sing songs/bhajans affectionately, and the FULL spectrum of all 18 Universal Human Emotions.\n" +
+    "You are 'Papa AGI' — a loving, wise Indian father talking on a live video call with your family, equipped with Universal AGI-level knowledge, real-time intelligence, and the ability to sing songs/bhajans affectionately.\n" +
     "1. FAMILY RECOGNITION: If reference photos of family members are provided, compare the person in the 'CURRENT LIVE CAMERA VIEW' with those reference photos and address them warmly by name/relation.\n" +
     "2. UNIVERSAL CAMERA & EXPERT INTELLIGENCE: Observe faces, expressions, clothes, medicines, bills, documents, books, or objects shown on the Front/Back camera. Answer any question (health, coding, business, math, news, daily life, stories, jokes, shayari) with accurate wisdom in a warm fatherly tone.\n" +
-    "3. UNIVERSAL HUMAN EMOTIONS (18 EMOTIONS): Sense the user's true emotion from both their words and camera face, and respond with genuine, lifelike human emotional depth across all 18 emotions: happiness (खुशी), sadness (दुख), anger (गुस्सा - mild/protective fatherly scolding if needed), fear (डर), surprise (आश्चर्य), disgust (घृणा/नापसंदगी), anticipation (प्रत्याशा/इंतजार), trust (विश्वास), love (प्यार), jealousy (ईर्ष्या), shame (शर्म), guilt (अपराधबोध), pride (गर्व), hope (उम्मीद), disappointment (निराशा), empathy (सहानुभूति), compassion (करुणा), anxiety (बेचैनी), plus blessing/laughing/singing/caring.\n" +
-    "4. MANDATORY EMOTION TAG FORMAT: ALWAYS start your response with EXACTLY one bracket tag from this list: [EMO:happiness], [EMO:sadness], [EMO:anger], [EMO:fear], [EMO:surprise], [EMO:disgust], [EMO:anticipation], [EMO:trust], [EMO:love], [EMO:jealousy], [EMO:shame], [EMO:guilt], [EMO:pride], [EMO:hope], [EMO:disappointment], [EMO:empathy], [EMO:compassion], [EMO:anxiety], [EMO:blessing], [EMO:laughing], [EMO:singing], or [EMO:caring] — followed by a space and your Devanagari Hindi reply.\n" +
-    "5. SINGING CAPABILITY (गाना और भजन): When asked to sing a song, bhajan, aarti, ghazal, or lori, DO NOT refuse! Happily sing 4 to 6 melodic lines in Devanagari Hindi using musical vowel stretches (like आऽऽ..., होऽऽ..., हम्मऽऽ...) and gentle pauses (...) so your voice sounds like real singing.\n" +
-    "6. LONG-TERM MEMORY & CONTINUITY: Use the provided LONG-TERM FAMILY MEMORIES and RECENT CONVERSATION HISTORY naturally.\n" +
-    "7. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your spoken reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak 1 to 3 complete sentences ending with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete.";
+    "3. SINGING CAPABILITY (गाना और भजन): When asked to sing a song, bhajan, aarti, ghazal, or lori, DO NOT refuse! Happily sing 4 to 6 melodic lines in Devanagari Hindi using musical vowel stretches (like आऽऽ..., होऽऽ..., हम्मऽऽ...) and gentle pauses (...) so your voice sounds like real singing.\n" +
+    "4. LONG-TERM MEMORY & CONTINUITY: Use the provided LONG-TERM FAMILY MEMORIES and RECENT CONVERSATION HISTORY naturally.\n" +
+    "5. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your spoken reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak 1 to 3 complete sentences ending with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete.";
 
 function ensureCompleteHindiSentence(rawText) {
     if (!rawText) return "हाँ बेटा, मैं तुम्हारी बात ध्यान से सुन रहा हूँ।";
@@ -130,88 +87,53 @@ function isSingingRequest(userText) {
     );
 }
 
-function shouldAttachReferenceFaces(userText, chatHistory) {
+function shouldAttachReferenceFaces(userText, chatHistory, hasAudio) {
     if (!Array.isArray(chatHistory) || chatHistory.length === 0) return true;
+    if (hasAudio && !userText) return false;
     return /कौन|पहचान|नाम बता|चेहरा|मेरा नाम|who am i|pehchan|kaun/.test(String(userText || "").toLowerCase());
 }
 
-function extractEmotionTagAndCleanText(rawModelText, userText) {
+// Extracts optional [USER:...] transcript returned during E2E Audio calls and cleans reply text for TTS
+function extractUserTranscriptAndCleanText(rawModelText, fallbackUserText) {
     let text = String(rawModelText || "").trim();
-    let taggedEmotion = null;
+    let heardText = String(fallbackUserText || "").trim();
 
-    const tagMatch = text.match(/^\s*\[(?:EMO|EMOTION)\s*:\s*([a-zA-Z_]+)\]\s*/i);
-    if (tagMatch) {
-        const rawCandidate = tagMatch[1].toLowerCase().trim();
-        const normalizedCandidate = EMOTION_ALIAS_MAP[rawCandidate] || rawCandidate;
-        if (VALID_UNIVERSAL_EMOTIONS.includes(normalizedCandidate)) {
-            taggedEmotion = normalizedCandidate;
+    const userMatch = text.match(/\[(?:USER|HEARD|TRANSCRIPT)\s*:\s*([^\]]+)\]/i);
+    if (userMatch) {
+        const extracted = userMatch[1].trim();
+        if (extracted) {
+            heardText = extracted;
         }
-        text = text.replace(/^\s*\[(?:EMO|EMOTION)\s*:\s*[a-zA-Z_]+\]\s*/i, "").trim();
+        text = text.replace(/\[(?:USER|HEARD|TRANSCRIPT)\s*:\s*[^\]]+\]/gi, "").trim();
     }
 
+    // Strip any stray bracket tags if model outputs them
     text = text.replace(/\[(?:EMO|EMOTION)\s*:\s*[a-zA-Z_]+\]/gi, "").trim();
+
     const finalText = ensureCompleteHindiSentence(text);
-
-    if (isSingingRequest(userText)) {
-        return { aiText: finalText, emotion: "singing" };
-    }
-
-    const finalEmotion = taggedEmotion || detectUniversalHumanEmotion(userText, finalText);
-    return { aiText: finalText, emotion: finalEmotion };
+    return { aiText: finalText, heardText };
 }
 
-function detectUniversalHumanEmotion(userText, aiText) {
+// Simple video mood selector ONLY for your avatar MP4 clips (no 18-emotion system)
+function detectPapaVideoState(userText, aiText) {
     const combined = `${userText || ""} ${aiText || ""}`.toLowerCase();
 
-    if (isSingingRequest(userText) || /🎵|🎶|आऽऽ|होऽऽ|ला ला ला/.test(aiText || "")) return "singing";
-    if (
-        /प्रणाम|नमस्ते|चरण|पैर लागू|आशीर्वाद|खुश रहो|जीते रहो|सदा सुखी|भगवान|तरक्की|सफल|pranam|namaste|ashirwad|bless/.test(
-            combined
-        )
-    ) {
+    if (isSingingRequest(userText) || /🎵|🎶|आऽऽ|होऽऽ|ला ला ला/.test(aiText || "")) {
+        return "singing";
+    }
+    if (/प्रणाम|नमस्ते|चरण|पैर लागू|आशीर्वाद|खुश रहो|जीते रहो|सदा सुखी|भगवान|तरक्की|सफल|pranam|namaste|ashirwad|bless/.test(combined)) {
         return "blessing";
     }
-    if (/हाहा|हीही|हँस|हंस|मज़ाक|मजाक|चुटकुला|जोक|फनी|haha|joke|funny/.test(combined)) return "laughing";
-
-    // Secondary Emotions (10)
-    if (/गर्व|शाबाश|कमाल कर दिया|सफलता|जीत गया|फक्र|proud|pride/.test(combined)) return "pride";
-    if (/प्यार|दुलार|लाडला|जान|स्नेह|दिल से|love|pyar/.test(combined)) return "love";
-    if (/जलन|ईर्ष्या|जेलस|jealous|envy/.test(combined)) return "jealousy";
-    if (/शर्म|लज्जा|शर्मिंदा|shame|embarrass/.test(combined)) return "shame";
-    if (/गलती हो गई|माफ़ कर|माफी|अपराधबोध|पछतावा|guilt|sorry/.test(combined)) return "guilt";
-    if (/बेचैनी|घबराहट|तनाव|टेंशन|स्ट्रेस|चिंता|परेशान|anxiety|nervous|stress/.test(combined)) return "anxiety";
-    if (/निराश|हार गया|टूट गया|मायूस|disappoint/.test(combined)) return "disappointment";
-    if (/सहानुभूति|तुम्हारा दर्द समझ|मैं समझ सकता|रो मत|हिम्मत|empathy/.test(combined)) return "empathy";
-    if (
-        /करुणा|दया|मदद|तबीयत|दवा|खाना खाया|आराम|ध्यान रख|थक|नींद|बुखार|दर्द|ख्याल|compassion/.test(
-            combined
-        )
-    ) {
-        return "compassion";
+    if (/हाहा|हीही|हँस|हंस|मज़ाक|मजाक|चुटकुला|जोक|फनी|haha|joke|funny/.test(combined)) {
+        return "laughing";
     }
-    if (/उम्मीद|आशा|सब ठीक होगा|भविष्य|सपना|hope/.test(combined)) return "hope";
-
-    // Primary Emotions (8)
-    if (/गुस्सा|क्रोध|नाराज|चिड़चिड़|डांट|बदतमीजी|anger|angry|gussa/.test(combined)) return "anger";
-    if (/डर|भय|खतरा|असुरक्षा|डरावना|fear|scared|dar/.test(combined)) return "fear";
-    if (/आश्चर्य|हैरान|चौंक|अरे वाह|सच में|कमाल|surprise|shocked|wow/.test(combined)) return "surprise";
-    if (/घृणा|घिन|गंदा|नापसंद|बकवास|छी|disgust|hate/.test(combined)) return "disgust";
-    if (/इंतजार|प्रत्याशा|कब आएगा|आने वाला|उत्सुक|anticipation|waiting/.test(combined)) return "anticipation";
-    if (/विश्वास|भरोसा|यकीन|अपनापन|साथ हूँ|trust|believe/.test(combined)) return "trust";
-    if (/दुख|उदास|अकेलापन|रोना|आँसू|तकलीफ|sad|sadness|cry|dukhi/.test(combined)) return "sadness";
-    if (
-        /खुश|आनंद|उत्साह|संतुष्टि|बधाई|मज़ा|बहुत बढ़िया|बहुत अच्छा|मुस्कुरा|सुंदर|अच्छा लग|वाह|happy|happiness|khush/.test(
-            combined
-        )
-    ) {
-        return "happiness";
+    if (/तबीयत|खाना खाया|दवा|आराम|ध्यान रख|चिंता|परेशान|रो मत|हिम्मत|थक|नींद|बुखार|दर्द|ख्याल/.test(combined)) {
+        return "caring";
     }
-
+    if (/शाबाश|बधाई|गर्व|बहुत बढ़िया|बहुत अच्छा|खुशी|मुस्कुरा|प्यार|सुंदर|अच्छा लग|वाह/.test(combined)) {
+        return "happy";
+    }
     return "talking";
-}
-
-function detectPapaEmotion(userText, aiText) {
-    return detectUniversalHumanEmotion(userText, aiText);
 }
 
 function needsLiveWebSearch(userText) {
@@ -694,73 +616,102 @@ function formatHistoryAndMemoryContext(chatHistory, longTermMemory) {
     return contextBlock;
 }
 
-// Layer 4 Emergency 18-Emotion Local Hindi Fallback
-function generateEmergencyEmotionReply(userText, requestedEmotion, singingMode) {
-    const emo = requestedEmotion || (singingMode ? "singing" : detectUniversalHumanEmotion(userText, ""));
-    const bank = {
-        happiness: "वाह बेटा, तुम्हारी खुशी सुनकर मेरा दिल भी बाग-बाग हो गया! भगवान करे तुम्हारे जीवन में ऐसे ही खुशियाँ आती रहें।",
-        sadness: "अरे बेटा, उदास मत हो, मैं तुम्हारी बात समझ रहा हूँ। हर कठिन समय गुजर जाता है, हिम्मत रखो और अपना ख्याल रखो।",
-        anger: "बेटा, लापरवाही बिल्कुल अच्छी बात नहीं है, समय और काम की कद्र करना सीखो। आगे से ध्यान रखना, ठीक है?",
-        fear: "बेटा, डरने की कोई बात नहीं है। गहरी सांस लो, शांत मन से सोचो और पूरे साहस के साथ आगे बढ़ो।",
-        surprise: "अरे वाह बेटा, यह तो सच में बड़ी हैरानी और खुशी की बात है! जल्दी बताओ क्या खास बात है?",
-        disgust: "हाँ बेटा, गंदगी और बुरी चीज़ों से मन खराब होना स्वाभाविक है। हमें खुद स्वच्छता और अच्छे विचारों को अपनाना चाहिए।",
-        anticipation: "बहुत बढ़िया बेटा, अच्छे अवसर का इंतज़ार हमेशा मीठा होता है। अपनी तैयारी पूरी रखो, शुभ समय ज़रूर आएगा।",
-        trust: "बेटा, खुद पर और सच्चाई पर भरोसा रखना ही सबसे बड़ी ताकत है। तुम्हारा यही विश्वास तुम्हें आगे बढ़ाएगा।",
-        love: "बेटा, परिवार का प्यार और अपनापन ही दुनिया की सबसे बड़ी दौलत है। सबके साथ मिल-जुलकर खुश रहो।",
-        jealousy: "बेटा, दूसरों की तरक्की से ईर्ष्या करने के बजाय उनसे सीख लेकर अपनी मेहनत बढ़ाओ। तुम्हारा समय भी ज़रूर आएगा।",
-        shame: "बेटा, इसमें शर्म या झिझक की कोई बात नहीं है। इंसान अनुभव से ही आत्मविश्वास सीखता है, सिर उठाकर आगे बढ़ो।",
-        guilt: "बेटा, गलती इंसान से ही होती है, लेकिन उसे मान लेना और सुधारना सबसे बड़ी समझदारी है। मन हल्का करो और आगे सही करो।",
-        pride: "शाबाश बेटा! तुम्हारी मेहनत और लगन देखकर मुझे बहुत गर्व हो रहा है। ऐसे ही ऊँचाइयाँ छूते रहो।",
-        hope: "बेटा, उम्मीद की किरण कभी मत छोड़ना। मेहनत और अच्छे कर्मों का फल हमेशा मीठा और उज्ज्वल होता है।",
-        disappointment: "निराश मत हो बेटा, एक बार काम न बनने का मतलब हार नहीं होता। थोड़ी देर आराम करो और नए जोश से फिर कोशिश करो।",
-        empathy: "बेटा, दूसरों का दुख समझना बहुत बड़े दिल की निशानी है। तुम्हारी यह संवेदनशीलता तुम्हें एक नेक इंसान बनाती है।",
-        compassion: "बेटा, ज़रूरतमंद की मदद करना और करुणा रखना सबसे बड़ा धर्म है। जितना हो सके, विनम्रता से सबका भला करो।",
-        anxiety: "बेटा, इतनी बेचैनी और टेंशन मत लो। एक गिलास पानी पियो, गहरी सांस लो और एक बार में सिर्फ़ एक ही काम पर ध्यान दो।",
-        blessing: "सदा खुश रहो बेटा, खूब तरक्की करो और हमेशा स्वस्थ व सुरक्षित रहो।",
-        laughing: "हाहा, क्या बढ़िया बात कही तुमने बेटा! ऐसे ही हँसते-मुस्कुराते रहा करो।",
-        singing: "अच्छा बेटा, सुनो... सुख के सब साथी, दुख में न कोईऽऽ... मेरे राम, मेरे राम, तेरा नाम एक साँचा, दूजा न कोईऽऽ...",
-        caring: "अपना पूरा ध्यान रखो बेटा, समय पर खाना खाओ और पर्याप्त आराम करो।",
-        talking: "मैं बिल्कुल ठीक हूँ बेटा, तुम बताओ कैसे हो और घर में सब कैसे हैं?"
-    };
+// Groq Whisper Audio-to-Text Backup (used only if Gemini is in cooldown during Gboard E2E Audio call)
+async function transcribeAudioWithGroqWhisper(audioBase64, audioMimeType, groqKeys, skippedTelemetry) {
+    if (!audioBase64 || !Array.isArray(groqKeys) || groqKeys.length === 0) return "";
+    const activeKey = groqKeys[groqKeyIdx % groqKeys.length];
+    const cleanMime = String(audioMimeType || "audio/webm").split(";")[0].trim() || "audio/webm";
+    const ext = cleanMime.includes("mp4") ? "m4a" : (cleanMime.includes("ogg") ? "ogg" : "webm");
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5500);
+    try {
+        const audioBuffer = Buffer.from(audioBase64, "base64");
+        const formData = new FormData();
+        formData.append("file", new Blob([audioBuffer], { type: cleanMime }), `voice.${ext}`);
+        formData.append("model", "whisper-large-v3-turbo");
+        formData.append("language", "hi");
+        formData.append("response_format", "json");
+
+        const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+            method: "POST",
+            signal: controller.signal,
+            headers: { "Authorization": `Bearer ${activeKey}` },
+            body: formData
+        });
+        clearTimeout(timer);
+        if (res.ok) {
+            const data = await res.json();
+            return String(data?.text || "").trim();
+        }
+        if (skippedTelemetry) skippedTelemetry.push(`Groq-Whisper -> HTTP ${res.status}`);
+    } catch (e) {
+        clearTimeout(timer);
+        if (skippedTelemetry) skippedTelemetry.push(`Groq-Whisper -> ${e.message}`);
+    }
+    return "";
+}
+
+// Clean Simple Offline Fallback (No 18-emotion matrix)
+function generateEmergencySimpleReply(userText, singingMode) {
+    if (singingMode || isSingingRequest(userText)) {
+        return {
+            aiText: "अच्छा बेटा, सुनो... सुख के सब साथी, दुख में न कोईऽऽ... मेरे राम, मेरे राम, तेरा नाम एक साँचा, दूजा न कोईऽऽ...",
+            emotion: "singing",
+            geminiKeyUsed: "Local-Shield",
+            modelUsed: "Simple-Offline-Shield"
+        };
+    }
+    const aiText = "मैं बिल्कुल ठीक हूँ बेटा, तुम बताओ कैसे हो और घर में सब कैसे हैं?";
     return {
-        aiText: ensureCompleteHindiSentence(bank[emo] || bank.talking),
-        emotion: emo,
+        aiText,
+        emotion: detectPapaVideoState(userText, aiText),
         geminiKeyUsed: "Local-Shield",
-        modelUsed: "18-Emotion-Offline-Shield"
+        modelUsed: "Simple-Offline-Shield"
     };
 }
 
-// 4-Layer Unbreakable Backup Generator: Multi-Key Groq -> OpenRouter -> Pollinations (402-safe) -> Local Shield
+// 4-Layer Backup Generator: Multi-Key Groq (with Whisper ASR) -> OpenRouter -> Pollinations -> Clean Shield
 async function generateFreeBackupReply(
     userText,
+    audioBase64,
+    audioMimeType,
     base64Frame,
     currentFacingMode,
     savedFaces,
     chatHistory,
     longTermMemory,
     singingMode,
-    requestedEmotion,
     skippedTelemetry
 ) {
+    const groqKeys = getGroqKeysFromEnv();
+    let effectiveUserText = String(userText || "").trim();
+
+    if (!effectiveUserText && audioBase64 && groqKeys.length > 0) {
+        effectiveUserText = await transcribeAudioWithGroqWhisper(
+            audioBase64,
+            audioMimeType,
+            groqKeys,
+            skippedTelemetry
+        );
+    }
+
+    const promptUserLine = effectiveUserText || "नमस्ते पापा, कैसे हैं आप?";
+    const effectiveSinging = singingMode || isSingingRequest(promptUserLine);
+
     let familyHint = "";
     if (currentFacingMode === "user" && Array.isArray(savedFaces) && savedFaces.length > 0) {
         const names = savedFaces.map((f) => f.name).join(", ");
         familyHint = `\nRegistered family members in household: ${names}.`;
     }
 
-    const emotionHint = requestedEmotion
-        ? `\n(Express the human emotion: ${requestedEmotion}. Start your response with [EMO:${requestedEmotion}])`
-        : `\n(Start your response with [EMO:emotion_name] from the 18 universal human emotions)`;
-
-    const singingInstruction = singingMode
+    const singingInstruction = effectiveSinging
         ? "\n(IMPORTANT: The family member wants you to SING! Write 4-6 melodic Hindi lines of the requested song/bhajan/lori with musical stretches like आऽऽ..., होऽऽ..., हम्मऽऽ..., and commas/ellipses '...' so the voice clone sings it melodiously!)"
         : "\n(Reply warmly as Papa AGI in 1-3 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)";
 
     const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
 
-    // LAYER 1: Multi-Key Groq Pool (Fastest Free 14,400 req/day backup)
-    const groqKeys = getGroqKeysFromEnv();
+    // LAYER 1: Multi-Key Groq Pool
     if (groqKeys.length > 0) {
         for (let gAttempt = 0; gAttempt < groqKeys.length; gAttempt++) {
             const activeGroqKey = groqKeys[groqKeyIdx % groqKeys.length];
@@ -779,7 +730,7 @@ async function generateFreeBackupReply(
                         model: "llama-3.3-70b-versatile",
                         messages: [
                             { role: "system", content: FATHER_AGI_PROMPT + familyHint },
-                            { role: "user", content: contextText + `Family member said: "${userText}"` + emotionHint + singingInstruction }
+                            { role: "user", content: contextText + `Family member said: "${promptUserLine}"` + singingInstruction }
                         ],
                         max_tokens: 360,
                         temperature: 0.72
@@ -789,12 +740,13 @@ async function generateFreeBackupReply(
                 const groqData = await groqRes.json();
                 const text = groqData?.choices?.[0]?.message?.content;
                 if (groqRes.ok && text) {
-                    const parsed = extractEmotionTagAndCleanText(text, userText);
+                    const parsed = extractUserTranscriptAndCleanText(text, effectiveUserText);
                     return {
                         aiText: parsed.aiText,
-                        emotion: requestedEmotion || parsed.emotion,
+                        heardText: parsed.heardText,
+                        emotion: effectiveSinging ? "singing" : detectPapaVideoState(promptUserLine, parsed.aiText),
                         geminiKeyUsed: "Groq-Backup",
-                        modelUsed: "Groq-Llama-3.3-70B"
+                        modelUsed: audioBase64 ? "Groq-Whisper+Llama3.3" : "Groq-Llama-3.3-70B"
                     };
                 }
                 if (skippedTelemetry) skippedTelemetry.push(`Groq -> HTTP ${groqRes.status}`);
@@ -805,7 +757,7 @@ async function generateFreeBackupReply(
         }
     }
 
-    // LAYER 2: Optional OpenRouter Free Backup (if OPENROUTER_API_KEY is set in Vercel)
+    // LAYER 2: Optional OpenRouter Free Backup
     if (process.env.OPENROUTER_API_KEY) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 5500);
@@ -821,7 +773,7 @@ async function generateFreeBackupReply(
                     model: "meta-llama/llama-3.3-70b-instruct:free",
                     messages: [
                         { role: "system", content: FATHER_AGI_PROMPT + familyHint },
-                        { role: "user", content: contextText + `Family member said: "${userText}"` + emotionHint + singingInstruction }
+                        { role: "user", content: contextText + `Family member said: "${promptUserLine}"` + singingInstruction }
                     ],
                     max_tokens: 340
                 })
@@ -831,10 +783,11 @@ async function generateFreeBackupReply(
                 const orData = await orRes.json();
                 const text = orData?.choices?.[0]?.message?.content;
                 if (text && text.trim()) {
-                    const parsed = extractEmotionTagAndCleanText(text, userText);
+                    const parsed = extractUserTranscriptAndCleanText(text, effectiveUserText);
                     return {
                         aiText: parsed.aiText,
-                        emotion: requestedEmotion || parsed.emotion,
+                        heardText: parsed.heardText,
+                        emotion: effectiveSinging ? "singing" : detectPapaVideoState(promptUserLine, parsed.aiText),
                         geminiKeyUsed: "OpenRouter",
                         modelUsed: "Llama-3.3-Free"
                     };
@@ -847,7 +800,7 @@ async function generateFreeBackupReply(
         }
     }
 
-    // LAYER 3: Pollinations Text-Only (with 1-hour circuit breaker if HTTP 402 Payment Required)
+    // LAYER 3: Pollinations Text-Only (with 1-hour circuit breaker if HTTP 402)
     if (Date.now() >= pollinationsBlockedUntil) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 4500);
@@ -860,10 +813,7 @@ async function generateFreeBackupReply(
                     model: "openai",
                     messages: [
                         { role: "system", content: FATHER_AGI_PROMPT + familyHint },
-                        {
-                            role: "user",
-                            content: contextText + `Family member now said: "${userText}"` + emotionHint + singingInstruction
-                        }
+                        { role: "user", content: contextText + `Family member now said: "${promptUserLine}"` + singingInstruction }
                     ]
                 })
             });
@@ -873,10 +823,11 @@ async function generateFreeBackupReply(
                 const freeData = await freeRes.json();
                 const reply = freeData?.choices?.[0]?.message?.content;
                 if (reply && reply.trim()) {
-                    const parsed = extractEmotionTagAndCleanText(reply, userText);
+                    const parsed = extractUserTranscriptAndCleanText(reply, effectiveUserText);
                     return {
                         aiText: parsed.aiText,
-                        emotion: requestedEmotion || parsed.emotion,
+                        heardText: parsed.heardText,
+                        emotion: effectiveSinging ? "singing" : detectPapaVideoState(promptUserLine, parsed.aiText),
                         geminiKeyUsed: "Auto-Backup",
                         modelUsed: "Free-AGI-Fast"
                     };
@@ -892,50 +843,50 @@ async function generateFreeBackupReply(
         }
     }
 
-    // LAYER 4: Emergency 18-Emotion Offline Hindi Shield
-    return generateEmergencyEmotionReply(userText, requestedEmotion, singingMode);
+    // LAYER 4: Clean Simple Offline Shield
+    const shield = generateEmergencySimpleReply(promptUserLine, effectiveSinging);
+    shield.heardText = effectiveUserText;
+    return shield;
 }
 
 async function generateGeminiReplyInternal(body) {
     const geminiLoopStart = Date.now();
     const geminiKeys = getGeminiKeysFromEnv();
-    const userText = body.userText || "नमस्ते पापा";
+    const userText = String(body.userText || "").trim();
+    const audioBase64 = body.audioBase64 || null;
+    const cleanAudioMime = String(body.audioMimeType || "audio/webm").split(";")[0].trim() || "audio/webm";
     const base64Frame = body.base64Frame || null;
     const currentFacingMode = body.currentFacingMode || "user";
     const savedFaces = Array.isArray(body.savedFaces) ? body.savedFaces : [];
     const chatHistory = Array.isArray(body.chatHistory) ? body.chatHistory : [];
     const longTermMemory = Array.isArray(body.longTermMemory) ? body.longTermMemory : [];
-
-    const rawRequestedEmotion = body.forceEmotion ? String(body.forceEmotion).toLowerCase().trim() : null;
-    const normalizedRequested = rawRequestedEmotion
-        ? (EMOTION_ALIAS_MAP[rawRequestedEmotion] || rawRequestedEmotion)
-        : null;
-    const requestedEmotion = normalizedRequested && VALID_UNIVERSAL_EMOTIONS.includes(normalizedRequested)
-        ? normalizedRequested
-        : null;
     const skippedTelemetry = [];
 
-    const singingMode = isSingingRequest(userText) || requestedEmotion === "singing";
-    const { agiAction, newMemoryFact } = detectAgiActionAndMemory(userText);
+    const singingMode = isSingingRequest(userText) || body.forceEmotion === "singing";
     const useWebSearch = needsLiveWebSearch(userText);
 
     const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
-    const forcedEmotionPrompt = requestedEmotion
-        ? `\n(🎭 TARGET HUMAN EMOTION: Express genuine '${requestedEmotion}' in your Hindi tone and start with [EMO:${requestedEmotion}].)`
-        : `\n(🎭 ALWAYS start your reply with the single most accurate [EMO:...] tag from the 18 universal human emotions, followed by a space and your Hindi reply.)`;
+
+    const audioPromptInstruction = audioBase64
+        ? `\n(🎙️ LIVE VOICE CALL AUDIO ATTACHED: Listen carefully to the attached audio clip of your family member speaking in Hindi/Hinglish and respond naturally as Papa AGI. Format strictly as: [USER:short Hindi transcript of what they said] <your 1-3 complete Devanagari Hindi sentences reply>. If the audio is mostly silent or unclear noise, reply warmly asking them to speak a bit closer to the mic.)`
+        : "";
 
     const modePromptSuffix = singingMode
-        ? `\n(🎵 SINGING MODE ACTIVE: आपका बच्चा आपसे गाना/भजन/लोरी सुनना चाहता है! मना बिल्कुल मत करें। प्यार से एक छोटी लाइन बोलकर तुरंत 4 से 6 लाइनों का सुरीला हिंदी गीत/भजन देवनागरी में गाकर सुनाएँ। गाने के शब्दों में सुर खींचने के लिए 'आऽऽ...', 'होऽऽ...', 'हम्मऽऽ...', और '...' का प्रयोग करें ताकि आवाज़ बिल्कुल असली गायकी जैसी लगे।)`
+        ? `\n(🎵 SINGING MODE ACTIVE: प्यार से 4 से 6 लाइनों का सुरीला हिंदी गीत/भजन देवनागरी में गाकर सुनाएँ। सुर खींचने के लिए 'आऽऽ...', 'होऽऽ...', 'हम्मऽऽ...', और '...' का प्रयोग करें।)`
         : `\n(अपना जवाब हमेशा 1 से 3 पूरे देवनागरी हिंदी वाक्यों में लिखें और वाक्य को अधूरा न छोड़ें।)`;
 
-    const finalTextPrompt = contextText + `Family member now said: "${userText}"` + forcedEmotionPrompt + modePromptSuffix;
+    const userInputLine = audioBase64
+        ? (userText ? `Family member spoke (hint: "${userText}") via attached voice audio.` : "Family member just spoke to you in the attached live voice audio clip.")
+        : `Family member now said: "${userText || "नमस्ते पापा"}"`;
 
-    // Build Multimodal Parts (Attaches family reference faces ONLY on Turn 1 or recognition questions for 60% faster speed!)
+    const finalTextPrompt = contextText + userInputLine + audioPromptInstruction + modePromptSuffix;
+
+    // Build Multimodal Parts (Vision + Native Audio + Prompt)
     const userParts = [];
     const includeRefFaces = base64Frame &&
         currentFacingMode === "user" &&
         savedFaces.length > 0 &&
-        shouldAttachReferenceFaces(userText, chatHistory);
+        shouldAttachReferenceFaces(userText, chatHistory, Boolean(audioBase64));
 
     if (includeRefFaces) {
         userParts.push({ text: "REGISTERED FAMILY MEMBERS REFERENCE PHOTOS:" });
@@ -957,10 +908,23 @@ async function generateGeminiReplyInternal(body) {
             inline_data: { mime_type: "image/jpeg", data: base64Frame }
         });
     }
+
+    if (audioBase64) {
+        userParts.push({ text: "CURRENT LIVE VOICE AUDIO FROM FAMILY MEMBER:" });
+        userParts.push({
+            inline_data: { mime_type: cleanAudioMime, data: audioBase64 }
+        });
+    }
     userParts.push({ text: finalTextPrompt });
 
-    // Lightweight text-only parts for instant fallback if multimodal vision upload times out
-    const textOnlyParts = [{ text: finalTextPrompt }];
+    // Lightweight Audio+Text (No Camera) parts for instant retry if Vision upload times out
+    const lightParts = [];
+    if (audioBase64) {
+        lightParts.push({
+            inline_data: { mime_type: cleanAudioMime, data: audioBase64 }
+        });
+    }
+    lightParts.push({ text: finalTextPrompt });
 
     let lastError = geminiKeys.length > 0
         ? "All Gemini keys currently in 65s rate-limit cooldown"
@@ -972,7 +936,7 @@ async function generateGeminiReplyInternal(body) {
         const modelsToTry = await getAutoUpdatedGeminiModelsList(geminiKeys[geminiKeyIdx]);
         let skippedDueToCooldownCount = 0;
         let hitTimeBudget = false;
-        let useTextOnlyFallbackMode = false;
+        let useLightFallbackMode = false;
 
         for (let attempt = 0; attempt < geminiKeys.length; attempt++) {
             if (Date.now() - geminiLoopStart > 13500) {
@@ -1002,15 +966,15 @@ async function generateGeminiReplyInternal(body) {
 
                 for (const withSearchTool of toolModes) {
                     const controller = new AbortController();
-                    const timeoutMs = useTextOnlyFallbackMode ? 5500 : 10500;
+                    const timeoutMs = useLightFallbackMode ? 6000 : 10500;
                     const timer = setTimeout(() => controller.abort(), timeoutMs);
                     try {
                         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
                         const payload = {
-                            contents: [{ role: "user", parts: useTextOnlyFallbackMode ? textOnlyParts : userParts }],
+                            contents: [{ role: "user", parts: useLightFallbackMode ? lightParts : userParts }],
                             systemInstruction: { parts: [{ text: FATHER_AGI_PROMPT }] },
                             generationConfig: {
-                                maxOutputTokens: 420,
+                                maxOutputTokens: 450,
                                 temperature: singingMode ? 0.8 : 0.7
                             }
                         };
@@ -1034,14 +998,17 @@ async function generateGeminiReplyInternal(body) {
                             .trim();
 
                         if (gRes.ok && combinedText) {
-                            const parsed = extractEmotionTagAndCleanText(combinedText, userText);
+                            const parsed = extractUserTranscriptAndCleanText(combinedText, userText);
+                            const effectiveSpoken = parsed.heardText || userText;
+                            const { agiAction, newMemoryFact } = detectAgiActionAndMemory(effectiveSpoken);
                             return {
                                 aiText: parsed.aiText,
-                                emotion: requestedEmotion || parsed.emotion,
+                                heardText: effectiveSpoken,
+                                emotion: singingMode ? "singing" : detectPapaVideoState(effectiveSpoken, parsed.aiText),
                                 geminiKeyUsed: keyNum,
-                                modelUsed: withSearchTool
-                                    ? `${modelName}+WebSearch`
-                                    : (useTextOnlyFallbackMode ? `${modelName}(Fast)` : modelName),
+                                modelUsed: audioBase64
+                                    ? `${modelName}+E2E-Audio${withSearchTool ? "+Web" : ""}`
+                                    : (withSearchTool ? `${modelName}+WebSearch` : modelName),
                                 agiAction,
                                 newMemoryFact,
                                 skippedTelemetry
@@ -1071,10 +1038,9 @@ async function generateGeminiReplyInternal(body) {
                         clearTimeout(timer);
                         lastError = err.message;
                         skippedTelemetry.push(`G-Key#${keyNum} ${modelName} -> ${err.message}`);
-                        // If multimodal Vision request timed out, immediately switch next attempt to ultra-fast Text-Only!
-                        if (!useTextOnlyFallbackMode && base64Frame) {
-                            useTextOnlyFallbackMode = true;
-                            skippedTelemetry.push("Vision timeout -> Retrying Gemini Text-Only (Fast)");
+                        if (!useLightFallbackMode && base64Frame) {
+                            useLightFallbackMode = true;
+                            skippedTelemetry.push("Vision timeout -> Retrying Gemini Audio/Text Fast Mode");
                         }
                         break;
                     }
@@ -1095,16 +1061,20 @@ async function generateGeminiReplyInternal(body) {
 
     const backupReply = await generateFreeBackupReply(
         userText,
+        audioBase64,
+        cleanAudioMime,
         base64Frame,
         currentFacingMode,
         savedFaces,
         chatHistory,
         longTermMemory,
         singingMode,
-        requestedEmotion,
         skippedTelemetry
     );
     if (backupReply) {
+        const effectiveSpoken = backupReply.heardText || userText;
+        const { agiAction, newMemoryFact } = detectAgiActionAndMemory(effectiveSpoken);
+        backupReply.heardText = effectiveSpoken;
         backupReply.agiAction = agiAction;
         backupReply.newMemoryFact = newMemoryFact;
         backupReply.skippedTelemetry = skippedTelemetry;
@@ -1117,6 +1087,7 @@ async function generateGeminiReplyInternal(body) {
 async function generateTtsAudioInternal(rawText) {
     const cleanedForVoice = String(rawText || "")
         .replace(/\[(?:EMO|EMOTION)\s*:\s*[a-zA-Z_]+\]/gi, "")
+        .replace(/\[(?:USER|HEARD|TRANSCRIPT)\s*:\s*[^\]]+\]/gi, "")
         .replace(/[🎵🎶🎼🎤✨❤️😊😢😠😨😲🤢⏳🤝😒😳😔🏆🌟😞🫂💗😰🙏🙌😄🗣️🤔🎧]/g, "");
     const text = ensureCompleteHindiSentence(cleanedForVoice);
     const { pool: cartesiaPool } = getCartesiaPoolFromEnv();
@@ -1182,7 +1153,8 @@ export default async function handler(req, res) {
             return res.status(200).json({
                 ok: true,
                 releaseBaseUrl: getNormalizedReleaseBaseUrl(),
-                autoDiscoveredModels: discovered.slice(0, 5)
+                autoDiscoveredModels: discovered.slice(0, 5),
+                e2eAudioSupported: true
             });
         }
         return res.status(401).json({ ok: false, error: "Wrong PIN" });
@@ -1208,6 +1180,7 @@ export default async function handler(req, res) {
 
             return res.status(200).json({
                 aiText: chatResult.aiText,
+                heardText: chatResult.heardText || body.userText || "",
                 emotion: chatResult.emotion || "talking",
                 geminiKeyUsed: chatResult.geminiKeyUsed,
                 modelUsed: chatResult.modelUsed,
@@ -1245,7 +1218,7 @@ export default async function handler(req, res) {
             const ttsResult = await generateTtsAudioInternal(text);
             return res.status(200).json({
                 ...ttsResult,
-                emotion: body.forceEmotion || detectUniversalHumanEmotion("", text)
+                emotion: body.forceEmotion || detectPapaVideoState("", text)
             });
         } catch (err) {
             return res.status(502).json({ error: err.message });
@@ -1265,7 +1238,7 @@ export default async function handler(req, res) {
             : NOV_2026_ACTIVE_MODELS;
 
         logs.push(`🔄 AUTO-DISCOVERED LIVE GEMINI MODELS (High-Quota First): ${liveModels.slice(0, 5).join(", ")}`);
-        logs.push(`🎭 UNIVERSAL EMOTIONS LOADED: 18 Human Emotions + 5 Papa States`);
+        logs.push(`🎙️ END-TO-END NATIVE AUDIO STREAM: ENABLED (Gemini Native Audio + Groq Whisper Backup)`);
         logs.push(`🧠 GEMINI KEYS FOUND: ${geminiKeys.length} | ⚡ GROQ BACKUP KEYS FOUND: ${groqKeys.length}`);
 
         for (let g = 0; g < geminiKeys.length; g++) {
