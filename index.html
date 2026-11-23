@@ -705,6 +705,8 @@ let videoLoadSeq = 0;
 let isLiveCallActive = false;
 let shouldMicBeActive = false;
 let isRecognitionActuallyRunning = false;
+let isMicReconnecting = false;
+let isUserActivelySpeaking = false;
 let lastMicStartTimestamp = 0;
 let consecutiveFastMicEnds = 0;
 let micRestartTimer = null;
@@ -725,14 +727,15 @@ const haBetaBolAudio = new Audio("./ha_beta_bol.mp3");
 
 function refreshLiveStateHud() {
     const micTxt = isRecognitionActuallyRunning
-        ? "LISTENING"
-        : (shouldMicBeActive ? "RECONNECTING" : "OFF");
+        ? (isUserActivelySpeaking ? "SPEAKING" : "LISTENING")
+        : (isMicReconnecting ? "RECONNECTING" : (shouldMicBeActive ? "STARTING" : "OFF"));
+
     if (isRecognitionActuallyRunning) {
-        micStatePill.innerText = "🎤 Mic: LIVE";
+        micStatePill.innerText = isUserActivelySpeaking ? "🎙️ Mic: Speaking..." : "🎤 Mic: LIVE";
         micStatePill.style.color = "#4ade80";
         micStatePill.style.borderColor = "#4ade80";
     } else if (shouldMicBeActive) {
-        micStatePill.innerText = "🎤 Mic: Ready...";
+        micStatePill.innerText = "🎤 Mic: Syncing...";
         micStatePill.style.color = "#ffeb3b";
         micStatePill.style.borderColor = "#ffeb3b";
     } else {
@@ -916,8 +919,7 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
     }
 
     // 3. BANDWIDTH PRIORITY RULE:
-    // Skip downloading heavy remote MP4s if user enabled Fast Mobile Mode OR while `/api/papa` is actively in flight
-    // (Prevents 25MB video downloads from choking Jio mobile data & causing Gemini timeouts!)
+    // Skip downloading heavy remote MP4s if Fast Base Mode is ON OR while `/api/papa` is actively in flight
     if (
         videoKey === "idle" ||
         videoKey === "talking" ||
@@ -971,7 +973,6 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
 
         vidEmotion.onplaying = function() {
             clearTimeout(stallTimer);
-            // Clear listener immediately so loop restarts NEVER spam Logcat!
             vidEmotion.onplaying = null;
             if (mySeq !== videoLoadSeq) return;
             vidEmotion.setAttribute("data-loaded-url", urlToTry);
@@ -1306,7 +1307,7 @@ fetch(BACKEND_API_URL, {
             setAvatarEmotionState("idle", false);
         }
     }, 4500);
-    statusText.innerText = "✅ Papa Universal AGI Ready! (Android-Clean Mic + Fast Talking Video + Logcat ON)\n'📞 Start Live Call', '🎭 18 Emotions', ya '🎵 गाना सुनें' dabayen.";
+    statusText.innerText = "✅ Papa Universal AGI Ready! (Android Reconnect-Safe Mic + Fast Talking Video + Logcat ON)\n'📞 Start Live Call', '🎭 18 Emotions', ya '🎵 गाना सुनें' dabayen.";
 })
 .catch(function(err) {
     if (err.message !== "Wrong PIN") {
@@ -1590,7 +1591,6 @@ function captureCameraFrameBase64() {
     if (!isVisionEnabled || !activeCameraStream || cameraVideo.readyState < 2) {
         return null;
     }
-    // Use lighter 240x180 for fast Front Camera upload, sharper 384x288 for Back Camera document reading
     const targetW = currentFacingMode === "environment" ? 384 : 240;
     const targetH = currentFacingMode === "environment" ? 288 : 180;
     const quality = currentFacingMode === "environment" ? 0.62 : 0.45;
@@ -1605,7 +1605,9 @@ function captureCameraFrameBase64() {
 startCamera("user");
 
 // ============================================================================
-// 🎤 ANDROID-CLEAN ZERO-GLITCH MIC ENGINE (Eliminates Cumulative Word Duplication!)
+// 🎤 ANDROID RECONNECT-SAFE ZERO-GLITCH MIC ENGINE
+// Fixes: (1) Pauses silence timer during Android reconnects, (2) 100ms fast mid-sentence
+// reconnect, (3) onspeechstart/onspeechend VAD guard, (4) Cumulative duplicate word fix!
 // ============================================================================
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (!SpeechRecognition) {
@@ -1621,20 +1623,19 @@ if (recognition) {
     recognition.maxAlternatives = 1;
 }
 
-const SILENCE_WAIT_MS = 2600;
-let priorRunsConfirmedText = ""; // Confirmed text from earlier silent reconnects
-let currentRunFinalText = "";    // Confirmed text from CURRENT SpeechRecognition run
+const SILENCE_WAIT_MS = 2600;       // Normal pause wait after last spoken word
+const POST_RECONNECT_WAIT_MS = 2200; // Fresh grace window AFTER Android mic finishes reconnecting!
+let priorRunsConfirmedText = "";     // Confirmed text preserved across Android reconnects
+let currentRunFinalText = "";        // Confirmed text from CURRENT SpeechRecognition run
 let currentInterimText = "";
 let silenceDebounceTimer = null;
 
-// Smart prefix & word-overlap merger: 100% fixes Android Chrome's cumulative duplication bug!
 function mergeTranscriptSmart(existing, incoming) {
     const a = String(existing || "").replace(/\s+/g, " ").trim();
     const b = String(incoming || "").replace(/\s+/g, " ").trim();
     if (!a) return b;
     if (!b) return a;
     if (b === a || a.endsWith(b)) return a;
-    // Android Chrome cumulative prefix case: e.g. a="हां पापा", b="हां पापा कैसे हो"
     if (b.startsWith(a)) return b;
     if (a.startsWith(b)) return a;
 
@@ -1668,6 +1669,20 @@ function clearSilenceTimer() {
     }
 }
 
+function scheduleSilenceSubmit(delayMs) {
+    clearSilenceTimer();
+    if (!shouldMicBeActive || isMicReconnecting || isUserActivelySpeaking) return;
+    if (!getCombinedSpokenText()) return;
+
+    silenceDebounceTimer = setTimeout(function() {
+        // Double-guard: NEVER submit while mic is reconnecting or user just started speaking!
+        if (isMicReconnecting || isUserActivelySpeaking) {
+            return;
+        }
+        finalizeAndSubmitUserSpeech();
+    }, delayMs || SILENCE_WAIT_MS);
+}
+
 function clearMicRestartTimer() {
     if (micRestartTimer) {
         clearTimeout(micRestartTimer);
@@ -1677,6 +1692,8 @@ function clearMicRestartTimer() {
 
 function stopMicCompletely() {
     shouldMicBeActive = false;
+    isMicReconnecting = false;
+    isUserActivelySpeaking = false;
     consecutiveFastMicEnds = 0;
     clearSilenceTimer();
     clearMicRestartTimer();
@@ -1702,6 +1719,10 @@ function safeStartRecognitionEngine() {
     } catch (e) {
         if (String(e.message || "").indexOf("already started") === -1) {
             addLogcatEntry("WARN", "MIC", "recognition.start() error: " + e.message);
+            isMicReconnecting = false;
+            if (getCombinedSpokenText()) {
+                scheduleSilenceSubmit(POST_RECONNECT_WAIT_MS);
+            }
         }
     }
 }
@@ -1715,6 +1736,8 @@ function activateSteadyMicSession(isFreshTurn) {
         currentRunFinalText = "";
         currentInterimText = "";
         consecutiveFastMicEnds = 0;
+        isMicReconnecting = false;
+        isUserActivelySpeaking = false;
         clearSilenceTimer();
     }
 
@@ -1799,6 +1822,8 @@ async function finalizeAndSubmitUserSpeech() {
 }
 
 finishSpeechBtn.addEventListener("click", function() {
+    isMicReconnecting = false;
+    isUserActivelySpeaking = false;
     finalizeAndSubmitUserSpeech();
 });
 
@@ -1893,6 +1918,8 @@ micBtn.addEventListener("click", function() {
     if (shouldMicBeActive) {
         const spokenSoFar = getCombinedSpokenText();
         if (spokenSoFar) {
+            isMicReconnecting = false;
+            isUserActivelySpeaking = false;
             finalizeAndSubmitUserSpeech();
         } else {
             stopMicCompletely();
@@ -1925,12 +1952,37 @@ haBetaBolAudio.onended = function() {
 
 if (recognition) {
     recognition.onstart = function() {
+        const cameFromReconnect = isMicReconnecting;
         isRecognitionActuallyRunning = true;
+        isMicReconnecting = false;
+        isUserActivelySpeaking = false;
         lastMicStartTimestamp = Date.now();
         currentRunFinalText = "";
         currentInterimText = "";
-        addLogcatEntry("INFO", "MIC", "Mic engine started (LIVE).");
+        addLogcatEntry("INFO", "MIC", cameFromReconnect ? "Mic reconnected cleanly (LIVE)." : "Mic engine started (LIVE).");
+
+        // Resume silence wait ONLY now that Android mic is genuinely live again!
+        if (cameFromReconnect && priorRunsConfirmedText && shouldMicBeActive) {
+            scheduleSilenceSubmit(POST_RECONNECT_WAIT_MS);
+        }
         refreshLiveStateHud();
+    };
+
+    // VAD Guard 1: Pause silence timer the INSTANT user starts speaking (even before transcript arrives!)
+    recognition.onspeechstart = function() {
+        if (!shouldMicBeActive || isPapaSpeakingOrThinking || isSubmittingSpeech || isApiRequestInFlight) return;
+        isUserActivelySpeaking = true;
+        clearSilenceTimer();
+        refreshLiveStateHud();
+    };
+
+    // VAD Guard 2: When voice activity stops, restart silence wait cleanly if we have buffered words
+    recognition.onspeechend = function() {
+        isUserActivelySpeaking = false;
+        refreshLiveStateHud();
+        if (shouldMicBeActive && !isMicReconnecting && getCombinedSpokenText() && !silenceDebounceTimer) {
+            scheduleSilenceSubmit(SILENCE_WAIT_MS);
+        }
     };
 
     recognition.onresult = function(event) {
@@ -1940,7 +1992,6 @@ if (recognition) {
         let rebuiltFinal = "";
         let rebuiltInterim = "";
 
-        // Rebuild cleanly from index 0 using smart overlap merge so Android Chrome NEVER duplicates phrases!
         for (let i = 0; i < event.results.length; i++) {
             const piece = String(event.results[i][0].transcript || "").trim();
             if (!piece) continue;
@@ -1954,6 +2005,9 @@ if (recognition) {
         currentRunFinalText = rebuiltFinal;
         currentInterimText = rebuiltInterim;
 
+        // If interim words are actively updating, treat speech as finished-for-now only after SILENCE_WAIT_MS
+        isUserActivelySpeaking = false;
+
         const combinedPreview = getCombinedSpokenText();
         if (combinedPreview) {
             liveTranscriptBar.style.display = "flex";
@@ -1963,26 +2017,29 @@ if (recognition) {
                 liveSubtitleBox.innerText = "🗣️ तुम बोल रहे हो: \"" + combinedPreview + "\"";
             }
 
-            clearSilenceTimer();
-            silenceDebounceTimer = setTimeout(function() {
-                finalizeAndSubmitUserSpeech();
-            }, SILENCE_WAIT_MS);
+            scheduleSilenceSubmit(SILENCE_WAIT_MS);
         }
     };
 
     recognition.onend = function() {
         isRecognitionActuallyRunning = false;
+        isUserActivelySpeaking = false;
         const ranForMs = Date.now() - lastMicStartTimestamp;
 
-        // Commit current run's clean final text before silent reconnect
-        if (currentRunFinalText) {
-            priorRunsConfirmedText = mergeTranscriptSmart(priorRunsConfirmedText, currentRunFinalText);
-            currentRunFinalText = "";
+        // Commit current run's clean text (including any final interim fragment Android didn't mark final)
+        const runMerged = mergeTranscriptSmart(currentRunFinalText, currentInterimText);
+        if (runMerged) {
+            priorRunsConfirmedText = mergeTranscriptSmart(priorRunsConfirmedText, runMerged);
         }
+        currentRunFinalText = "";
         currentInterimText = "";
-        refreshLiveStateHud();
 
         if (shouldMicBeActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech && !isApiRequestInFlight) {
+            // CRITICAL ANDROID FIX: Pause silence timer during reconnect so sentence NEVER cuts off!
+            clearSilenceTimer();
+            isMicReconnecting = true;
+            refreshLiveStateHud();
+
             if (ranForMs < 900) {
                 consecutiveFastMicEnds++;
             } else {
@@ -1991,21 +2048,29 @@ if (recognition) {
 
             const hasBufferedSpeech = Boolean(priorRunsConfirmedText);
             if (consecutiveFastMicEnds >= 5 && hasBufferedSpeech) {
+                isMicReconnecting = false;
                 addLogcatEntry("WARN", "MIC", "Mic restarted 5x fast -> Submitting buffered speech cleanly.");
                 finalizeAndSubmitUserSpeech();
                 return;
             }
 
-            // Calm 900ms reconnect when silent (reduces Android mic beep), fast 250ms if mid-sentence!
-            const baseDelay = hasBufferedSpeech ? 250 : 900;
-            const restartDelay = Math.min(baseDelay + consecutiveFastMicEnds * 300, 1800);
-            addLogcatEntry("INFO", "MIC", "Mic idle cycle (" + ranForMs + "ms) -> Smooth reconnect in " + restartDelay + "ms");
+            // Ultra-fast 100ms reconnect mid-sentence so next word is NEVER missed; calm 900ms when idle!
+            const baseDelay = hasBufferedSpeech ? 100 : 900;
+            const restartDelay = Math.min(baseDelay + consecutiveFastMicEnds * 250, 1600);
+            addLogcatEntry(
+                "INFO",
+                "MIC",
+                "Android mic cycle (" + ranForMs + "ms) -> Timer paused, reconnecting in " + restartDelay + "ms"
+            );
             clearMicRestartTimer();
             micRestartTimer = setTimeout(function() {
                 safeStartRecognitionEngine();
             }, restartDelay);
             return;
         }
+
+        isMicReconnecting = false;
+        refreshLiveStateHud();
 
         if (!isPapaSpeakingOrThinking && !isSubmittingSpeech && !isApiRequestInFlight) {
             liveTranscriptBar.style.display = "none";
@@ -2017,6 +2082,7 @@ if (recognition) {
 
     recognition.onerror = function(event) {
         isRecognitionActuallyRunning = false;
+        isUserActivelySpeaking = false;
         refreshLiveStateHud();
 
         if (event.error === "no-speech" || event.error === "aborted") {
@@ -2026,6 +2092,8 @@ if (recognition) {
         addLogcatEntry("WARN", "MIC", "Mic Warning: " + event.error);
         if (event.error === "not-allowed" || event.error === "service-not-allowed") {
             shouldMicBeActive = false;
+            isMicReconnecting = false;
+            clearSilenceTimer();
             clearMicRestartTimer();
             statusText.innerText = "🚨 Mic Permission Blocked! Browser me Mic Allow karein.";
         }
@@ -2307,7 +2375,7 @@ testVoiceBtn.addEventListener("click", async function() {
     unlockBrowserAudio();
     stopCurrentPlaybackSafely();
     try {
-        await speakPapaReply("नमस्ते बेटा, अब मोबाइल पर आवाज़, वीडियो और माइक तीनों बिल्कुल साफ़ और तेज़ चलेंगे।", "blessing");
+        await speakPapaReply("नमस्ते बेटा, अब Android माइक रीकनेक्ट के दौरान तुम्हारी बात बीच में बिल्कुल नहीं कटेगी।", "blessing");
     } catch (err) {
         addLogcatEntry("GLITCH", "MEDIA", "Voice Test Failed: " + err.message);
         statusText.innerText = "🚨 Voice Test Error: " + err.message;
