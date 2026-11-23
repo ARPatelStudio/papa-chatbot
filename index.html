@@ -10,39 +10,13 @@
             50% { opacity: 0.55; transform: scale(1.06); }
             100% { opacity: 1; transform: scale(1); }
         }
-        @keyframes pulseLockGlow {
-            0% { box-shadow: 0 0 0 0 rgba(255, 235, 59, 0.7); }
-            50% { box-shadow: 0 0 12px 2px rgba(255, 235, 59, 0.9); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 235, 59, 0.7); }
-        }
         .live-pulse {
             animation: pulseRed 1.4s infinite ease-in-out;
-        }
-        .emo-chip {
-            padding: 5px 9px;
-            border-radius: 14px;
-            border: 1px solid #45475a;
-            background: #1e1e36;
-            color: #cdd6f4;
-            font-size: 11px;
-            cursor: pointer;
-            transition: transform 0.15s, border-color 0.2s, opacity 0.2s;
-        }
-        .emo-chip:hover:not(:disabled) {
-            transform: scale(1.05);
-            border-color: #ffeb3b;
         }
         .is-loading-locked {
             opacity: 0.45 !important;
             cursor: not-allowed !important;
             pointer-events: none;
-        }
-        .emo-chip.is-active-loading {
-            opacity: 1 !important;
-            background: #332d1a !important;
-            color: #ffeb3b !important;
-            border-color: #ffeb3b !important;
-            animation: pulseLockGlow 1.1s infinite ease-in-out;
         }
         .vid-test-btn {
             padding: 5px 8px;
@@ -196,7 +170,7 @@
     <canvas id="face-thumb-canvas" style="display: none;"></canvas>
     <audio id="papa-tts-player" playsinline style="display: none;"></audio>
 
-    <!-- Controls Row: Mic Engine Mode, Vision, Cam, 18 Emotions, Parivar, AGI Memory, 7 Videos, Share, Logcat -->
+    <!-- Controls Row: Mic Engine Mode, Vision, Cam, Parivar, AGI Memory, 7 Videos, Share, Logcat -->
     <div style="display: flex; justify-content: center; gap: 5px; margin-bottom: 12px; flex-wrap: wrap;">
         <button id="mic-engine-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #38bdf8; background: #0c2738; color: #7dd3fc; font-size: 11px; font-weight: bold; cursor: pointer;">
             🎙️ Gboard Neural
@@ -206,9 +180,6 @@
         </button>
         <button id="cam-flip-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #0D8ABC; background: #162436; color: #89b4fa; font-size: 11px; font-weight: bold; cursor: pointer;">
             🔄 Cam: Front
-        </button>
-        <button id="emotions-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #f472b6; background: #33192b; color: #f9a8d4; font-size: 11px; font-weight: bold; cursor: pointer;">
-            🎭 18 Emotions
         </button>
         <button id="family-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #ffeb3b; background: #332d1a; color: #ffeb3b; font-size: 11px; font-weight: bold; cursor: pointer;">
             👨‍👩‍👧‍👦 Parivar (0)
@@ -247,17 +218,6 @@
             State: Idle | Mic: OFF | Video Layer: Base Idle
         </div>
         <div id="bug-radar-log" style="font-family: monospace; font-size: 10.5px; color: #a6e3a1; max-height: 190px; overflow-y: auto; white-space: pre-wrap; line-height: 1.4; background: #07070d; padding: 8px; border-radius: 8px; border: 1px solid #26263a;">Universal Logcat Active...</div>
-    </div>
-
-    <!-- 🎭 18 Universal Human Emotions Interactive Panel -->
-    <div id="emotions-panel" style="display: none; background: #121224; border: 1px solid #f472b6; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: left;">
-        <div style="font-size: 12.5px; font-weight: bold; color: #f9a8d4; margin-bottom: 6px;">
-            🎭 Universal 18 Human Emotions (किसी भी भावना पर क्लिक करके तुरंत टेस्ट करें):
-        </div>
-        <div style="font-size: 10.5px; color: #a6adc8; margin-bottom: 8px;">
-            बातचीत के दौरान पापा अपने-आप इन 18 भावनाओं को महसूस करते हैं, और आप यहाँ क्लिक करके किसी भी मूड में पापा से बात करवा सकते हैं:
-        </div>
-        <div id="emotions-grid" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
     </div>
 
     <!-- 🎬 7 Release Videos Setup + Fast Mobile Mode + 1-Click Individual Video Tester -->
@@ -576,7 +536,7 @@ copyLogcatBtn.addEventListener("click", async function() {
 });
 
 // ============================================================================
-// 🎭 COMPLETE 18 UNIVERSAL HUMAN EMOTIONS PROFILE MAP + COMPATIBLE ALIASES
+// 🎬 CLEAN PAPA VIDEO STATES (18-Emotion Engine Removed — Pure Natural States)
 // ============================================================================
 const BACKEND_API_URL = "/api/papa";
 const RENDER_BASE_URL = "https://papa-voice-cloud.onrender.com";
@@ -595,59 +555,23 @@ const VIDEO_FILENAMES = {
     caring: "avatar_caring.mp4"
 };
 
-const UNIVERSAL_EMOTION_PROFILES = {
-    // 8 Primary Human Emotions
-    happiness:      { label: "😊 खुशी (Happiness)",      videoKey: "happy",     color: "#4ade80", rate: 1.03, sample: "पापा आज मुझे बहुत बड़ी खुशी मिली है!" },
-    sadness:        { label: "😢 दुख (Sadness)",          videoKey: "caring",    color: "#60a5fa", rate: 0.94, sample: "पापा आज मेरा मन बहुत उदास और अकेला लग रहा है।" },
-    anger:          { label: "😠 गुस्सा (Anger)",         videoKey: "talking",   color: "#ef4444", rate: 1.04, sample: "पापा आज मैंने लापरवाही कर दी, आप मुझे प्यार से डाँटिए।" },
-    fear:           { label: "😨 डर (Fear)",              videoKey: "caring",    color: "#a855f7", rate: 0.96, sample: "पापा मुझे आने वाले कल और अनजान चीज़ों से डर लग रहा है।" },
-    surprise:       { label: "😲 आश्चर्य (Surprise)",      videoKey: "happy",     color: "#facc15", rate: 1.05, sample: "पापा आपके लिए एक बहुत बड़ा और चौंकाने वाला सरप्राइज है!" },
-    disgust:        { label: "🤢 घृणा (Disgust)",         videoKey: "talking",   color: "#84cc16", rate: 0.98, sample: "पापा आज बाहर बहुत गंदगी और बुरी चीज़ें देखकर मन खराब हो गया।" },
-    anticipation:   { label: "⏳ प्रत्याशा (Anticipation)", videoKey: "happy",    color: "#fb923c", rate: 1.02, sample: "पापा मैं एक नए शुभ अवसर का बेसब्री से इंतज़ार कर रहा हूँ।" },
-    trust:          { label: "🤝 विश्वास (Trust)",         videoKey: "blessing",  color: "#2dd4bf", rate: 0.98, sample: "पापा मुझे आप पर और खुद पर पूरा भरोसा है।" },
-
-    // 10 Secondary Human Emotions
-    love:           { label: "❤️ प्यार (Love)",           videoKey: "caring",    color: "#f43f5e", rate: 0.96, sample: "पापा मैं आपसे और अपने पूरे परिवार से बहुत प्यार करता हूँ।" },
-    jealousy:       { label: "😒 ईर्ष्या (Jealousy)",      videoKey: "caring",    color: "#a3e635", rate: 0.97, sample: "पापा दूसरों की तरक्की देखकर मन में थोड़ी ईर्ष्या आती है, समझाओ।" },
-    shame:          { label: "😳 शर्म (Shame)",           videoKey: "caring",    color: "#fb7185", rate: 0.95, sample: "पापा मुझे सबके सामने थोड़ी शर्म और झिझक महसूस हुई।" },
-    guilt:          { label: "😔 अपराधबोध (Guilt)",       videoKey: "caring",    color: "#818cf8", rate: 0.94, sample: "पापा मुझसे एक गलती हो गई है और मुझे बहुत अपराधबोध हो रहा है।" },
-    pride:          { label: "🏆 गर्व (Pride)",           videoKey: "happy",     color: "#fbbf24", rate: 1.02, sample: "पापा मैंने अपनी मेहनत से एक नया मुकाम हासिल किया है!" },
-    hope:           { label: "🌟 उम्मीद (Hope)",          videoKey: "blessing",  color: "#38bdf8", rate: 0.99, sample: "पापा मुझे पूरी उम्मीद है कि आने वाला समय बहुत अच्छा होगा।" },
-    disappointment: { label: "😞 निराशा (Disappointment)", videoKey: "caring",   color: "#94a3b8", rate: 0.94, sample: "पापा मैंने बहुत कोशिश की पर काम नहीं बना, निराशा हो रही है।" },
-    empathy:        { label: "🫂 सहानुभूति (Empathy)",    videoKey: "caring",    color: "#22d3ee", rate: 0.95, sample: "पापा आज किसी दुखी इंसान को देखकर मेरे मन में गहरी सहानुभूति जागी।" },
-    compassion:     { label: "💗 करुणा (Compassion)",   videoKey: "caring",    color: "#ec4899", rate: 0.94, sample: "पापा हमें ज़रूरतमंद लोगों के प्रति करुणा और दया कैसे रखनी चाहिए?" },
-    anxiety:        { label: "😰 बेचैनी (Anxiety)",       videoKey: "caring",    color: "#c084fc", rate: 0.93, sample: "पापा आज बहुत टेंशन और बेचैनी हो रही है, मन शांत नहीं है।" },
-
-    // Core Operational & Special Papa States
-    idle:           { label: "😊 शांत (Idle)",           videoKey: "idle",      color: "#0D8ABC", rate: 1.0 },
-    talking:        { label: "🗣️ बोल रहे हैं",            videoKey: "talking",   color: "#4caf50", rate: 1.0 },
-    greeting:       { label: "🙏 स्वागत (Greeting)",      videoKey: "greeting",  color: "#38bdf8", rate: 1.0 },
-    listening:      { label: "🎧 ध्यान से सुन रहे हैं",    videoKey: "listening", color: "#ffeb3b", rate: 1.0 },
-    thinking:       { label: "🤔 सोच रहे हैं...",          videoKey: "thinking",  color: "#cba6f7", rate: 1.0 },
-    blessing:       { label: "🙌 आशीर्वाद (Blessing)",    videoKey: "blessing",  color: "#f59e0b", rate: 0.97 },
-    laughing:       { label: "😄 हँसी-खुशी (Laughing)",   videoKey: "laughing",  color: "#4ade80", rate: 1.03 },
-    singing:        { label: "🎵 पापा गाना गा रहे हैं",     videoKey: "happy",     color: "#f472b6", rate: 0.96 },
-    caring:         { label: "❤️ स्नेह और दुलार (Caring)", videoKey: "caring",   color: "#f472b6", rate: 0.95 }
+const PAPA_VIDEO_STATES = {
+    idle:      { label: "😊 शांत (Idle)",           videoKey: "idle",      color: "#0D8ABC" },
+    talking:   { label: "🗣️ बोल रहे हैं",            videoKey: "talking",   color: "#4caf50" },
+    greeting:  { label: "🙏 स्वागत (Greeting)",      videoKey: "greeting",  color: "#38bdf8" },
+    listening: { label: "🎧 सुन रहे हैं",            videoKey: "listening", color: "#ffeb3b" },
+    thinking:  { label: "🤔 सोच रहे हैं...",          videoKey: "thinking",  color: "#cba6f7" },
+    blessing:  { label: "🙌 आशीर्वाद (Blessing)",    videoKey: "blessing",  color: "#f59e0b" },
+    happy:     { label: "😊 खुश होकर बात",           videoKey: "happy",     color: "#4ade80" },
+    laughing:  { label: "😄 हँसी-खुशी",              videoKey: "laughing",  color: "#4ade80" },
+    singing:   { label: "🎵 पापा गाना गा रहे हैं",     videoKey: "happy",     color: "#f472b6" },
+    caring:    { label: "❤️ स्नेह और दुलार",          videoKey: "caring",    color: "#f472b6" }
 };
 
-const EMOTION_ALIAS_MAP = {
-    happy: "happiness",
-    sad: "sadness",
-    angry: "anger",
-    scared: "fear",
-    surprised: "surprise",
-    proud: "pride",
-    anxious: "anxiety",
-    disappointed: "disappointment",
-    empathetic: "empathy",
-    compassionate: "compassion"
-};
-
-function resolveEmotionProfile(emotionKey, isSpeakingState) {
-    const rawKey = String(emotionKey || "").toLowerCase().trim();
-    const mappedKey = EMOTION_ALIAS_MAP[rawKey] || rawKey;
-    return UNIVERSAL_EMOTION_PROFILES[mappedKey] ||
-        (isSpeakingState ? UNIVERSAL_EMOTION_PROFILES.talking : UNIVERSAL_EMOTION_PROFILES.idle);
+function resolveVideoStateProfile(stateKey, isSpeakingState) {
+    const cleanKey = String(stateKey || "").toLowerCase().trim();
+    return PAPA_VIDEO_STATES[cleanKey] ||
+        (isSpeakingState ? PAPA_VIDEO_STATES.talking : PAPA_VIDEO_STATES.idle);
 }
 
 function normalizeReleaseUrl(inputUrl) {
@@ -722,10 +646,6 @@ const camModeBadge = document.getElementById("cam-mode-badge");
 const camToggleBtn = document.getElementById("cam-toggle-btn");
 const camFlipBtn = document.getElementById("cam-flip-btn");
 
-const emotionsBtn = document.getElementById("emotions-btn");
-const emotionsPanel = document.getElementById("emotions-panel");
-const emotionsGrid = document.getElementById("emotions-grid");
-
 const familyBtn = document.getElementById("family-btn");
 const familyPanel = document.getElementById("family-panel");
 const familyNameInput = document.getElementById("family-name-input");
@@ -760,7 +680,7 @@ let activeCameraStream = null;
 let isVisionEnabled = true;
 let currentFacingMode = "user";
 let sharedAudioCtx = null;
-let currentEmotionState = "idle";
+let currentVideoState = "idle";
 let currentVideoLayerLabel = "Base Idle";
 let videoLoadSeq = 0;
 let activeVisibleVideoEl = vidIdle;
@@ -817,7 +737,6 @@ function autoAdjustVideoFrame(videoEl) {
     const vh = videoEl.videoHeight;
     const ratio = vw / vh;
 
-    // Available inner width inside chatbot card (responsive for every phone & PC)
     const availableW = Math.max(210, Math.min((chatbotContainer.clientWidth || window.innerWidth - 24) - 36, 480));
     const maxStageH = Math.min(Math.round(window.innerHeight * 0.54), 440);
 
@@ -825,20 +744,16 @@ function autoAdjustVideoFrame(videoEl) {
     let orientLabel;
 
     if (ratio > 1.15) {
-        // Landscape video (e.g., 16:9, 4:3)
         targetW = Math.min(availableW, 440);
         orientLabel = "Landscape";
     } else if (ratio >= 0.85) {
-        // Square video (e.g., 1:1)
         targetW = Math.min(availableW, 310);
         orientLabel = "Square";
     } else {
-        // Portrait video (e.g., 9:16, 3:4)
         targetW = Math.min(availableW, 285);
         orientLabel = "Portrait";
     }
 
-    // Clamp height so tall videos never push Live Call / Mic buttons off mobile screens
     let targetH = Math.round(targetW / ratio);
     if (targetH > maxStageH) {
         targetH = maxStageH;
@@ -850,7 +765,6 @@ function autoAdjustVideoFrame(videoEl) {
     avatarStage.style.height = targetH + "px";
     topHudStrip.style.maxWidth = Math.max(targetW, 270) + "px";
 
-    // Proportionally adjust Camera PiP so it never blocks Papa's face on any video ratio
     const pipW = Math.max(52, Math.min(74, Math.round(targetW * 0.24)));
     const pipH = Math.min(Math.round(pipW * 1.28), Math.max(58, Math.round(targetH * 0.40)));
     camPreviewBox.style.width = pipW + "px";
@@ -867,7 +781,6 @@ function autoAdjustVideoFrame(videoEl) {
     }
 }
 
-// Auto-adjust immediately whenever ANY video loads its dimensions
 [vidIdle, vidTalking, vidEmotion].forEach(function(vEl) {
     vEl.addEventListener("loadedmetadata", function() {
         if (vEl === activeVisibleVideoEl) {
@@ -876,7 +789,6 @@ function autoAdjustVideoFrame(videoEl) {
     });
 });
 
-// Re-adjust smoothly on window resize or phone rotation
 window.addEventListener("resize", function() {
     autoAdjustVideoFrame(activeVisibleVideoEl);
 });
@@ -953,7 +865,7 @@ function refreshLiveStateHud() {
 // ============================================================================
 // 🔒 SINGLE-FLIGHT API LOADING LOCK MANAGER
 // ============================================================================
-function setApiLoadingLock(locked, activeChipEl, customNotice) {
+function setApiLoadingLock(locked, customNotice) {
     isApiRequestInFlight = locked;
     loadingLockBar.style.display = locked ? "block" : "none";
     if (customNotice) {
@@ -986,21 +898,6 @@ function setApiLoadingLock(locked, activeChipEl, customNotice) {
         agiCommandInput.style.opacity = locked ? "0.6" : "1";
     }
 
-    const emotionChips = emotionsGrid.querySelectorAll(".emo-chip");
-    emotionChips.forEach(function(chip) {
-        chip.disabled = locked;
-        chip.classList.remove("is-active-loading");
-        if (locked) {
-            chip.classList.add("is-loading-locked");
-        } else {
-            chip.classList.remove("is-loading-locked");
-        }
-    });
-
-    if (locked && activeChipEl) {
-        activeChipEl.classList.remove("is-loading-locked");
-        activeChipEl.classList.add("is-active-loading");
-    }
     refreshLiveStateHud();
 }
 
@@ -1089,17 +986,17 @@ vidEmotion.addEventListener("stalled", function() {
     }
 });
 
-function setAvatarEmotionState(emotionKey, isSpeakingState) {
-    const profile = resolveEmotionProfile(emotionKey, isSpeakingState);
+function setAvatarVideoState(stateKey, isSpeakingState) {
+    const profile = resolveVideoStateProfile(stateKey, isSpeakingState);
     const videoKey = profile.videoKey || (isSpeakingState ? "talking" : "idle");
     const fileName = VIDEO_FILENAMES[videoKey] || (isSpeakingState ? "avatar_talking.mp4" : "avatar_idle.mp4");
 
-    const activeBorderColor = (emotionKey === "idle" && isLiveCallActive) ? "#ff5252" : profile.color;
+    const activeBorderColor = (stateKey === "idle" && isLiveCallActive) ? "#ff5252" : profile.color;
     emotionBadge.innerText = profile.label;
     emotionBadge.style.color = profile.color;
     avatarBox.style.borderColor = activeBorderColor;
     avatarBox.style.boxShadow = "0 0 22px " + activeBorderColor + "88";
-    currentEmotionState = emotionKey;
+    currentVideoState = stateKey;
 
     const mySeq = ++videoLoadSeq;
     vidEmotion.onplaying = null;
@@ -1168,7 +1065,7 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
         }
     }, 2500);
 
-    function loadIntoEmotionLayer(urlToTry, isRemoteAttempt) {
+    function loadIntoSpecialLayer(urlToTry, isRemoteAttempt) {
         if (mySeq !== videoLoadSeq) return;
         vidEmotion.setAttribute("data-loaded-url", "");
 
@@ -1192,7 +1089,7 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
             if (mySeq !== videoLoadSeq) return;
             failedVideoUrlSet.add(urlToTry);
             if (isRemoteAttempt && !failedVideoUrlSet.has(localUrl)) {
-                loadIntoEmotionLayer(localUrl, false);
+                loadIntoSpecialLayer(localUrl, false);
                 return;
             }
             addLogcatEntry("WARN", "MEDIA", "Special video '" + fileName + "' unavailable -> Running on fast base video.");
@@ -1208,47 +1105,11 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
         safePlayVideo(vidEmotion, fileName);
     }
 
-    loadIntoEmotionLayer(candidateUrl, candidateUrl === remoteUrl);
+    loadIntoSpecialLayer(candidateUrl, candidateUrl === remoteUrl);
     refreshLiveStateHud();
 }
 
-function setAvatarVideoState(stateKey, isSpeakingState) {
-    return setAvatarEmotionState(stateKey, isSpeakingState);
-}
-
-setAvatarEmotionState("idle", false);
-
-// ============================================================================
-// 🎭 BUILD 18 UNIVERSAL HUMAN EMOTIONS INTERACTIVE GRID
-// ============================================================================
-const EIGHTEEN_EMOTION_KEYS = [
-    "happiness", "sadness", "anger", "fear", "surprise", "disgust", "anticipation", "trust",
-    "love", "jealousy", "shame", "guilt", "pride", "hope", "disappointment", "empathy", "compassion", "anxiety"
-];
-
-function render18EmotionsGrid() {
-    emotionsGrid.innerHTML = "";
-    EIGHTEEN_EMOTION_KEYS.forEach(function(emoKey) {
-        const profile = UNIVERSAL_EMOTION_PROFILES[emoKey];
-        const btn = document.createElement("button");
-        btn.className = "emo-chip";
-        btn.innerText = profile.label;
-        btn.style.borderColor = profile.color;
-        btn.addEventListener("click", function() {
-            if (!canStartNewApiRequest()) return;
-            unlockBrowserAudio();
-            stopCurrentPlaybackSafely();
-            isPapaSpeakingOrThinking = false;
-            submitQueryToPapaAGI({ userText: profile.sample, forceEmotion: emoKey, triggerChipEl: btn });
-        });
-        emotionsGrid.appendChild(btn);
-    });
-}
-render18EmotionsGrid();
-
-emotionsBtn.addEventListener("click", function() {
-    emotionsPanel.style.display = emotionsPanel.style.display === "none" ? "block" : "none";
-});
+setAvatarVideoState("idle", false);
 
 // ============================================================================
 // 🎬 7 RELEASE VIDEOS MANAGER + FAST MOBILE TOGGLE + 1-CLICK TESTER
@@ -1373,7 +1234,7 @@ saveReleaseBtn.addEventListener("click", function() {
     updateReleaseStatusUI();
     addLogcatEntry("INFO", "MEDIA", "Release Video Base URL saved: " + (releaseBaseUrl || "Local Mode"));
     statusText.innerText = "✅ 7 Videos Link Save ho gaya! Ab upar '▶️ 1. Greeting' par click karke test karein.";
-    setAvatarEmotionState("greeting", false);
+    setAvatarVideoState("greeting", false);
 });
 
 // ============================================================================
@@ -1510,13 +1371,13 @@ fetch(BACKEND_API_URL, {
     if (data && data.autoDiscoveredModels) {
         addLogcatEntry("INFO", "NET", "Auto-Discovered Gemini Models: " + data.autoDiscoveredModels.join(", "));
     }
-    setAvatarEmotionState("greeting", false);
+    setAvatarVideoState("greeting", false);
     setTimeout(function() {
-        if (currentEmotionState === "greeting" && !isPapaSpeakingOrThinking && !shouldMicBeActive) {
-            setAvatarEmotionState("idle", false);
+        if (currentVideoState === "greeting" && !isPapaSpeakingOrThinking && !shouldMicBeActive) {
+            setAvatarVideoState("idle", false);
         }
     }, 4500);
-    statusText.innerText = "✅ Universal End-to-End Papa AGI Ready! (Auto-Adjust Video Frame + Gboard Neural Mic + 18 Emotions ON)\n'📞 Start Live Call' dabayen.";
+    statusText.innerText = "✅ Universal End-to-End Papa AGI Ready! (Auto-Adjust Video Frame + Gboard Neural Mic ON)\n'📞 Start Live Call' ya '🎤 Baat Karo' dabayen.";
 })
 .catch(function(err) {
     if (err.message !== "Wrong PIN") {
@@ -2045,7 +1906,7 @@ async function startNeuralListeningTurn() {
     gboardWaveBox.style.display = "flex";
     liveTranscriptBar.style.display = "flex";
     liveTranscriptText.innerText = "🎙️ बोलिए, Gboard Neural Mic आपकी आवाज़ सुन रहा है...";
-    setAvatarEmotionState("listening", false);
+    setAvatarVideoState("listening", false);
 
     if (isLiveCallActive) {
         liveSubtitleBox.style.display = "block";
@@ -2274,7 +2135,7 @@ function activateBrowserSpeechSession(isFreshTurn) {
         liveTranscriptText.innerText = "🎤 आप आराम से पूरी बात बोलिए (Browser Mic)...";
     }
 
-    setAvatarEmotionState("listening", false);
+    setAvatarVideoState("listening", false);
 
     if (isLiveCallActive) {
         liveSubtitleBox.style.display = "block";
@@ -2301,7 +2162,6 @@ async function submitQueryToPapaAGI(params) {
     const audioBase64 = (params && params.audioBase64) || null;
     const audioMimeType = (params && params.audioMimeType) || null;
     const forceEmotion = (params && params.forceEmotion) || null;
-    const triggerChipEl = (params && params.triggerChipEl) || null;
 
     if (!userText && !audioBase64) return;
     if (isApiRequestInFlight) {
@@ -2317,7 +2177,7 @@ async function submitQueryToPapaAGI(params) {
     currentRunFinalText = "";
     currentInterimText = "";
 
-    setApiLoadingLock(true, triggerChipEl);
+    setApiLoadingLock(true);
 
     const cameraFrameBase64 = captureCameraFrameBase64();
     const visionTag = cameraFrameBase64 ? (" (👁️ " + (currentFacingMode === "user" ? "Chehra Pehchan" : "Back Cam") + " ON)") : "";
@@ -2335,7 +2195,7 @@ async function submitQueryToPapaAGI(params) {
         if (myReqSeq === activeRequestSeq) {
             isPapaSpeakingOrThinking = false;
             stopCurrentPlaybackSafely();
-            setAvatarEmotionState("idle", false);
+            setAvatarVideoState("idle", false);
             statusText.innerText = "🚨 Error: " + error.message;
             addLogcatEntry("GLITCH", "NET", "AGI Pipeline Error: " + error.message);
             if (isLiveCallActive) {
@@ -2429,7 +2289,7 @@ liveCallBtn.addEventListener("click", async function() {
         }
 
         isPapaSpeakingOrThinking = true;
-        setAvatarEmotionState("greeting", true);
+        setAvatarVideoState("greeting", true);
         statusText.innerText = "🔴 [E2E LIVE CALL STARTED] Papa bol rahe hain...";
         addLogcatEntry("INFO", "MIC", "Universal End-to-End Live Call started (" + micEngineMode + ").");
 
@@ -2450,7 +2310,7 @@ liveCallBtn.addEventListener("click", async function() {
         liveCallBtn.style.borderColor = "#ff5252";
         liveStreamBadge.style.display = "none";
         liveSubtitleBox.style.display = "none";
-        setAvatarEmotionState("idle", false);
+        setAvatarVideoState("idle", false);
         addLogcatEntry("INFO", "MIC", "Live Call mode ended by user.");
         statusText.innerText = "📴 Live Call band kar di gayi hai.\nDubara baat karne ke liye '📞 Start Live Call' ya '🎤 Baat Karo' dabayen.";
     }
@@ -2471,7 +2331,7 @@ micBtn.addEventListener("click", async function() {
                 finalizeNeuralTurnAndSend();
             } else {
                 stopMicCompletely(!isLiveCallActive);
-                setAvatarEmotionState("idle", false);
+                setAvatarVideoState("idle", false);
                 statusText.innerText = "✅ Mic band kar diya gaya hai. Jab chahein '🎤 Baat Karo' dabayen.";
             }
             return;
@@ -2483,7 +2343,7 @@ micBtn.addEventListener("click", async function() {
             finalizeAndSubmitUserSpeech();
         } else {
             stopMicCompletely(!isLiveCallActive);
-            setAvatarEmotionState("idle", false);
+            setAvatarVideoState("idle", false);
             statusText.innerText = "✅ Mic band kar diya gaya hai. Jab chahein '🎤 Baat Karo' dabayen.";
         }
         return;
@@ -2497,7 +2357,7 @@ micBtn.addEventListener("click", async function() {
 
     isPapaSpeakingOrThinking = true;
     statusText.innerText = "Papa bol rahe hain...";
-    setAvatarEmotionState("talking", true);
+    setAvatarVideoState("talking", true);
 
     haBetaBolAudio.play().catch(function() {
         isPapaSpeakingOrThinking = false;
@@ -2623,7 +2483,7 @@ if (recognition) {
             liveTranscriptBar.style.display = "none";
             micBtn.innerText = "🎤 Baat Karo";
             micBtn.style.background = "#0D8ABC";
-            setAvatarEmotionState("idle", false);
+            setAvatarVideoState("idle", false);
         }
     };
 
@@ -2638,9 +2498,9 @@ if (recognition) {
 }
 
 // ============================================================================
-// 🔊 Audio Playback Helper (Guaranteed Instant Talking Video + Below-Video Subtitles!)
+// 🔊 Audio Playback Helper (Natural 1.0x Voice + Instant Talking Video + Below-Video Subtitles)
 // ============================================================================
-function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey, heardText) {
+function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, stateKey, heardText) {
     stopCurrentPlaybackSafely();
 
     const arrayBuffer = base64ToArrayBuffer(audioBase64);
@@ -2648,8 +2508,8 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey,
     const audioUrl = URL.createObjectURL(blob);
     activeAudioObjectUrl = audioUrl;
 
-    const activeEmotion = emotionKey || "talking";
-    const profile = resolveEmotionProfile(activeEmotion, true);
+    const activeState = stateKey || "talking";
+    const profile = resolveVideoStateProfile(activeState, true);
 
     return new Promise(function(resolve) {
         activePlaybackResolver = resolve;
@@ -2660,7 +2520,7 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey,
             activeWebAudioSource = null;
             isPapaSpeakingOrThinking = false;
             stopSingingHarmoniumDrone();
-            setAvatarEmotionState("idle", false);
+            setAvatarVideoState("idle", false);
             if (activeAudioObjectUrl === audioUrl) {
                 URL.revokeObjectURL(audioUrl);
                 activeAudioObjectUrl = null;
@@ -2684,11 +2544,12 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey,
             isPapaSpeakingOrThinking = true;
             stopMicCompletely(false);
 
+            // Always natural original voice speed (no 18-emotion rate distortion)
             try {
-                papaTtsPlayer.playbackRate = profile.rate || 1.0;
+                papaTtsPlayer.playbackRate = 1.0;
             } catch (e) {}
 
-            if (activeEmotion === "singing") {
+            if (activeState === "singing") {
                 startSingingHarmoniumDrone();
             } else {
                 stopSingingHarmoniumDrone();
@@ -2699,16 +2560,16 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey,
             liveSubtitleBox.innerText = heardLine + profile.label + ": \"" + aiText + "\"";
             statusText.innerText = profile.label + " [" + engineLabel + "]";
 
-            setAvatarEmotionState(activeEmotion, true);
+            setAvatarVideoState(activeState, true);
             refreshLiveStateHud();
         }
 
         startAvatarTalking();
 
         papaTtsPlayer.onplay = function() {
-            addLogcatEntry("INFO", "MEDIA", "HTML5 Audio playing (" + activeEmotion + ").");
-            if (currentEmotionState !== activeEmotion) {
-                setAvatarEmotionState(activeEmotion, true);
+            addLogcatEntry("INFO", "MEDIA", "HTML5 Audio playing (" + activeState + ").");
+            if (currentVideoState !== activeState) {
+                setAvatarVideoState(activeState, true);
             }
         };
         papaTtsPlayer.onended = finishPlaybackCleanly;
@@ -2723,7 +2584,7 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey,
                 const source = sharedAudioCtx.createBufferSource();
                 activeWebAudioSource = source;
                 source.buffer = decodedBuffer;
-                source.playbackRate.value = profile.rate || 1.0;
+                source.playbackRate.value = 1.0;
                 source.connect(sharedAudioCtx.destination);
                 source.onended = finishPlaybackCleanly;
                 source.start(0);
@@ -2749,7 +2610,7 @@ function announceTimerCompleteSafely() {
         setTimeout(announceTimerCompleteSafely, 3000);
         return;
     }
-    speakPapaReply("बेटा, तुम्हारा समय पूरा हो गया है, अपना काम देख लो।", "anticipation").catch(function() {});
+    speakPapaReply("बेटा, तुम्हारा समय पूरा हो गया है, अपना काम देख लो।", "talking").catch(function() {});
 }
 
 function startPapaLiveTimer(secondsTotal, labelText) {
@@ -2779,7 +2640,7 @@ function startPapaLiveTimer(secondsTotal, labelText) {
 async function processSpeechTurbo(userText, audioBase64, audioMimeType, base64Frame, forceEmotion, reqSeq) {
     isPapaSpeakingOrThinking = true;
     stopMicCompletely(false);
-    setAvatarEmotionState("thinking", false);
+    setAvatarVideoState("thinking", false);
     agiActionCard.style.display = "none";
     agiActionLink.style.display = "inline-block";
 
@@ -2817,7 +2678,7 @@ async function processSpeechTurbo(userText, audioBase64, audioMimeType, base64Fr
 
     if (!res.ok || !data.audioBase64) {
         isPapaSpeakingOrThinking = false;
-        setAvatarEmotionState("idle", false);
+        setAvatarVideoState("idle", false);
         throw new Error(data.error || ("Server HTTP " + res.status));
     }
 
@@ -2872,13 +2733,13 @@ async function processSpeechTurbo(userText, audioBase64, audioMimeType, base64Fr
 // ============================================================================
 // 🎙️ 2. Standalone TTS Helper (Used for 1-Click Voice Test & Timer Alert)
 // ============================================================================
-async function speakPapaReply(aiText, forceEmotion) {
+async function speakPapaReply(aiText, forceState) {
     if (isApiRequestInFlight) return;
     const myReqSeq = ++activeRequestSeq;
     lastRequestStartTime = Date.now();
-    setApiLoadingLock(true, null, "⏳ पापा की आवाज़ तैयार हो रही है...");
+    setApiLoadingLock(true, "⏳ पापा की आवाज़ तैयार हो रही है...");
 
-    setAvatarEmotionState("thinking", false);
+    setAvatarVideoState("thinking", false);
     statusText.innerText = "Papa: " + aiText + "\n🔄 Awaaz ban rahi hai...";
 
     try {
@@ -2889,7 +2750,7 @@ async function speakPapaReply(aiText, forceEmotion) {
                 action: "tts",
                 pin: sessionPIN,
                 text: aiText,
-                forceEmotion: forceEmotion || null
+                forceEmotion: forceState || null
             })
         });
 
@@ -2897,7 +2758,7 @@ async function speakPapaReply(aiText, forceEmotion) {
         if (myReqSeq !== activeRequestSeq) return;
 
         if (!res.ok || !data.audioBase64) {
-            setAvatarEmotionState("idle", false);
+            setAvatarVideoState("idle", false);
             throw new Error(data.error || "TTS Server Error");
         }
 
@@ -2907,7 +2768,7 @@ async function speakPapaReply(aiText, forceEmotion) {
             data.audioBase64,
             aiText,
             data.engineLabel || "Cloud TTS",
-            forceEmotion || data.emotion || "blessing",
+            forceState || data.emotion || "blessing",
             ""
         );
     } finally {
@@ -2923,7 +2784,7 @@ testVoiceBtn.addEventListener("click", async function() {
     unlockBrowserAudio();
     stopCurrentPlaybackSafely();
     try {
-        await speakPapaReply("नमस्ते बेटा, अब वीडियो का फ्रेम हर साइज़ के हिसाब से अपने-आप एडजस्ट होगा।", "blessing");
+        await speakPapaReply("नमस्ते बेटा, अब वीडियो फ्रेम अपने-आप एडजस्ट होगा और मेरा लाइव कॉल माइक भी बिल्कुल साफ़ चलेगा।", "blessing");
     } catch (err) {
         addLogcatEntry("GLITCH", "MEDIA", "Voice Test Failed: " + err.message);
         statusText.innerText = "🚨 Voice Test Error: " + err.message;
@@ -2937,7 +2798,7 @@ diagCartesiaBtn.addEventListener("click", async function() {
     stopCurrentPlaybackSafely();
     const myReqSeq = ++activeRequestSeq;
     lastRequestStartTime = Date.now();
-    setApiLoadingLock(true, null, "🔍 सभी Gemini, Groq और 20 Cartesia Keys की जाँच हो रही है...");
+    setApiLoadingLock(true, "🔍 सभी Gemini, Groq और 20 Cartesia Keys की जाँच हो रही है...");
 
     diagBox.style.display = "block";
     diagBox.innerText = "🔍 Server par Auto-Discovered Gemini Models & 20 Cartesia Keys check ho rahi hain...\n";
@@ -2956,7 +2817,7 @@ diagCartesiaBtn.addEventListener("click", async function() {
         }
         if (data.foundWorking && data.audioBase64) {
             statusText.innerText = "🎉 " + data.activeKeyLabel + " 100% ACTIVE!";
-            setAvatarEmotionState("blessing", true);
+            setAvatarVideoState("blessing", true);
             const buf = base64ToArrayBuffer(data.audioBase64);
             const url = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
             activeAudioObjectUrl = url;
@@ -2964,7 +2825,7 @@ diagCartesiaBtn.addEventListener("click", async function() {
             papaTtsPlayer.onerror = null;
             try { papaTtsPlayer.playbackRate = 1.0; } catch (e) {}
             papaTtsPlayer.onended = function() {
-                setAvatarEmotionState("idle", false);
+                setAvatarVideoState("idle", false);
                 if (activeAudioObjectUrl === url) {
                     URL.revokeObjectURL(url);
                     activeAudioObjectUrl = null;
