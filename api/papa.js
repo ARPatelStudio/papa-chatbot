@@ -1,11 +1,13 @@
 /**
- * Papa Chatbot - Self-Updating Gemini 4 / 3.8 + 4-Voice & 20-Cartesia Keys Backend (Nov 2026 Edition)
+ * Papa Chatbot - Universal End-to-End Agentic AGI Backend (Nov 2026 Edition)
  * Features:
- *  1. AUTO-UPDATING GEMINI MODEL ENGINE: Queries Google's live /v1beta/models API automatically so
- *     future Gemini updates (Gemini 4.x, 5.x, Flash-Latest) work forever without code changes!
- *  2. Built-in Glitch & Telemetry Reporter: Returns exact latency (ms), skipped models, and active engine info.
- *  3. Supports 4 Cartesia Voice IDs & 20+ API Keys with Smart Auto-Voice Discovery Cache & Ping-Pong Rotation.
- *  4. 9-Video Emotion Detection + Multi-Turn Live Call Memory + Full Hindi Sentence Guarantee (350 tokens).
+ *  1. UNIVERSAL AGI BRAIN: Combines loving Father persona with Universal Expert Intelligence
+ *     (Doctor/Prescription Reader, Engineer, Financial/Life Advisor, Real-Time World Knowledge).
+ *  2. LIVE GOOGLE SEARCH GROUNDING: Automatically enables `google_search` tool for live news,
+ *     weather, prices, scores, and facts with automatic fallback if a lite model doesn't support tools.
+ *  3. AUTONOMOUS ACTION ENGINE: Detects intents for YouTube, Google Maps, Web Search & Auto-Memory saving.
+ *  4. AUTO-UPDATING GEMINI MODEL ENGINE: Queries `/v1beta/models` so future Gemini 4.x/5.x models work forever.
+ *  5. 4 Cartesia Voice IDs + 20 API Keys Smart Auto-Pairing & Ping-Pong Rotation (1->20 then 20->1).
  */
 
 let geminiKeyIdx = 0;
@@ -14,17 +16,12 @@ let geminiKeyDir = 1; // 1 = Forward (1->5), -1 = Reverse (5->1)
 let cartesiaKeyIdx = 0;
 let cartesiaKeyDir = 1; // 1 = Forward (1->20), -1 = Reverse (20->1)
 
-// Circuit-breaker cache for models hitting 429 quota or 404 deprecation
 const exhaustedModelCache = new Map();
-
-// Smart Lock Cache: Remembers the exact working { id, num } Voice ID for each Cartesia API key
 const keyVoiceLockCache = new Map();
 
-// Auto-Discovered Live Gemini Models Cache (Refreshes automatically from Google servers)
 let cachedDiscoveredModels = null;
 let lastModelDiscoveryTime = 0;
 
-// Active November 2026 Default Seed List (Used alongside live /v1beta/models discovery)
 const NOV_2026_ACTIVE_MODELS = [
     "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
@@ -36,16 +33,19 @@ const NOV_2026_ACTIVE_MODELS = [
     "gemini-flash-latest"
 ];
 
-const FATHER_PROMPT =
-    "You are a loving, caring Indian father (Papa) on a live video call with your family.\n" +
-    "1. FAMILY RECOGNITION: If reference photos of family members are provided, compare the person in the 'CURRENT LIVE CAMERA VIEW' with those reference photos. If they match a registered family member, address them warmly by their name/relation.\n" +
-    "2. LIVE VISION & CONVERSATION CONTINUITY: Observe their facial expression, clothes, or any object/place shown through the front or back camera, and maintain natural continuity with the recent conversation history.\n" +
-    "3. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak 1 or 2 complete, natural sentences (around 15 to 30 words) and ALWAYS finish your sentence completely with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete.";
+const FATHER_AGI_PROMPT =
+    "You are 'Papa AGI' — a loving, wise Indian father talking on a live video call with your family, equipped with Universal AGI-level knowledge and real-time intelligence.\n" +
+    "1. FAMILY RECOGNITION: If reference photos of family members are provided, compare the person in the 'CURRENT LIVE CAMERA VIEW' with those reference photos and address them warmly by name/relation.\n" +
+    "2. UNIVERSAL CAMERA & EXPERT INTELLIGENCE: Observe faces, expressions, clothes, medicines, bills, documents, books, or objects shown on the Front/Back camera. Whether your child asks about daily life, health/medicine, coding, business, news, math, or career, answer with accurate expert wisdom in a warm fatherly tone.\n" +
+    "3. LONG-TERM MEMORY & CONTINUITY: Use the provided LONG-TERM FAMILY MEMORIES and RECENT CONVERSATION HISTORY naturally.\n" +
+    "4. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your spoken reply strictly in Devanagari Hindi script (देवनागरी हिंदी) — even numbers and English terms should be written phonetically in Devanagari so the Hindi voice clone pronounces every word clearly. Speak 1 to 3 complete sentences (20 to 45 words) ending with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete.";
 
 function ensureCompleteHindiSentence(rawText) {
     if (!rawText) return "हाँ बेटा, मैं तुम्हारी बात ध्यान से सुन रहा हूँ।";
     let text = String(rawText)
         .replace(/\*+/g, "")
+        .replace(/`+/g, "")
+        .replace(/#+\s*/g, "")
         .replace(/\s+/g, " ")
         .trim();
 
@@ -102,6 +102,66 @@ function detectPapaEmotion(userText, aiText) {
     return "talking";
 }
 
+// 🌐 Checks if the user's question benefits from real-time Google Search Grounding
+function needsLiveWebSearch(userText) {
+    if (!userText) return false;
+    return /आज|अभी|ताजा|खबर|न्यूज़|news|मौसम|weather|भाव|कीमत|price|rate|स्कोर|score|match|मैच|कौन है|कब है|2025|2026|प्रधानमंत्री|मुख्यमंत्री|योजना|शेयर|stock|gold|सोना|चांदी|पेट्रोल|train|ट्रेन|समय|तारीख/.test(
+        userText.toLowerCase()
+    );
+}
+
+// ⚡ Autonomous AGI Action & Permanent Memory Extractor
+function detectAgiActionAndMemory(userText) {
+    const text = String(userText || "").trim();
+    const lower = text.toLowerCase();
+    let agiAction = null;
+    let newMemoryFact = null;
+
+    // 1. Check if user asked Papa to remember something permanently
+    if (/याद रख|याद कर|भूलना मत|याद रहे|remember that|note kar/.test(lower)) {
+        const cleanedFact = text
+            .replace(/^(पापा|papa)?\s*(मेरी एक बात|यह बात|ये बात)?\s*(हमेशा)?\s*(याद रखना|याद रखो|याद कर लो|भूलना मत)\s*(कि|की)?\s*/i, "")
+            .trim();
+        if (cleanedFact.length > 3) {
+            newMemoryFact = cleanedFact;
+        }
+    }
+
+    // 2. Check for YouTube / Bhajan / Song / Video request
+    if (/भजन|गाना|सोंग|song|youtube|यूट्यूब|वीडियो चला|सुनाओ|बजाओ|आरती|हनुमान चालीसा/.test(lower)) {
+        const query = text
+            .replace(/पापा|papa|मुझे|कोई|अच्छा सा|चला दो|सुना दो|बजा दो|दिखा दो|यूट्यूब पर|youtube par/gi, "")
+            .trim() || "हिंदी भजन";
+        agiAction = {
+            type: "OPEN_YOUTUBE",
+            label: `▶️ YouTube पर चलाएँ: "${query}"`,
+            url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
+        };
+    }
+    // 3. Check for Google Maps / Location / Route request
+    else if (/रास्ता|कहाँ है|लोकेशन|location|map|मैप|दिशा|दूरी|कैसे जाएँ/.test(lower)) {
+        const place = text
+            .replace(/पापा|papa|मुझे|का रास्ता|बताओ|दिखाओ|कहाँ है|मैप पर/gi, "")
+            .trim() || "Indore";
+        agiAction = {
+            type: "OPEN_MAPS",
+            label: `📍 Google Maps खोलें: "${place}"`,
+            url: `https://www.google.com/maps/search/${encodeURIComponent(place)}`
+        };
+    }
+    // 4. Check for explicit Google Search / Website open request
+    else if (/गूगल पर खोज|google search|सर्च करो|वेबसाइट खोल/.test(lower)) {
+        const q = text.replace(/पापा|papa|गूगल पर|सर्च करो|खोजो/gi, "").trim() || text;
+        agiAction = {
+            type: "OPEN_GOOGLE",
+            label: `🌐 Google पर देखें: "${q}"`,
+            url: `https://www.google.com/search?q=${encodeURIComponent(q)}`
+        };
+    }
+
+    return { agiAction, newMemoryFact };
+}
+
 function getGeminiKeysFromEnv() {
     const keys = [];
     const addCleanKey = (raw) => {
@@ -134,11 +194,10 @@ function getGeminiKeysFromEnv() {
 }
 
 // ============================================================================
-// 🔄 SELF-UPDATING GEMINI MODEL AUTO-DISCOVERY ENGINE (Never needs manual updates!)
+// 🔄 SELF-UPDATING GEMINI MODEL AUTO-DISCOVERY ENGINE
 // ============================================================================
 function scoreGeminiModelForChat(modelId) {
     const id = modelId.toLowerCase();
-    // Exclude specialized non-chat or retired models
     if (
         /embedding|imagen|veo|tts|transcribe|live|decision|cyber|banana|image|audio|aqa|bison|gecko|gemma|1\.0|1\.5|2\.0|2\.5|3\.5-flash$|3\.7-flash/.test(
             id
@@ -148,12 +207,10 @@ function scoreGeminiModelForChat(modelId) {
     }
     if (!id.startsWith("gemini-")) return -1;
 
-    // Extract version number dynamically (e.g. gemini-5.0-flash -> 5.0, gemini-4-hydrogen -> 4.0, gemini-3.8-flash -> 3.8)
     const verMatch = id.match(/gemini-(\d+(?:\.\d+)?)/);
     const versionNum = verMatch ? parseFloat(verMatch[1]) : 3.0;
 
     let score = versionNum * 100;
-    // Prefer flash-lite & flash first because they have the highest Free-Tier daily quota and lowest latency!
     if (id.includes("flash-lite")) score += 45;
     else if (id.includes("flash")) score += 35;
     else if (id.includes("hydrogen") || id.includes("argon")) score += 25;
@@ -199,7 +256,6 @@ async function getAutoUpdatedGeminiModelsList(apiKey) {
             scored.sort((a, b) => b.score - a.score);
             const discoveredIds = scored.map((item) => item.id);
 
-            // Merge live discovered models with our verified Nov 2026 active seed models
             const finalMerged = [];
             for (const id of [...discoveredIds, ...NOV_2026_ACTIVE_MODELS]) {
                 if (!finalMerged.includes(id)) {
@@ -465,24 +521,53 @@ async function tryKeyAcrossAllVoices(entry, text) {
     return lastRes;
 }
 
-function formatHistoryContextText(chatHistory) {
-    if (!Array.isArray(chatHistory) || chatHistory.length === 0) return "";
-    const recent = chatHistory.slice(-6);
-    const lines = recent.map((turn) => {
-        const speaker = turn.role === "papa" ? "Papa" : "Family Member";
-        return `${speaker}: "${turn.text}"`;
+function formatHistoryAndMemoryContext(chatHistory, longTermMemory) {
+    let contextBlock = "";
+
+    // 1. Inject current India date & time so Papa AGI has real-time temporal awareness
+    const istDateStr = new Date().toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        dateStyle: "full",
+        timeStyle: "short"
     });
-    return "RECENT LIVE CALL CONVERSATION HISTORY:\n" + lines.join("\n") + "\n\n";
+    contextBlock += `CURRENT REAL-TIME DATE & TIME (IST): ${istDateStr}\n`;
+
+    // 2. Inject Permanent Long-Term Family Memories
+    if (Array.isArray(longTermMemory) && longTermMemory.length > 0) {
+        contextBlock +=
+            "PERMANENT LONG-TERM FAMILY MEMORIES (Always remember these facts about the family):\n" +
+            longTermMemory.map((fact, idx) => ` - ${idx + 1}. ${fact}`).join("\n") +
+            "\n\n";
+    }
+
+    // 3. Inject Recent Conversation History
+    if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+        const recent = chatHistory.slice(-6);
+        const lines = recent.map((turn) => {
+            const speaker = turn.role === "papa" ? "Papa" : "Family Member";
+            return `${speaker}: "${turn.text}"`;
+        });
+        contextBlock += "RECENT LIVE CALL CONVERSATION HISTORY:\n" + lines.join("\n") + "\n\n";
+    }
+
+    return contextBlock;
 }
 
-async function generateFreeBackupReply(userText, base64Frame, currentFacingMode, savedFaces, chatHistory) {
+async function generateFreeBackupReply(
+    userText,
+    base64Frame,
+    currentFacingMode,
+    savedFaces,
+    chatHistory,
+    longTermMemory
+) {
     let familyHint = "";
     if (currentFacingMode === "user" && Array.isArray(savedFaces) && savedFaces.length > 0) {
         const names = savedFaces.map((f) => f.name).join(", ");
         familyHint = `\nRegistered family members in household: ${names}.`;
     }
 
-    const historyText = formatHistoryContextText(chatHistory);
+    const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
 
     if (process.env.GROQ_API_KEY) {
         try {
@@ -495,10 +580,10 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
                 body: JSON.stringify({
                     model: "llama-3.3-70b-versatile",
                     messages: [
-                        { role: "system", content: FATHER_PROMPT + familyHint },
-                        { role: "user", content: historyText + `Family member said: "${userText}"` }
+                        { role: "system", content: FATHER_AGI_PROMPT + familyHint },
+                        { role: "user", content: contextText + `Family member said: "${userText}"` }
                     ],
-                    max_tokens: 280,
+                    max_tokens: 300,
                     temperature: 0.65
                 })
             });
@@ -518,8 +603,8 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
         {
             type: "text",
             text:
-                historyText +
-                `Family member now said: "${userText}"\n(Reply warmly as Papa in 1-2 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)`
+                contextText +
+                `Family member now said: "${userText}"\n(Reply warmly as Papa AGI in 1-3 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)`
         }
     ];
     if (base64Frame) {
@@ -539,7 +624,7 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
             body: JSON.stringify({
                 model: "openai",
                 messages: [
-                    { role: "system", content: FATHER_PROMPT + familyHint },
+                    { role: "system", content: FATHER_AGI_PROMPT + familyHint },
                     { role: "user", content: userContent }
                 ]
             })
@@ -553,7 +638,7 @@ async function generateFreeBackupReply(userText, base64Frame, currentFacingMode,
                 return {
                     aiText: ensureCompleteHindiSentence(reply),
                     geminiKeyUsed: "Auto-Backup",
-                    modelUsed: "Free-Vision-AI"
+                    modelUsed: "Free-AGI-Fallback"
                 };
             }
         }
@@ -571,7 +656,11 @@ async function generateGeminiReplyInternal(body) {
     const currentFacingMode = body.currentFacingMode || "user";
     const savedFaces = Array.isArray(body.savedFaces) ? body.savedFaces : [];
     const chatHistory = Array.isArray(body.chatHistory) ? body.chatHistory : [];
+    const longTermMemory = Array.isArray(body.longTermMemory) ? body.longTermMemory : [];
     const skippedTelemetry = [];
+
+    const { agiAction, newMemoryFact } = detectAgiActionAndMemory(userText);
+    const useWebSearch = needsLiveWebSearch(userText);
 
     const userParts = [];
     if (base64Frame && currentFacingMode === "user" && savedFaces.length > 0) {
@@ -588,18 +677,18 @@ async function generateGeminiReplyInternal(body) {
 
     if (base64Frame) {
         userParts.push({
-            text: `CURRENT LIVE CAMERA VIEW (${currentFacingMode === "user" ? "Front Camera - Person talking to Papa" : "Back Camera - Object/Scene shown to Papa"}):`
+            text: `CURRENT LIVE CAMERA VIEW (${currentFacingMode === "user" ? "Front Camera - Person talking to Papa" : "Back Camera - Object/Document/Scene shown to Papa"}):`
         });
         userParts.push({
             inline_data: { mime_type: "image/jpeg", data: base64Frame }
         });
     }
 
-    const historyText = formatHistoryContextText(chatHistory);
+    const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
     userParts.push({
         text:
-            historyText +
-            `Family member now said: "${userText}"\n(अपना जवाब हमेशा 1-2 पूरे वाक्यों में लिखें और वाक्य को अधूरा न छोड़ें।)`
+            contextText +
+            `Family member now said: "${userText}"\n(अपना जवाब हमेशा 1 से 3 पूरे देवनागरी हिंदी वाक्यों में लिखें और वाक्य को अधूरा न छोड़ें।)`
     });
 
     let lastError = "No Gemini keys configured";
@@ -607,7 +696,6 @@ async function generateGeminiReplyInternal(body) {
     if (geminiKeys.length > 0) {
         if (geminiKeyIdx >= geminiKeys.length) geminiKeyIdx = 0;
 
-        // Automatically discover the latest active Gemini models from Google's API!
         const modelsToTry = await getAutoUpdatedGeminiModelsList(geminiKeys[geminiKeyIdx]);
 
         for (let attempt = 0; attempt < geminiKeys.length; attempt++) {
@@ -621,64 +709,79 @@ async function generateGeminiReplyInternal(body) {
                     continue;
                 }
 
-                const controller = new AbortController();
-                const timer = setTimeout(() => controller.abort(), 8000);
-                try {
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
-                    const gRes = await fetch(url, {
-                        method: "POST",
-                        signal: controller.signal,
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
+                // If query needs live web search, try with google_search grounding first, then fallback cleanly if unsupported
+                const toolModes = useWebSearch ? [true, false] : [false];
+
+                for (const withSearchTool of toolModes) {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), 8500);
+                    try {
+                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
+                        const payload = {
                             contents: [{ role: "user", parts: userParts }],
-                            systemInstruction: { parts: [{ text: FATHER_PROMPT }] },
+                            systemInstruction: { parts: [{ text: FATHER_AGI_PROMPT }] },
                             generationConfig: {
-                                maxOutputTokens: 350,
+                                maxOutputTokens: 380,
                                 temperature: 0.65
                             }
-                        })
-                    });
-                    clearTimeout(timer);
-
-                    const data = await gRes.json();
-                    const partsList = data?.candidates?.[0]?.content?.parts || [];
-                    const combinedText = partsList
-                        .map((p) => p.text || "")
-                        .join(" ")
-                        .trim();
-
-                    if (gRes.ok && combinedText) {
-                        const finalReply = ensureCompleteHindiSentence(combinedText);
-                        return {
-                            aiText: finalReply,
-                            emotion: detectPapaEmotion(userText, finalReply),
-                            geminiKeyUsed: keyNum,
-                            modelUsed: modelName,
-                            skippedTelemetry
                         };
-                    }
+                        if (withSearchTool) {
+                            payload.tools = [{ google_search: {} }];
+                        }
 
-                    lastError = data?.error?.message || `HTTP ${gRes.status} on ${modelName}`;
-                    skippedTelemetry.push(`G-Key#${keyNum} ${modelName} -> HTTP ${gRes.status}`);
+                        const gRes = await fetch(url, {
+                            method: "POST",
+                            signal: controller.signal,
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(payload)
+                        });
+                        clearTimeout(timer);
 
-                    // If 404 (Deprecated/Retired), cooldown for 6 hours; if 429 (Quota), cooldown for 20 mins
-                    if (gRes.status === 404) {
-                        exhaustedModelCache.set(cacheKey, Date.now() + 6 * 60 * 60 * 1000);
-                        continue;
-                    }
-                    if (gRes.status === 429 || gRes.status === 400) {
-                        exhaustedModelCache.set(cacheKey, Date.now() + 20 * 60 * 1000);
-                        continue;
-                    }
+                        const data = await gRes.json();
+                        const partsList = data?.candidates?.[0]?.content?.parts || [];
+                        const combinedText = partsList
+                            .map((p) => p.text || "")
+                            .join(" ")
+                            .trim();
 
-                    if (gRes.status === 401 || gRes.status === 403) {
+                        if (gRes.ok && combinedText) {
+                            const finalReply = ensureCompleteHindiSentence(combinedText);
+                            return {
+                                aiText: finalReply,
+                                emotion: detectPapaEmotion(userText, finalReply),
+                                geminiKeyUsed: keyNum,
+                                modelUsed: withSearchTool ? `${modelName}+WebSearch` : modelName,
+                                agiAction,
+                                newMemoryFact,
+                                skippedTelemetry
+                            };
+                        }
+
+                        // If 400 when using google_search tool, retry immediately without tool on the SAME model!
+                        if (withSearchTool && gRes.status === 400) {
+                            continue;
+                        }
+
+                        lastError = data?.error?.message || `HTTP ${gRes.status} on ${modelName}`;
+                        skippedTelemetry.push(`G-Key#${keyNum} ${modelName} -> HTTP ${gRes.status}`);
+
+                        if (gRes.status === 404) {
+                            exhaustedModelCache.set(cacheKey, Date.now() + 6 * 60 * 60 * 1000);
+                            break;
+                        }
+                        if (gRes.status === 429 || gRes.status === 400) {
+                            exhaustedModelCache.set(cacheKey, Date.now() + 20 * 60 * 1000);
+                            break;
+                        }
+                        if (gRes.status === 401 || gRes.status === 403) {
+                            break;
+                        }
+                    } catch (err) {
+                        clearTimeout(timer);
+                        lastError = err.message;
+                        skippedTelemetry.push(`G-Key#${keyNum} ${modelName} -> ${err.message}`);
                         break;
                     }
-                } catch (err) {
-                    clearTimeout(timer);
-                    lastError = err.message;
-                    skippedTelemetry.push(`G-Key#${keyNum} ${modelName} -> ${err.message}`);
-                    break;
                 }
             }
 
@@ -693,10 +796,13 @@ async function generateGeminiReplyInternal(body) {
         base64Frame,
         currentFacingMode,
         savedFaces,
-        chatHistory
+        chatHistory,
+        longTermMemory
     );
     if (backupReply) {
         backupReply.emotion = detectPapaEmotion(userText, backupReply.aiText);
+        backupReply.agiAction = agiAction;
+        backupReply.newMemoryFact = newMemoryFact;
         backupReply.skippedTelemetry = skippedTelemetry;
         return backupReply;
     }
@@ -794,6 +900,8 @@ export default async function handler(req, res) {
                 emotion: chatResult.emotion || "talking",
                 geminiKeyUsed: chatResult.geminiKeyUsed,
                 modelUsed: chatResult.modelUsed,
+                agiAction: chatResult.agiAction || null,
+                newMemoryFact: chatResult.newMemoryFact || null,
                 audioBase64: ttsResult.audioBase64,
                 engineLabel: `G-Key #${chatResult.geminiKeyUsed} (${chatResult.modelUsed}) | ${ttsResult.engineLabel}`,
                 telemetry: {
