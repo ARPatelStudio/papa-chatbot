@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Papa Chatbot - Universal AGI, 18 Emotions, Android-Clean Mic & Logcat</title>
+    <title>Papa Chatbot - Universal End-to-End Live Call, Auto-Adjust Video & Gboard Mic</title>
     <style>
         @keyframes pulseRed {
             0% { opacity: 1; transform: scale(1); }
@@ -69,48 +69,87 @@
             color: #11111b;
             border-color: #f38ba8;
         }
+        /* Universal Auto-Adjust Video Frame + Crisp Rounded Edges on All Browsers */
+        #avatar-box {
+            margin: 0 auto 10px auto;
+            width: min(100%, 275px);
+            max-width: 100%;
+            box-sizing: border-box;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 4px solid #0D8ABC;
+            box-shadow: 0 0 18px rgba(13, 138, 188, 0.45);
+            transition: width 0.28s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+            position: relative;
+            background: #000;
+            transform: translateZ(0);
+            -webkit-mask-image: -webkit-radial-gradient(white, black);
+        }
+        #avatar-stage {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 3 / 4;
+            max-height: min(56vh, 440px);
+            background: #000;
+            overflow: hidden;
+            border-radius: 12px;
+            transition: height 0.28s ease;
+        }
         .avatar-layer-video {
             position: absolute;
-            top: 0;
-            left: 0;
+            inset: 0;
             width: 100%;
             height: 100%;
-            object-fit: contain;
+            object-fit: cover;
+            object-position: center;
             display: block;
+            background: #000;
             transition: opacity 0.18s ease-in-out;
             pointer-events: none;
+        }
+        /* Gboard-Style Live Audio Waveform Equalizer */
+        .gboard-wave-box {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            height: 22px;
+            padding: 0 4px;
+        }
+        .gboard-wave-bar {
+            width: 4px;
+            height: 6px;
+            border-radius: 4px;
+            background: #38bdf8;
+            transition: height 0.06s ease-out, background-color 0.15s;
         }
     </style>
 </head>
 <body style="background: #121212; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box;">
 
-<div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 550px; width: 100%; padding: 18px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;">
+<div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 550px; width: 100%; padding: 18px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; box-sizing: border-box;">
 
-    <!-- Clean Top HUD Strip (ABOVE Video so ZERO text overlaps Papa's face!) -->
-    <div style="display: flex; justify-content: space-between; align-items: center; max-width: 280px; margin: 0 auto 8px auto; gap: 6px;">
+    <!-- Clean Top HUD Strip (Auto-aligns with Auto-Adjusted Video Width!) -->
+    <div id="top-hud-strip" style="display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 280px; margin: 0 auto 8px auto; gap: 6px; transition: max-width 0.28s ease;">
         <div id="live-stream-badge" class="live-pulse" style="display: none; background: rgba(220, 38, 38, 0.95); color: #fff; font-size: 10px; font-weight: bold; padding: 4px 9px; border-radius: 12px; letter-spacing: 0.6px; box-shadow: 0 2px 8px rgba(0,0,0,0.5);">
-            🔴 LIVE AGI CALL
+            🔴 E2E LIVE CALL
         </div>
         <div id="mic-state-pill" style="background: #111827; color: #94a3b8; font-size: 10px; font-weight: bold; padding: 4px 8px; border-radius: 10px; border: 1px solid #334155;">
-            🎤 Mic: Standby
+            🎙️ Gboard Mic: Standby
         </div>
         <div id="emotion-badge" style="margin-left: auto; background: rgba(0, 0, 0, 0.72); color: #a6e3a1; font-size: 10px; font-weight: bold; padding: 4px 9px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2);">
             😊 शांत (Idle)
         </div>
     </div>
 
-    <!-- Portrait Video Avatar Box (3-Layer Zero-Flicker Video Stage — 100% Unobstructed!) -->
-    <div id="avatar-box" style="margin: 0 auto 10px auto; width: 270px; border-radius: 15px; overflow: hidden; border: 4px solid #0D8ABC; box-shadow: 0 0 18px rgba(13, 138, 188, 0.45); transition: border-color 0.35s, box-shadow 0.35s; position: relative; background: #000;">
-        <div id="avatar-stage" style="position: relative; width: 100%; min-height: 320px; background: #000; overflow: hidden;">
-            <!-- Layer 1: Preloaded Base Idle Video (Always ready, defines aspect ratio) -->
-            <video id="vid-idle" src="./avatar_idle.mp4" width="100%" autoplay loop muted playsinline preload="auto" style="position: relative; z-index: 1; width: 100%; height: auto; display: block; object-fit: contain;"></video>
-            <!-- Layer 2: Preloaded Base Talking Video (0ms instant switch when Papa speaks!) -->
-            <video id="vid-talking" src="./avatar_talking.mp4" width="100%" loop muted playsinline preload="auto" class="avatar-layer-video" style="z-index: 2; opacity: 0;"></video>
-            <!-- Layer 3: Dynamic Special Emotion Video (Fades in ONLY when frames are playing!) -->
-            <video id="vid-emotion" width="100%" loop muted playsinline preload="auto" class="avatar-layer-video" style="z-index: 3; opacity: 0;"></video>
+    <!-- Universal Auto-Adjust Video Avatar Box (Adapts to ANY Portrait / Square / Landscape Size!) -->
+    <div id="avatar-box">
+        <div id="avatar-stage">
+            <video id="vid-idle" src="./avatar_idle.mp4" autoplay loop muted playsinline preload="auto" class="avatar-layer-video" style="z-index: 1; opacity: 1;"></video>
+            <video id="vid-talking" src="./avatar_talking.mp4" loop muted playsinline preload="auto" class="avatar-layer-video" style="z-index: 2; opacity: 0;"></video>
+            <video id="vid-emotion" loop muted playsinline preload="auto" class="avatar-layer-video" style="z-index: 3; opacity: 0;"></video>
 
-            <!-- Live User/Environment Camera PiP Preview (Compact Bottom-Right Corner) -->
-            <div id="cam-preview-box" style="position: absolute; bottom: 8px; right: 8px; width: 72px; height: 94px; border-radius: 10px; overflow: hidden; border: 2px solid #ffeb3b; background: #000; box-shadow: 0 4px 12px rgba(0,0,0,0.7); display: none; z-index: 4;">
+            <!-- Live User/Environment Camera PiP Preview (Auto-scales with video frame) -->
+            <div id="cam-preview-box" style="position: absolute; bottom: 8px; right: 8px; width: 70px; height: 90px; border-radius: 10px; overflow: hidden; border: 2px solid #ffeb3b; background: #000; box-shadow: 0 4px 12px rgba(0,0,0,0.7); display: none; z-index: 4; transition: width 0.25s ease, height 0.25s ease;">
                 <video id="camera-video" width="100%" height="100%" autoplay muted playsinline style="object-fit: cover; width: 100%; height: 100%; transform: scaleX(-1);"></video>
                 <span id="cam-mode-badge" style="position: absolute; bottom: 2px; left: 4px; font-size: 9px; background: rgba(0,0,0,0.7); color: #ffeb3b; padding: 1px 4px; border-radius: 4px;">Front</span>
             </div>
@@ -127,10 +166,17 @@
         ⏳ पापा जवाब तैयार कर रहे हैं... कृपया थोड़ा रुकें (Overlapping click lock ON)
     </div>
 
-    <!-- 🎙️ Steady Google-Style Live Speech Transcript Box + Manual "Send Now" Button -->
-    <div id="live-transcript-bar" style="display: none; background: #111827; border: 1px solid #ffeb3b; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; align-items: center; justify-content: space-between; gap: 8px;">
-        <div id="live-transcript-text" style="font-size: 13px; color: #fef08a; text-align: left; flex: 1;">
-            🎤 बोलिए, माइक स्थिर (Steady) है और आपकी पूरी बात सुन रहा है...
+    <!-- 🎙️ Gboard-Style Live Neural Mic Bar + Real-Time Waveform Equalizer + Send Now -->
+    <div id="live-transcript-bar" style="display: none; background: #0f172a; border: 1.5px solid #38bdf8; border-radius: 14px; padding: 8px 12px; margin-bottom: 10px; align-items: center; justify-content: space-between; gap: 8px;">
+        <div id="gboard-wave-box" class="gboard-wave-box" aria-hidden="true">
+            <span class="gboard-wave-bar" id="wave-b1"></span>
+            <span class="gboard-wave-bar" id="wave-b2"></span>
+            <span class="gboard-wave-bar" id="wave-b3"></span>
+            <span class="gboard-wave-bar" id="wave-b4"></span>
+            <span class="gboard-wave-bar" id="wave-b5"></span>
+        </div>
+        <div id="live-transcript-text" style="font-size: 12.5px; color: #bae6fd; text-align: left; flex: 1;">
+            🎙️ बोलिए, Gboard Neural Mic आपकी आवाज़ सीधे सुन रहा है...
         </div>
         <button id="finish-speech-btn" style="padding: 6px 12px; border-radius: 16px; border: none; background: #4caf50; color: #fff; font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap;">
             ✅ बात पूरी हुई
@@ -150,8 +196,11 @@
     <canvas id="face-thumb-canvas" style="display: none;"></canvas>
     <audio id="papa-tts-player" playsinline style="display: none;"></audio>
 
-    <!-- Controls Row: Vision, Cam, 18 Emotions, Parivar, AGI Memory, 7 Videos Fix, Share, Universal Logcat -->
+    <!-- Controls Row: Mic Engine Mode, Vision, Cam, 18 Emotions, Parivar, AGI Memory, 7 Videos, Share, Logcat -->
     <div style="display: flex; justify-content: center; gap: 5px; margin-bottom: 12px; flex-wrap: wrap;">
+        <button id="mic-engine-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #38bdf8; background: #0c2738; color: #7dd3fc; font-size: 11px; font-weight: bold; cursor: pointer;">
+            🎙️ Gboard Neural
+        </button>
         <button id="cam-toggle-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #4caf50; background: #263829; color: #a6e3a1; font-size: 11px; font-weight: bold; cursor: pointer;">
             👁️ Vision: ON
         </button>
@@ -178,7 +227,7 @@
         </button>
     </div>
 
-    <!-- 📋 UNIVERSAL REAL-TIME LOGCAT DRAWER (Captures JS, Net, Mic, Video/Audio + 1-Click Copy!) -->
+    <!-- 📋 UNIVERSAL REAL-TIME LOGCAT DRAWER -->
     <div id="bug-radar-panel" style="display: none; background: #0b0b14; border: 1px solid #f38ba8; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: left;">
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;">
             <span style="font-size: 12px; font-weight: bold; color: #f38ba8;">📋 Universal Real-Time Logcat:</span>
@@ -206,7 +255,7 @@
             🎭 Universal 18 Human Emotions (किसी भी भावना पर क्लिक करके तुरंत टेस्ट करें):
         </div>
         <div style="font-size: 10.5px; color: #a6adc8; margin-bottom: 8px;">
-            बातचीत के दौरान पापा अपने-आप इन 18 भावनाओं को महसूस करते हैं, और आप यहाँ क्लिक करके किसी भी मूड में पापा से बात करवा सकते हैं (एक बार में 1 सुरक्षित रिक्वेस्ट चलेगी):
+            बातचीत के दौरान पापा अपने-आप इन 18 भावनाओं को महसूस करते हैं, और आप यहाँ क्लिक करके किसी भी मूड में पापा से बात करवा सकते हैं:
         </div>
         <div id="emotions-grid" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
     </div>
@@ -484,6 +533,7 @@ copyLogcatBtn.addEventListener("click", async function() {
         "Time: " + new Date().toLocaleString(),
         "Browser: " + navigator.userAgent,
         "Screen: " + window.innerWidth + "x" + window.innerHeight,
+        "MicEngine: " + (micEngineMode === "gboard_neural" ? "GBOARD-E2E-NEURAL-AUDIO" : "BROWSER-SPEECH-API"),
         "ReleaseURL: " + (releaseBaseUrl || "(Local Mode)"),
         "RemoteVideosMode: " + (isFastBaseOnlyMode ? "FAST-BASE-ONLY" : "AUTO"),
         "FailedOrSlowVideos: " + (Array.from(failedVideoUrlSet).join(", ") || "None"),
@@ -620,10 +670,13 @@ function normalizeReleaseUrl(inputUrl) {
 
 let releaseBaseUrl = normalizeReleaseUrl(localStorage.getItem("papa_release_base_url") || "");
 let isFastBaseOnlyMode = localStorage.getItem("papa_fast_base_video_mode") === "1";
+let micEngineMode = localStorage.getItem("papa_mic_engine_mode") || "gboard_neural";
 const failedVideoUrlSet = new Set();
 const stalledVideoCounts = new Map();
 
 // DOM Elements
+const chatbotContainer = document.getElementById("chatbot-container");
+const topHudStrip = document.getElementById("top-hud-strip");
 const liveCallBtn = document.getElementById("live-call-btn");
 const liveStreamBadge = document.getElementById("live-stream-badge");
 const micStatePill = document.getElementById("mic-state-pill");
@@ -632,6 +685,14 @@ const liveSubtitleBox = document.getElementById("live-subtitle-box");
 const loadingLockBar = document.getElementById("loading-lock-bar");
 const liveTranscriptBar = document.getElementById("live-transcript-bar");
 const liveTranscriptText = document.getElementById("live-transcript-text");
+const gboardWaveBox = document.getElementById("gboard-wave-box");
+const waveBars = [
+    document.getElementById("wave-b1"),
+    document.getElementById("wave-b2"),
+    document.getElementById("wave-b3"),
+    document.getElementById("wave-b4"),
+    document.getElementById("wave-b5")
+];
 const finishSpeechBtn = document.getElementById("finish-speech-btn");
 const agiActionCard = document.getElementById("agi-action-card");
 const agiActionText = document.getElementById("agi-action-text");
@@ -639,6 +700,7 @@ const agiActionLink = document.getElementById("agi-action-link");
 const agiCommandInput = document.getElementById("agi-command-input");
 const agiSendBtn = document.getElementById("agi-send-btn");
 
+const micEngineBtn = document.getElementById("mic-engine-btn");
 const micBtn = document.getElementById("mic-btn");
 const singSongBtn = document.getElementById("sing-song-btn");
 const testVoiceBtn = document.getElementById("test-voice-btn");
@@ -646,8 +708,9 @@ const diagCartesiaBtn = document.getElementById("diag-cartesia-btn");
 const diagBox = document.getElementById("diag-box");
 const statusText = document.getElementById("status-text");
 
-// 3-Layer Zero-Flicker Video Elements
+// 3-Layer Zero-Flicker Video Elements + Auto-Adjust Container
 const avatarBox = document.getElementById("avatar-box");
+const avatarStage = document.getElementById("avatar-stage");
 const vidIdle = document.getElementById("vid-idle");
 const vidTalking = document.getElementById("vid-talking");
 const vidEmotion = document.getElementById("vid-emotion");
@@ -700,6 +763,8 @@ let sharedAudioCtx = null;
 let currentEmotionState = "idle";
 let currentVideoLayerLabel = "Base Idle";
 let videoLoadSeq = 0;
+let activeVisibleVideoEl = vidIdle;
+let lastAdjustedFrameSig = "";
 
 // 📞 Master State Locks
 let isLiveCallActive = false;
@@ -717,6 +782,23 @@ let lastRequestStartTime = 0;
 let activeRequestSeq = 0;
 const REQUEST_COOLDOWN_MS = 1000;
 
+// 🎙️ Gboard-Style Neural Audio Stream State (Persistent WebRTC Mic + Adaptive VAD)
+let liveMicStream = null;
+let micAnalyserNode = null;
+let micSourceNode = null;
+let neuralMediaRecorder = null;
+let neuralAudioChunks = [];
+let neuralAudioMimeType = "audio/webm";
+let isNeuralListeningActive = false;
+let neuralHasSpeechStarted = false;
+let neuralSpeechStartTime = 0;
+let neuralLastVoiceTime = 0;
+let neuralTurnStartTime = 0;
+let neuralConsecutiveSpeechFrames = 0;
+let neuralNoiseFloor = 0.012;
+let neuralVadInterval = null;
+let neuralDiscardOnStop = false;
+
 let activePlaybackResolver = null;
 let activeWebAudioSource = null;
 let activeAudioObjectUrl = null;
@@ -725,31 +807,147 @@ let conversationHistory = [];
 let activeTimerInterval = null;
 const haBetaBolAudio = new Audio("./ha_beta_bol.mp3");
 
-function refreshLiveStateHud() {
-    const micTxt = isRecognitionActuallyRunning
-        ? (isUserActivelySpeaking ? "SPEAKING" : "LISTENING")
-        : (isMicReconnecting ? "RECONNECTING" : (shouldMicBeActive ? "STARTING" : "OFF"));
+// ============================================================================
+// 📐 UNIVERSAL AUTO-ADJUST VIDEO FRAME ENGINE (Fits ANY Video Size Automatically!)
+// ============================================================================
+function autoAdjustVideoFrame(videoEl) {
+    if (!videoEl || !videoEl.videoWidth || !videoEl.videoHeight) return;
 
-    if (isRecognitionActuallyRunning) {
-        micStatePill.innerText = isUserActivelySpeaking ? "🎙️ Mic: Speaking..." : "🎤 Mic: LIVE";
+    const vw = videoEl.videoWidth;
+    const vh = videoEl.videoHeight;
+    const ratio = vw / vh;
+
+    // Available inner width inside chatbot card (responsive for every phone & PC)
+    const availableW = Math.max(210, Math.min((chatbotContainer.clientWidth || window.innerWidth - 24) - 36, 480));
+    const maxStageH = Math.min(Math.round(window.innerHeight * 0.54), 440);
+
+    let targetW;
+    let orientLabel;
+
+    if (ratio > 1.15) {
+        // Landscape video (e.g., 16:9, 4:3)
+        targetW = Math.min(availableW, 440);
+        orientLabel = "Landscape";
+    } else if (ratio >= 0.85) {
+        // Square video (e.g., 1:1)
+        targetW = Math.min(availableW, 310);
+        orientLabel = "Square";
+    } else {
+        // Portrait video (e.g., 9:16, 3:4)
+        targetW = Math.min(availableW, 285);
+        orientLabel = "Portrait";
+    }
+
+    // Clamp height so tall videos never push Live Call / Mic buttons off mobile screens
+    let targetH = Math.round(targetW / ratio);
+    if (targetH > maxStageH) {
+        targetH = maxStageH;
+        targetW = Math.max(185, Math.round(targetH * ratio));
+    }
+
+    avatarBox.style.width = targetW + "px";
+    avatarStage.style.aspectRatio = vw + " / " + vh;
+    avatarStage.style.height = targetH + "px";
+    topHudStrip.style.maxWidth = Math.max(targetW, 270) + "px";
+
+    // Proportionally adjust Camera PiP so it never blocks Papa's face on any video ratio
+    const pipW = Math.max(52, Math.min(74, Math.round(targetW * 0.24)));
+    const pipH = Math.min(Math.round(pipW * 1.28), Math.max(58, Math.round(targetH * 0.40)));
+    camPreviewBox.style.width = pipW + "px";
+    camPreviewBox.style.height = pipH + "px";
+
+    const dimSig = vw + "x" + vh + "@" + targetW + "x" + targetH;
+    if (lastAdjustedFrameSig !== dimSig) {
+        lastAdjustedFrameSig = dimSig;
+        addLogcatEntry(
+            "INFO",
+            "MEDIA",
+            "Auto-Adjusted Video Frame: " + vw + "x" + vh + " (" + orientLabel + ") -> " + targetW + "x" + targetH + "px"
+        );
+    }
+}
+
+// Auto-adjust immediately whenever ANY video loads its dimensions
+[vidIdle, vidTalking, vidEmotion].forEach(function(vEl) {
+    vEl.addEventListener("loadedmetadata", function() {
+        if (vEl === activeVisibleVideoEl) {
+            autoAdjustVideoFrame(vEl);
+        }
+    });
+});
+
+// Re-adjust smoothly on window resize or phone rotation
+window.addEventListener("resize", function() {
+    autoAdjustVideoFrame(activeVisibleVideoEl);
+});
+window.addEventListener("orientationchange", function() {
+    setTimeout(function() {
+        autoAdjustVideoFrame(activeVisibleVideoEl);
+    }, 180);
+});
+
+if (vidIdle.readyState >= 1) {
+    autoAdjustVideoFrame(vidIdle);
+}
+
+function updateMicEngineBtnUI() {
+    if (micEngineMode === "gboard_neural") {
+        micEngineBtn.innerText = "🎙️ Gboard Neural";
+        micEngineBtn.style.borderColor = "#38bdf8";
+        micEngineBtn.style.color = "#7dd3fc";
+    } else {
+        micEngineBtn.innerText = "🌐 Browser Mic";
+        micEngineBtn.style.borderColor = "#f9e2af";
+        micEngineBtn.style.color = "#f9e2af";
+    }
+}
+updateMicEngineBtnUI();
+
+micEngineBtn.addEventListener("click", function() {
+    if (isApiRequestInFlight) return;
+    stopMicCompletely(true);
+    micEngineMode = micEngineMode === "gboard_neural" ? "browser_speech" : "gboard_neural";
+    localStorage.setItem("papa_mic_engine_mode", micEngineMode);
+    updateMicEngineBtnUI();
+    addLogcatEntry("INFO", "MIC", "Switched Mic Engine to: " + micEngineMode);
+    statusText.innerText = micEngineMode === "gboard_neural"
+        ? "✅ Gboard Neural End-to-End Mic ON! (Zero 5s beep, Hardware Echo Cancellation, works on Android + iOS)"
+        : "✅ Browser Speech Recognition Mic mode selected.";
+    refreshLiveStateHud();
+});
+
+function refreshLiveStateHud() {
+    const activeListening = micEngineMode === "gboard_neural"
+        ? isNeuralListeningActive
+        : isRecognitionActuallyRunning;
+
+    const micLabelPrefix = micEngineMode === "gboard_neural" ? "🎙️ Gboard" : "🎤 Browser";
+    const micTxt = activeListening
+        ? (isUserActivelySpeaking || neuralHasSpeechStarted ? "SPEAKING" : "LISTENING")
+        : (isMicReconnecting ? "SYNCING" : (shouldMicBeActive ? "STARTING" : "OFF"));
+
+    if (activeListening) {
+        micStatePill.innerText = (isUserActivelySpeaking || neuralHasSpeechStarted)
+            ? (micLabelPrefix + ": Speaking...")
+            : (micLabelPrefix + ": LIVE");
         micStatePill.style.color = "#4ade80";
         micStatePill.style.borderColor = "#4ade80";
     } else if (shouldMicBeActive) {
-        micStatePill.innerText = "🎤 Mic: Syncing...";
+        micStatePill.innerText = micLabelPrefix + ": Ready...";
         micStatePill.style.color = "#ffeb3b";
         micStatePill.style.borderColor = "#ffeb3b";
     } else {
-        micStatePill.innerText = "🎤 Mic: Standby";
+        micStatePill.innerText = micLabelPrefix + ": Standby";
         micStatePill.style.color = "#94a3b8";
         micStatePill.style.borderColor = "#334155";
     }
 
     logcatLiveStats.innerText =
-        "Call: " + (isLiveCallActive ? "LIVE" : "Single") +
-        " | State: " + currentEmotionState +
+        "Call: " + (isLiveCallActive ? "E2E-LIVE" : "Single") +
+        " | MicMode: " + (micEngineMode === "gboard_neural" ? "Gboard-Neural" : "Browser") +
         " | Mic: " + micTxt +
         " | Video: " + currentVideoLayerLabel +
-        " | API Lock: " + (isApiRequestInFlight ? "BUSY" : "FREE");
+        " | API: " + (isApiRequestInFlight ? "BUSY" : "FREE");
 }
 
 // ============================================================================
@@ -855,7 +1053,7 @@ function stopCurrentPlaybackSafely() {
 }
 
 // ============================================================================
-// 🎬 3-LAYER ZERO-FLICKER VIDEO ENGINE (Bandwidth-Smart + Anti-Stall Guard!)
+// 🎬 3-LAYER ZERO-FLICKER VIDEO ENGINE (With Auto-Adjust Frame Sync!)
 // ============================================================================
 function safePlayVideo(videoEl, label) {
     if (!videoEl) return;
@@ -885,6 +1083,8 @@ vidEmotion.addEventListener("stalled", function() {
     if (count >= 2) {
         failedVideoUrlSet.add(srcUrl);
         vidEmotion.style.opacity = "0";
+        activeVisibleVideoEl = isPapaSpeakingOrThinking ? vidTalking : vidIdle;
+        autoAdjustVideoFrame(activeVisibleVideoEl);
         addLogcatEntry("INFO", "MEDIA", "Heavy video stalled 2x -> Switched smoothly to fast local base layer.");
     }
 });
@@ -894,7 +1094,6 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
     const videoKey = profile.videoKey || (isSpeakingState ? "talking" : "idle");
     const fileName = VIDEO_FILENAMES[videoKey] || (isSpeakingState ? "avatar_talking.mp4" : "avatar_idle.mp4");
 
-    // 1. Update visual badge & Aura Glow immediately
     const activeBorderColor = (emotionKey === "idle" && isLiveCallActive) ? "#ff5252" : profile.color;
     emotionBadge.innerText = profile.label;
     emotionBadge.style.color = profile.color;
@@ -902,7 +1101,6 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
     avatarBox.style.boxShadow = "0 0 22px " + activeBorderColor + "88";
     currentEmotionState = emotionKey;
 
-    // 2. IMMEDIATELY activate guaranteed preloaded base layer (0ms switch!)
     const mySeq = ++videoLoadSeq;
     vidEmotion.onplaying = null;
     vidEmotion.onerror = null;
@@ -910,16 +1108,18 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
     if (isSpeakingState) {
         vidTalking.style.opacity = "1";
         safePlayVideo(vidTalking, "vid-talking");
+        activeVisibleVideoEl = vidTalking;
+        autoAdjustVideoFrame(vidTalking);
         currentVideoLayerLabel = "Talking Base (./avatar_talking.mp4)";
     } else {
         vidTalking.style.opacity = "0";
         try { vidTalking.pause(); } catch (e) {}
         safePlayVideo(vidIdle, "vid-idle");
+        activeVisibleVideoEl = vidIdle;
+        autoAdjustVideoFrame(vidIdle);
         currentVideoLayerLabel = "Idle Base (./avatar_idle.mp4)";
     }
 
-    // 3. BANDWIDTH PRIORITY RULE:
-    // Skip downloading heavy remote MP4s if Fast Base Mode is ON OR while `/api/papa` is actively in flight
     if (
         videoKey === "idle" ||
         videoKey === "talking" ||
@@ -945,10 +1145,11 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
         return;
     }
 
-    // Reuse already-loaded Layer 3 without re-downloading!
     if (vidEmotion.getAttribute("data-loaded-url") === candidateUrl && vidEmotion.readyState >= 2) {
         vidEmotion.style.opacity = "1";
         safePlayVideo(vidEmotion, fileName);
+        activeVisibleVideoEl = vidEmotion;
+        autoAdjustVideoFrame(vidEmotion);
         currentVideoLayerLabel = "Special (" + fileName + ")";
         refreshLiveStateHud();
         return;
@@ -977,6 +1178,8 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
             if (mySeq !== videoLoadSeq) return;
             vidEmotion.setAttribute("data-loaded-url", urlToTry);
             vidEmotion.style.opacity = "1";
+            activeVisibleVideoEl = vidEmotion;
+            autoAdjustVideoFrame(vidEmotion);
             currentVideoLayerLabel = "Special (" + fileName + ")";
             addLogcatEntry("INFO", "MEDIA", "Playing special video: " + fileName);
             refreshLiveStateHud();
@@ -994,6 +1197,8 @@ function setAvatarEmotionState(emotionKey, isSpeakingState) {
             }
             addLogcatEntry("WARN", "MEDIA", "Special video '" + fileName + "' unavailable -> Running on fast base video.");
             vidEmotion.style.opacity = "0";
+            activeVisibleVideoEl = isSpeakingState ? vidTalking : vidIdle;
+            autoAdjustVideoFrame(activeVisibleVideoEl);
             refreshLiveStateHud();
         };
 
@@ -1034,7 +1239,7 @@ function render18EmotionsGrid() {
             unlockBrowserAudio();
             stopCurrentPlaybackSafely();
             isPapaSpeakingOrThinking = false;
-            submitQueryToPapaAGI(profile.sample, emoKey, btn);
+            submitQueryToPapaAGI({ userText: profile.sample, forceEmotion: emoKey, triggerChipEl: btn });
         });
         emotionsGrid.appendChild(btn);
     });
@@ -1067,6 +1272,8 @@ fastMobileVideoBtn.addEventListener("click", function() {
     if (isFastBaseOnlyMode) {
         vidEmotion.style.opacity = "0";
         try { vidEmotion.pause(); } catch (e) {}
+        activeVisibleVideoEl = isPapaSpeakingOrThinking ? vidTalking : vidIdle;
+        autoAdjustVideoFrame(activeVisibleVideoEl);
         addLogcatEntry("INFO", "MEDIA", "Fast Base Video Mode ON (Saves mobile data & eliminates stalls).");
     } else {
         failedVideoUrlSet.clear();
@@ -1125,7 +1332,9 @@ function renderVideoTestButtons() {
                 if (myTestSeq !== videoLoadSeq) return;
                 vidEmotion.style.opacity = "1";
                 vidEmotion.setAttribute("data-loaded-url", testUrl);
-                videoDebugUrl.innerText = "✅ PLAYING PERFECTLY: " + testUrl;
+                activeVisibleVideoEl = vidEmotion;
+                autoAdjustVideoFrame(vidEmotion);
+                videoDebugUrl.innerText = "✅ PLAYING PERFECTLY (" + vidEmotion.videoWidth + "x" + vidEmotion.videoHeight + "): " + testUrl;
                 videoDebugUrl.style.color = "#a6e3a1";
                 addLogcatEntry("INFO", "MEDIA", "Video Test PASSED: " + testUrl);
             };
@@ -1307,7 +1516,7 @@ fetch(BACKEND_API_URL, {
             setAvatarEmotionState("idle", false);
         }
     }, 4500);
-    statusText.innerText = "✅ Papa Universal AGI Ready! (Android Reconnect-Safe Mic + Fast Talking Video + Logcat ON)\n'📞 Start Live Call', '🎭 18 Emotions', ya '🎵 गाना सुनें' dabayen.";
+    statusText.innerText = "✅ Universal End-to-End Papa AGI Ready! (Auto-Adjust Video Frame + Gboard Neural Mic + 18 Emotions ON)\n'📞 Start Live Call' dabayen.";
 })
 .catch(function(err) {
     if (err.message !== "Wrong PIN") {
@@ -1385,7 +1594,7 @@ nativeShareBtn.addEventListener("click", async function() {
 });
 
 // ============================================================================
-// 🔓 AUDIO & MOBILE VIDEO UNLOCKER + BASE64 TO ARRAYBUFFER CONVERTER
+// 🔓 AUDIO & MOBILE VIDEO UNLOCKER + CONVERTERS
 // ============================================================================
 function unlockBrowserAudio() {
     try {
@@ -1413,6 +1622,19 @@ function base64ToArrayBuffer(base64) {
         bytes[i] = binaryString.charCodeAt(i);
     }
     return bytes.buffer;
+}
+
+function blobToBase64(blob) {
+    return new Promise(function(resolve, reject) {
+        const reader = new FileReader();
+        reader.onloadend = function() {
+            const dataUrl = String(reader.result || "");
+            const idx = dataUrl.indexOf(",");
+            resolve(idx !== -1 ? dataUrl.slice(idx + 1) : "");
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 }
 
 // ============================================================================
@@ -1501,7 +1723,7 @@ saveFaceBtn.addEventListener("click", function() {
 renderFamilyFacesUI();
 
 // ============================================================================
-// 📷 LIVE CAMERA MANAGER (Mobile Bandwidth-Optimized Frame Sizes)
+// 📷 LIVE CAMERA MANAGER
 // ============================================================================
 async function startCamera(facingMode) {
     const mode = facingMode || "user";
@@ -1605,16 +1827,313 @@ function captureCameraFrameBase64() {
 startCamera("user");
 
 // ============================================================================
-// 🎤 ANDROID RECONNECT-SAFE ZERO-GLITCH MIC ENGINE
-// Fixes: (1) Pauses silence timer during Android reconnects, (2) 100ms fast mid-sentence
-// reconnect, (3) onspeechstart/onspeechend VAD guard, (4) Cumulative duplicate word fix!
+// 🎙️ ENGINE 1 (DEFAULT): GOOGLE GBOARD-STYLE UNIVERSAL END-TO-END NEURAL MIC
 // ============================================================================
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (!SpeechRecognition) {
-    statusText.innerText = "🚨 Aapka browser Speech Recognition support nahi karta. Kripya Google Chrome use karein.";
-    addLogcatEntry("GLITCH", "MIC", "Web Speech API not supported in this browser.");
+const NEURAL_SILENCE_STOP_MS = 1550;
+const NEURAL_MAX_UTTERANCE_MS = 35000;
+const NEURAL_IDLE_RECYCLE_MS = 15000;
+
+function getSupportedAudioRecorderMime() {
+    if (typeof MediaRecorder === "undefined") return "";
+    const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+        "audio/ogg;codecs=opus"
+    ];
+    for (let i = 0; i < candidates.length; i++) {
+        if (MediaRecorder.isTypeSupported(candidates[i])) {
+            return candidates[i];
+        }
+    }
+    return "";
 }
 
+function setNeuralMicTracksEnabled(enabled) {
+    if (!liveMicStream) return;
+    liveMicStream.getAudioTracks().forEach(function(track) {
+        track.enabled = enabled;
+    });
+}
+
+function releaseNeuralMicStream() {
+    stopNeuralVadAndRecorder(true);
+    if (micSourceNode) {
+        try { micSourceNode.disconnect(); } catch (e) {}
+        micSourceNode = null;
+    }
+    micAnalyserNode = null;
+    if (liveMicStream) {
+        liveMicStream.getAudioTracks().forEach(function(t) { t.stop(); });
+        liveMicStream = null;
+        addLogcatEntry("INFO", "MIC", "Hardware mic stream released cleanly.");
+    }
+}
+
+async function ensureNeuralMicStream() {
+    if (liveMicStream && liveMicStream.active) {
+        setNeuralMicTracksEnabled(true);
+        return true;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === "undefined") {
+        addLogcatEntry("WARN", "MIC", "MediaRecorder unavailable -> Auto-switching to Browser Mic.");
+        micEngineMode = "browser_speech";
+        updateMicEngineBtnUI();
+        return false;
+    }
+
+    try {
+        liveMicStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                channelCount: 1
+            },
+            video: false
+        });
+
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!sharedAudioCtx) sharedAudioCtx = new AudioCtx();
+        if (sharedAudioCtx.state === "suspended") await sharedAudioCtx.resume();
+
+        micSourceNode = sharedAudioCtx.createMediaStreamSource(liveMicStream);
+        micAnalyserNode = sharedAudioCtx.createAnalyser();
+        micAnalyserNode.fftSize = 512;
+        micAnalyserNode.smoothingTimeConstant = 0.4;
+        micSourceNode.connect(micAnalyserNode);
+
+        addLogcatEntry("INFO", "MIC", "Gboard-Style WebRTC Hardware Mic Ready (AEC + NS + AGC ON).");
+        return true;
+    } catch (err) {
+        addLogcatEntry("GLITCH", "MIC", "Mic permission error: " + err.message);
+        statusText.innerText = "🚨 Mic Permission Allow karein! (" + err.message + ")";
+        return false;
+    }
+}
+
+function resetWaveformBars() {
+    waveBars.forEach(function(bar) {
+        if (!bar) return;
+        bar.style.height = "6px";
+        bar.style.backgroundColor = "#38bdf8";
+    });
+}
+
+function updateWaveformBars(rms, isSpeakingNow) {
+    const level = Math.min(1, rms * 14);
+    const multipliers = [0.55, 0.9, 1.15, 0.85, 0.6];
+    for (let i = 0; i < waveBars.length; i++) {
+        if (!waveBars[i]) continue;
+        const jitter = 0.8 + Math.random() * 0.4;
+        const h = Math.max(5, Math.min(22, Math.round(5 + level * 17 * multipliers[i] * jitter)));
+        waveBars[i].style.height = h + "px";
+        waveBars[i].style.backgroundColor = isSpeakingNow ? "#4ade80" : "#38bdf8";
+    }
+}
+
+function stopNeuralVadAndRecorder(discardAudio) {
+    if (neuralVadInterval) {
+        clearInterval(neuralVadInterval);
+        neuralVadInterval = null;
+    }
+    isNeuralListeningActive = false;
+    neuralHasSpeechStarted = false;
+    isUserActivelySpeaking = false;
+    resetWaveformBars();
+
+    if (neuralMediaRecorder) {
+        neuralDiscardOnStop = Boolean(discardAudio);
+        try {
+            if (neuralMediaRecorder.state !== "inactive") {
+                neuralMediaRecorder.stop();
+            }
+        } catch (e) {}
+        if (discardAudio) {
+            neuralMediaRecorder = null;
+            neuralAudioChunks = [];
+        }
+    }
+    setNeuralMicTracksEnabled(false);
+}
+
+async function startNeuralListeningTurn() {
+    if (isPapaSpeakingOrThinking || isSubmittingSpeech || isApiRequestInFlight) return;
+    if (!papaTtsPlayer.paused || !haBetaBolAudio.paused) return;
+
+    const ready = await ensureNeuralMicStream();
+    if (!ready) {
+        if (micEngineMode === "browser_speech") {
+            activateBrowserSpeechSession(true);
+        }
+        return;
+    }
+
+    stopNeuralVadAndRecorder(true);
+    setNeuralMicTracksEnabled(true);
+
+    shouldMicBeActive = true;
+    isNeuralListeningActive = true;
+    neuralHasSpeechStarted = false;
+    neuralConsecutiveSpeechFrames = 0;
+    neuralTurnStartTime = Date.now();
+    neuralSpeechStartTime = 0;
+    neuralLastVoiceTime = 0;
+    neuralNoiseFloor = 0.014;
+    neuralAudioChunks = [];
+    neuralDiscardOnStop = false;
+
+    const chosenMime = getSupportedAudioRecorderMime();
+    neuralAudioMimeType = chosenMime || "audio/webm";
+    const recOptions = { audioBitsPerSecond: 24000 };
+    if (chosenMime) recOptions.mimeType = chosenMime;
+
+    try {
+        neuralMediaRecorder = new MediaRecorder(liveMicStream, recOptions);
+    } catch (e) {
+        neuralMediaRecorder = new MediaRecorder(liveMicStream);
+        neuralAudioMimeType = neuralMediaRecorder.mimeType || "audio/webm";
+    }
+
+    neuralMediaRecorder.ondataavailable = function(ev) {
+        if (ev.data && ev.data.size > 0) {
+            neuralAudioChunks.push(ev.data);
+        }
+    };
+
+    neuralMediaRecorder.onstop = async function() {
+        const shouldDiscard = neuralDiscardOnStop;
+        const chunksCopy = neuralAudioChunks.slice();
+        const mimeCopy = neuralAudioMimeType;
+        neuralAudioChunks = [];
+        neuralMediaRecorder = null;
+
+        if (shouldDiscard || chunksCopy.length === 0) return;
+
+        const audioBlob = new Blob(chunksCopy, { type: mimeCopy });
+        if (audioBlob.size < 1200) {
+            addLogcatEntry("INFO", "MIC", "Ignored very tiny audio clip (" + audioBlob.size + " bytes).");
+            if (isLiveCallActive && !isPapaSpeakingOrThinking && !isApiRequestInFlight) {
+                startNeuralListeningTurn();
+            }
+            return;
+        }
+
+        if (!isLiveCallActive) {
+            releaseNeuralMicStream();
+        } else {
+            setNeuralMicTracksEnabled(false);
+        }
+
+        try {
+            const audioB64 = await blobToBase64(audioBlob);
+            addLogcatEntry("INFO", "MIC", "Gboard E2E Audio captured (" + Math.round(audioBlob.size / 1024) + " KB, " + mimeCopy.split(";")[0] + ").");
+            await submitQueryToPapaAGI({
+                audioBase64: audioB64,
+                audioMimeType: mimeCopy,
+                userText: ""
+            });
+        } catch (err) {
+            addLogcatEntry("GLITCH", "MIC", "Audio encode error: " + err.message);
+        }
+    };
+
+    neuralMediaRecorder.start(250);
+
+    micBtn.innerText = "🛑 बोलना पूरा करें";
+    micBtn.style.background = "#d97706";
+    gboardWaveBox.style.display = "flex";
+    liveTranscriptBar.style.display = "flex";
+    liveTranscriptText.innerText = "🎙️ बोलिए, Gboard Neural Mic आपकी आवाज़ सुन रहा है...";
+    setAvatarEmotionState("listening", false);
+
+    if (isLiveCallActive) {
+        liveSubtitleBox.style.display = "block";
+        liveSubtitleBox.innerText = "🎙️ आप आराम से बोलिए (End-to-End Live Voice Stream ON)...";
+        statusText.innerText = "🔴 [E2E LIVE CALL] 🎙️ Aap bina ruke puri baat boliye...";
+    } else {
+        statusText.innerText = "🎙️ Aap aaram se boliye (Gboard Neural Mic active)...";
+    }
+
+    const timeDomainBuf = new Float32Array(micAnalyserNode.fftSize);
+    neuralVadInterval = setInterval(function() {
+        if (!isNeuralListeningActive || !micAnalyserNode) return;
+
+        micAnalyserNode.getFloatTimeDomainData(timeDomainBuf);
+        let sumSq = 0;
+        for (let i = 0; i < timeDomainBuf.length; i++) {
+            sumSq += timeDomainBuf[i] * timeDomainBuf[i];
+        }
+        const rms = Math.sqrt(sumSq / timeDomainBuf.length);
+        const now = Date.now();
+        const elapsedSinceStart = now - neuralTurnStartTime;
+
+        if (elapsedSinceStart < 450) {
+            neuralNoiseFloor = neuralNoiseFloor * 0.7 + rms * 0.3;
+            updateWaveformBars(rms, false);
+            return;
+        }
+
+        const speechThreshold = Math.min(Math.max(neuralNoiseFloor * 2.4, 0.017), 0.075);
+
+        if (rms > speechThreshold) {
+            neuralConsecutiveSpeechFrames++;
+            if (neuralConsecutiveSpeechFrames >= 3) {
+                if (!neuralHasSpeechStarted) {
+                    neuralHasSpeechStarted = true;
+                    neuralSpeechStartTime = now;
+                    isUserActivelySpeaking = true;
+                    liveTranscriptText.innerText = "🗣️ सुन रहे हैं... (बोलते रहिए, चुप होते ही बात जाएगी)";
+                    if (isLiveCallActive) {
+                        liveSubtitleBox.innerText = "🗣️ आप बोल रहे हैं... (पापा ध्यान से सुन रहे हैं)";
+                    }
+                    refreshLiveStateHud();
+                }
+                neuralLastVoiceTime = now;
+            }
+            updateWaveformBars(rms, neuralHasSpeechStarted);
+        } else {
+            neuralConsecutiveSpeechFrames = 0;
+            if (!neuralHasSpeechStarted) {
+                neuralNoiseFloor = neuralNoiseFloor * 0.96 + rms * 0.04;
+            }
+            updateWaveformBars(rms, false);
+
+            if (neuralHasSpeechStarted && (now - neuralLastVoiceTime >= NEURAL_SILENCE_STOP_MS)) {
+                finalizeNeuralTurnAndSend();
+                return;
+            }
+
+            if (!neuralHasSpeechStarted && elapsedSinceStart >= NEURAL_IDLE_RECYCLE_MS) {
+                addLogcatEntry("INFO", "MIC", "Silent 15s buffer refresh (0-beep keepalive).");
+                startNeuralListeningTurn();
+                return;
+            }
+        }
+
+        if (neuralHasSpeechStarted && (now - neuralSpeechStartTime >= NEURAL_MAX_UTTERANCE_MS)) {
+            finalizeNeuralTurnAndSend();
+        }
+    }, 55);
+
+    addLogcatEntry("INFO", "MIC", "Gboard Neural Mic LIVE (Zero-beep WebRTC stream).");
+    refreshLiveStateHud();
+}
+
+function finalizeNeuralTurnAndSend() {
+    if (!isNeuralListeningActive) return;
+    shouldMicBeActive = false;
+    liveTranscriptBar.style.display = "none";
+    micBtn.innerText = "🎤 Baat Karo";
+    micBtn.style.background = "#0D8ABC";
+    stopNeuralVadAndRecorder(false);
+    refreshLiveStateHud();
+}
+
+// ============================================================================
+// 🌐 ENGINE 2 (PRESERVED FALLBACK): ANDROID-CLEAN BROWSER SPEECH API
+// ============================================================================
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 if (recognition) {
     recognition.lang = "hi-IN";
@@ -1623,10 +2142,10 @@ if (recognition) {
     recognition.maxAlternatives = 1;
 }
 
-const SILENCE_WAIT_MS = 2600;       // Normal pause wait after last spoken word
-const POST_RECONNECT_WAIT_MS = 2200; // Fresh grace window AFTER Android mic finishes reconnecting!
-let priorRunsConfirmedText = "";     // Confirmed text preserved across Android reconnects
-let currentRunFinalText = "";        // Confirmed text from CURRENT SpeechRecognition run
+const SILENCE_WAIT_MS = 2600;
+const POST_RECONNECT_WAIT_MS = 2200;
+let priorRunsConfirmedText = "";
+let currentRunFinalText = "";
 let currentInterimText = "";
 let silenceDebounceTimer = null;
 
@@ -1675,10 +2194,7 @@ function scheduleSilenceSubmit(delayMs) {
     if (!getCombinedSpokenText()) return;
 
     silenceDebounceTimer = setTimeout(function() {
-        // Double-guard: NEVER submit while mic is reconnecting or user just started speaking!
-        if (isMicReconnecting || isUserActivelySpeaking) {
-            return;
-        }
+        if (isMicReconnecting || isUserActivelySpeaking) return;
         finalizeAndSubmitUserSpeech();
     }, delayMs || SILENCE_WAIT_MS);
 }
@@ -1690,7 +2206,7 @@ function clearMicRestartTimer() {
     }
 }
 
-function stopMicCompletely() {
+function stopMicCompletely(releaseHardware) {
     shouldMicBeActive = false;
     isMicReconnecting = false;
     isUserActivelySpeaking = false;
@@ -1700,6 +2216,13 @@ function stopMicCompletely() {
     liveTranscriptBar.style.display = "none";
     micBtn.innerText = "🎤 Baat Karo";
     micBtn.style.background = "#0D8ABC";
+
+    if (releaseHardware) {
+        releaseNeuralMicStream();
+    } else {
+        stopNeuralVadAndRecorder(true);
+    }
+
     try {
         if (recognition && isRecognitionActuallyRunning) {
             recognition.abort();
@@ -1727,7 +2250,7 @@ function safeStartRecognitionEngine() {
     }
 }
 
-function activateSteadyMicSession(isFreshTurn) {
+function activateBrowserSpeechSession(isFreshTurn) {
     if (!recognition || isPapaSpeakingOrThinking || isSubmittingSpeech || isApiRequestInFlight) return;
     clearMicRestartTimer();
 
@@ -1744,10 +2267,11 @@ function activateSteadyMicSession(isFreshTurn) {
     shouldMicBeActive = true;
     micBtn.innerText = "🛑 बोलना पूरा करें";
     micBtn.style.background = "#d97706";
+    gboardWaveBox.style.display = "none";
     liveTranscriptBar.style.display = "flex";
 
     if (!getCombinedSpokenText()) {
-        liveTranscriptText.innerText = "🎤 आप आराम से पूरी बात बोलिए (माइक स्थिर है)...";
+        liveTranscriptText.innerText = "🎤 आप आराम से पूरी बात बोलिए (Browser Mic)...";
     }
 
     setAvatarEmotionState("listening", false);
@@ -1764,9 +2288,22 @@ function activateSteadyMicSession(isFreshTurn) {
     refreshLiveStateHud();
 }
 
-async function submitQueryToPapaAGI(queryText, forceEmotion, triggerChipEl) {
-    const cleanText = String(queryText || "").replace(/\s+/g, " ").trim();
-    if (!cleanText) return;
+function activateSteadyMicSession(isFreshTurn) {
+    if (micEngineMode === "gboard_neural") {
+        startNeuralListeningTurn();
+    } else {
+        activateBrowserSpeechSession(isFreshTurn);
+    }
+}
+
+async function submitQueryToPapaAGI(params) {
+    const userText = String((params && params.userText) || "").replace(/\s+/g, " ").trim();
+    const audioBase64 = (params && params.audioBase64) || null;
+    const audioMimeType = (params && params.audioMimeType) || null;
+    const forceEmotion = (params && params.forceEmotion) || null;
+    const triggerChipEl = (params && params.triggerChipEl) || null;
+
+    if (!userText && !audioBase64) return;
     if (isApiRequestInFlight) {
         addLogcatEntry("INFO", "SYS", "Blocked overlapping request while previous API call is in progress.");
         return;
@@ -1774,21 +2311,26 @@ async function submitQueryToPapaAGI(queryText, forceEmotion, triggerChipEl) {
 
     const myReqSeq = ++activeRequestSeq;
     lastRequestStartTime = Date.now();
-    stopMicCompletely();
+    stopMicCompletely(!isLiveCallActive);
     isSubmittingSpeech = true;
     priorRunsConfirmedText = "";
     currentRunFinalText = "";
     currentInterimText = "";
 
-    setApiLoadingLock(true, triggerChipEl || null);
+    setApiLoadingLock(true, triggerChipEl);
 
     const cameraFrameBase64 = captureCameraFrameBase64();
     const visionTag = cameraFrameBase64 ? (" (👁️ " + (currentFacingMode === "user" ? "Chehra Pehchan" : "Back Cam") + " ON)") : "";
-    statusText.innerText = "Tum: \"" + cleanText + "\"\n🤔 Papa AGI soch rahe hain" + visionTag + "...";
-    addLogcatEntry("INFO", "MIC", "Clean speech sent (" + cleanText.length + " chars): \"" + cleanText + "\"");
+    statusText.innerText = audioBase64
+        ? ("🎙️ आपकी आवाज़ पापा तक पहुँच गई है\n🤔 Papa AGI सुनकर सोच रहे हैं" + visionTag + "...")
+        : ("Tum: \"" + userText + "\"\n🤔 Papa AGI soch rahe hain" + visionTag + "...");
+
+    if (userText) {
+        addLogcatEntry("INFO", "MIC", "Clean speech sent (" + userText.length + " chars): \"" + userText + "\"");
+    }
 
     try {
-        await processSpeechTurbo(cleanText, cameraFrameBase64, forceEmotion || null, myReqSeq);
+        await processSpeechTurbo(userText, audioBase64, audioMimeType, cameraFrameBase64, forceEmotion, myReqSeq);
     } catch (error) {
         if (myReqSeq === activeRequestSeq) {
             isPapaSpeakingOrThinking = false;
@@ -1801,7 +2343,7 @@ async function submitQueryToPapaAGI(queryText, forceEmotion, triggerChipEl) {
                     if (isLiveCallActive && !isApiRequestInFlight && !isPapaSpeakingOrThinking) {
                         activateSteadyMicSession(true);
                     }
-                }, 1300);
+                }, 1200);
             }
         }
     } finally {
@@ -1818,10 +2360,14 @@ async function finalizeAndSubmitUserSpeech() {
     if (isSubmittingSpeech || isPapaSpeakingOrThinking || isApiRequestInFlight) return;
     const fullUserText = getCombinedSpokenText();
     if (!fullUserText) return;
-    await submitQueryToPapaAGI(fullUserText, null, null);
+    await submitQueryToPapaAGI({ userText: fullUserText });
 }
 
 finishSpeechBtn.addEventListener("click", function() {
+    if (micEngineMode === "gboard_neural" && isNeuralListeningActive) {
+        finalizeNeuralTurnAndSend();
+        return;
+    }
     isMicReconnecting = false;
     isUserActivelySpeaking = false;
     finalizeAndSubmitUserSpeech();
@@ -1835,7 +2381,7 @@ agiSendBtn.addEventListener("click", function() {
     agiCommandInput.value = "";
     stopCurrentPlaybackSafely();
     isPapaSpeakingOrThinking = false;
-    submitQueryToPapaAGI(textVal, null, null);
+    submitQueryToPapaAGI({ userText: textVal });
 });
 
 agiCommandInput.addEventListener("keydown", function(ev) {
@@ -1859,11 +2405,11 @@ singSongBtn.addEventListener("click", function() {
     isPapaSpeakingOrThinking = false;
     const promptToSing = SONG_REQUEST_PROMPTS[songPromptIdx % SONG_REQUEST_PROMPTS.length];
     songPromptIdx++;
-    submitQueryToPapaAGI(promptToSing, "singing", null);
+    submitQueryToPapaAGI({ userText: promptToSing, forceEmotion: "singing" });
 });
 
-// 📞 Toggle End-to-End Live Video Call Stream
-liveCallBtn.addEventListener("click", function() {
+// 📞 Toggle Universal End-to-End Live Video Call Stream
+liveCallBtn.addEventListener("click", async function() {
     unlockBrowserAudio();
 
     if (!isLiveCallActive) {
@@ -1876,12 +2422,16 @@ liveCallBtn.addEventListener("click", function() {
         liveSubtitleBox.style.display = "block";
         liveSubtitleBox.innerText = "पापा जुड़ रहे हैं: 'हाँ बेटा बोल...'";
 
-        stopMicCompletely();
         stopCurrentPlaybackSafely();
+        if (micEngineMode === "gboard_neural") {
+            await ensureNeuralMicStream();
+            setNeuralMicTracksEnabled(false);
+        }
+
         isPapaSpeakingOrThinking = true;
         setAvatarEmotionState("greeting", true);
-        statusText.innerText = "🔴 [LIVE AGI CALL STARTED] Papa bol rahe hain...";
-        addLogcatEntry("INFO", "MIC", "Live AGI Call mode started.");
+        statusText.innerText = "🔴 [E2E LIVE CALL STARTED] Papa bol rahe hain...";
+        addLogcatEntry("INFO", "MIC", "Universal End-to-End Live Call started (" + micEngineMode + ").");
 
         haBetaBolAudio.play().catch(function() {
             isPapaSpeakingOrThinking = false;
@@ -1894,7 +2444,7 @@ liveCallBtn.addEventListener("click", function() {
         activeRequestSeq++;
         setApiLoadingLock(false);
         stopCurrentPlaybackSafely();
-        stopMicCompletely();
+        stopMicCompletely(true);
         liveCallBtn.innerText = "📞 Start Live Call";
         liveCallBtn.style.background = "#b71c1c";
         liveCallBtn.style.borderColor = "#ff5252";
@@ -1908,7 +2458,7 @@ liveCallBtn.addEventListener("click", function() {
 });
 
 // 🎤 Single-Turn Manual Mic Button
-micBtn.addEventListener("click", function() {
+micBtn.addEventListener("click", async function() {
     if (isApiRequestInFlight) {
         addLogcatEntry("INFO", "MIC", "Wait for current response to finish loading before starting mic.");
         return;
@@ -1916,13 +2466,23 @@ micBtn.addEventListener("click", function() {
     unlockBrowserAudio();
 
     if (shouldMicBeActive) {
+        if (micEngineMode === "gboard_neural" && isNeuralListeningActive) {
+            if (neuralHasSpeechStarted || neuralAudioChunks.length > 2) {
+                finalizeNeuralTurnAndSend();
+            } else {
+                stopMicCompletely(!isLiveCallActive);
+                setAvatarEmotionState("idle", false);
+                statusText.innerText = "✅ Mic band kar diya gaya hai. Jab chahein '🎤 Baat Karo' dabayen.";
+            }
+            return;
+        }
         const spokenSoFar = getCombinedSpokenText();
         if (spokenSoFar) {
             isMicReconnecting = false;
             isUserActivelySpeaking = false;
             finalizeAndSubmitUserSpeech();
         } else {
-            stopMicCompletely();
+            stopMicCompletely(!isLiveCallActive);
             setAvatarEmotionState("idle", false);
             statusText.innerText = "✅ Mic band kar diya gaya hai. Jab chahein '🎤 Baat Karo' dabayen.";
         }
@@ -1930,6 +2490,11 @@ micBtn.addEventListener("click", function() {
     }
 
     stopCurrentPlaybackSafely();
+    if (micEngineMode === "gboard_neural") {
+        await ensureNeuralMicStream();
+        setNeuralMicTracksEnabled(false);
+    }
+
     isPapaSpeakingOrThinking = true;
     statusText.innerText = "Papa bol rahe hain...";
     setAvatarEmotionState("talking", true);
@@ -1947,9 +2512,10 @@ haBetaBolAudio.onended = function() {
         if (!isPapaSpeakingOrThinking && !isApiRequestInFlight) {
             activateSteadyMicSession(true);
         }
-    }, 300);
+    }, 280);
 };
 
+// Browser Speech API Event Listeners (Preserved Fallback Engine)
 if (recognition) {
     recognition.onstart = function() {
         const cameFromReconnect = isMicReconnecting;
@@ -1959,16 +2525,13 @@ if (recognition) {
         lastMicStartTimestamp = Date.now();
         currentRunFinalText = "";
         currentInterimText = "";
-        addLogcatEntry("INFO", "MIC", cameFromReconnect ? "Mic reconnected cleanly (LIVE)." : "Mic engine started (LIVE).");
-
-        // Resume silence wait ONLY now that Android mic is genuinely live again!
+        addLogcatEntry("INFO", "MIC", cameFromReconnect ? "Browser Mic reconnected cleanly." : "Browser Mic started.");
         if (cameFromReconnect && priorRunsConfirmedText && shouldMicBeActive) {
             scheduleSilenceSubmit(POST_RECONNECT_WAIT_MS);
         }
         refreshLiveStateHud();
     };
 
-    // VAD Guard 1: Pause silence timer the INSTANT user starts speaking (even before transcript arrives!)
     recognition.onspeechstart = function() {
         if (!shouldMicBeActive || isPapaSpeakingOrThinking || isSubmittingSpeech || isApiRequestInFlight) return;
         isUserActivelySpeaking = true;
@@ -1976,7 +2539,6 @@ if (recognition) {
         refreshLiveStateHud();
     };
 
-    // VAD Guard 2: When voice activity stops, restart silence wait cleanly if we have buffered words
     recognition.onspeechend = function() {
         isUserActivelySpeaking = false;
         refreshLiveStateHud();
@@ -2004,8 +2566,6 @@ if (recognition) {
 
         currentRunFinalText = rebuiltFinal;
         currentInterimText = rebuiltInterim;
-
-        // If interim words are actively updating, treat speech as finished-for-now only after SILENCE_WAIT_MS
         isUserActivelySpeaking = false;
 
         const combinedPreview = getCombinedSpokenText();
@@ -2016,7 +2576,6 @@ if (recognition) {
                 liveSubtitleBox.style.display = "block";
                 liveSubtitleBox.innerText = "🗣️ तुम बोल रहे हो: \"" + combinedPreview + "\"";
             }
-
             scheduleSilenceSubmit(SILENCE_WAIT_MS);
         }
     };
@@ -2026,7 +2585,6 @@ if (recognition) {
         isUserActivelySpeaking = false;
         const ranForMs = Date.now() - lastMicStartTimestamp;
 
-        // Commit current run's clean text (including any final interim fragment Android didn't mark final)
         const runMerged = mergeTranscriptSmart(currentRunFinalText, currentInterimText);
         if (runMerged) {
             priorRunsConfirmedText = mergeTranscriptSmart(priorRunsConfirmedText, runMerged);
@@ -2034,34 +2592,23 @@ if (recognition) {
         currentRunFinalText = "";
         currentInterimText = "";
 
-        if (shouldMicBeActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech && !isApiRequestInFlight) {
-            // CRITICAL ANDROID FIX: Pause silence timer during reconnect so sentence NEVER cuts off!
+        if (micEngineMode === "browser_speech" && shouldMicBeActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech && !isApiRequestInFlight) {
             clearSilenceTimer();
             isMicReconnecting = true;
             refreshLiveStateHud();
 
-            if (ranForMs < 900) {
-                consecutiveFastMicEnds++;
-            } else {
-                consecutiveFastMicEnds = 0;
-            }
+            if (ranForMs < 900) consecutiveFastMicEnds++;
+            else consecutiveFastMicEnds = 0;
 
             const hasBufferedSpeech = Boolean(priorRunsConfirmedText);
             if (consecutiveFastMicEnds >= 5 && hasBufferedSpeech) {
                 isMicReconnecting = false;
-                addLogcatEntry("WARN", "MIC", "Mic restarted 5x fast -> Submitting buffered speech cleanly.");
                 finalizeAndSubmitUserSpeech();
                 return;
             }
 
-            // Ultra-fast 100ms reconnect mid-sentence so next word is NEVER missed; calm 900ms when idle!
             const baseDelay = hasBufferedSpeech ? 100 : 900;
             const restartDelay = Math.min(baseDelay + consecutiveFastMicEnds * 250, 1600);
-            addLogcatEntry(
-                "INFO",
-                "MIC",
-                "Android mic cycle (" + ranForMs + "ms) -> Timer paused, reconnecting in " + restartDelay + "ms"
-            );
             clearMicRestartTimer();
             micRestartTimer = setTimeout(function() {
                 safeStartRecognitionEngine();
@@ -2072,7 +2619,7 @@ if (recognition) {
         isMicReconnecting = false;
         refreshLiveStateHud();
 
-        if (!isPapaSpeakingOrThinking && !isSubmittingSpeech && !isApiRequestInFlight) {
+        if (!isPapaSpeakingOrThinking && !isSubmittingSpeech && !isApiRequestInFlight && micEngineMode === "browser_speech") {
             liveTranscriptBar.style.display = "none";
             micBtn.innerText = "🎤 Baat Karo";
             micBtn.style.background = "#0D8ABC";
@@ -2085,25 +2632,15 @@ if (recognition) {
         isUserActivelySpeaking = false;
         refreshLiveStateHud();
 
-        if (event.error === "no-speech" || event.error === "aborted") {
-            return;
-        }
-
-        addLogcatEntry("WARN", "MIC", "Mic Warning: " + event.error);
-        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-            shouldMicBeActive = false;
-            isMicReconnecting = false;
-            clearSilenceTimer();
-            clearMicRestartTimer();
-            statusText.innerText = "🚨 Mic Permission Blocked! Browser me Mic Allow karein.";
-        }
+        if (event.error === "no-speech" || event.error === "aborted") return;
+        addLogcatEntry("WARN", "MIC", "Browser Mic Warning: " + event.error);
     };
 }
 
 // ============================================================================
 // 🔊 Audio Playback Helper (Guaranteed Instant Talking Video + Below-Video Subtitles!)
 // ============================================================================
-function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey) {
+function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey, heardText) {
     stopCurrentPlaybackSafely();
 
     const arrayBuffer = base64ToArrayBuffer(audioBase64);
@@ -2137,7 +2674,7 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
                     if (isLiveCallActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech && !isApiRequestInFlight) {
                         activateSteadyMicSession(true);
                     }
-                }, 650);
+                }, 500);
             } else {
                 statusText.innerText = "✅ Main dekh aur sun raha hoon beta... [" + engineLabel + "]";
             }
@@ -2145,7 +2682,7 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
 
         function startAvatarTalking() {
             isPapaSpeakingOrThinking = true;
-            stopMicCompletely();
+            stopMicCompletely(false);
 
             try {
                 papaTtsPlayer.playbackRate = profile.rate || 1.0;
@@ -2158,7 +2695,8 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
             }
 
             liveSubtitleBox.style.display = "block";
-            liveSubtitleBox.innerText = profile.label + ":\n\"" + aiText + "\"";
+            const heardLine = heardText ? ("तुम: \"" + heardText + "\"\n") : "";
+            liveSubtitleBox.innerText = heardLine + profile.label + ": \"" + aiText + "\"";
             statusText.innerText = profile.label + " [" + engineLabel + "]";
 
             setAvatarEmotionState(activeEmotion, true);
@@ -2236,11 +2774,11 @@ function startPapaLiveTimer(secondsTotal, labelText) {
 }
 
 // ============================================================================
-// 🚀 1. UNIVERSAL AGI TURBO SINGLE-HOP PIPELINE
+// 🚀 1. UNIVERSAL END-TO-END AGI SINGLE-HOP PIPELINE (Audio + Vision + Memory + TTS)
 // ============================================================================
-async function processSpeechTurbo(userText, base64Frame, forceEmotion, reqSeq) {
+async function processSpeechTurbo(userText, audioBase64, audioMimeType, base64Frame, forceEmotion, reqSeq) {
     isPapaSpeakingOrThinking = true;
-    stopMicCompletely();
+    stopMicCompletely(false);
     setAvatarEmotionState("thinking", false);
     agiActionCard.style.display = "none";
     agiActionLink.style.display = "inline-block";
@@ -2249,7 +2787,9 @@ async function processSpeechTurbo(userText, base64Frame, forceEmotion, reqSeq) {
     const longTermMemory = getSavedLongTermMemories();
 
     liveSubtitleBox.style.display = "block";
-    liveSubtitleBox.innerText = "तुम: \"" + userText + "\"\n🤔 पापा सोच रहे हैं...";
+    liveSubtitleBox.innerText = audioBase64
+        ? "🎙️ आपकी आवाज़ पापा तक पहुँच गई है...\n🤔 पापा सुनकर जवाब तैयार कर रहे हैं..."
+        : ("तुम: \"" + userText + "\"\n🤔 पापा सोच रहे हैं...");
 
     const res = await fetch(BACKEND_API_URL, {
         method: "POST",
@@ -2257,7 +2797,9 @@ async function processSpeechTurbo(userText, base64Frame, forceEmotion, reqSeq) {
         body: JSON.stringify({
             action: "chat_and_tts",
             pin: sessionPIN,
-            userText: userText,
+            userText: userText || "",
+            audioBase64: audioBase64 || null,
+            audioMimeType: audioMimeType || null,
             base64Frame: base64Frame,
             currentFacingMode: currentFacingMode,
             savedFaces: savedFaces,
@@ -2281,6 +2823,8 @@ async function processSpeechTurbo(userText, base64Frame, forceEmotion, reqSeq) {
 
     setApiLoadingLock(false);
 
+    const effectiveHeardText = data.heardText || userText || "";
+
     if (data.newMemoryFact) {
         addNewLongTermMemoryFact(data.newMemoryFact);
     }
@@ -2301,14 +2845,16 @@ async function processSpeechTurbo(userText, base64Frame, forceEmotion, reqSeq) {
         addLogcatEntry(
             "INFO",
             "NET",
-            "AGI Reply [" + (data.emotion || "talking") + "] in " + t.totalMs + "ms (Brain: " + t.geminiMs + "ms, Voice: " + t.ttsMs + "ms) via " + data.modelUsed
+            "E2E Reply [" + (data.emotion || "talking") + "] in " + t.totalMs + "ms (Brain: " + t.geminiMs + "ms, Voice: " + t.ttsMs + "ms) via " + data.modelUsed + (effectiveHeardText ? " | Heard: \"" + effectiveHeardText + "\"" : "")
         );
         if (t.skippedAttempts && t.skippedAttempts.length > 0) {
             addLogcatEntry("WARN", "NET", "Auto-Skipped: " + t.skippedAttempts.join(" | "));
         }
     }
 
-    conversationHistory.push({ role: "user", text: userText });
+    if (effectiveHeardText) {
+        conversationHistory.push({ role: "user", text: effectiveHeardText });
+    }
     conversationHistory.push({ role: "papa", text: data.aiText });
     if (conversationHistory.length > 6) {
         conversationHistory = conversationHistory.slice(-6);
@@ -2318,7 +2864,8 @@ async function processSpeechTurbo(userText, base64Frame, forceEmotion, reqSeq) {
         data.audioBase64,
         data.aiText,
         data.engineLabel || "Turbo TTS",
-        data.emotion || "talking"
+        data.emotion || "talking",
+        effectiveHeardText
     );
 }
 
@@ -2360,7 +2907,8 @@ async function speakPapaReply(aiText, forceEmotion) {
             data.audioBase64,
             aiText,
             data.engineLabel || "Cloud TTS",
-            forceEmotion || data.emotion || "blessing"
+            forceEmotion || data.emotion || "blessing",
+            ""
         );
     } finally {
         if (myReqSeq === activeRequestSeq) {
@@ -2375,7 +2923,7 @@ testVoiceBtn.addEventListener("click", async function() {
     unlockBrowserAudio();
     stopCurrentPlaybackSafely();
     try {
-        await speakPapaReply("नमस्ते बेटा, अब Android माइक रीकनेक्ट के दौरान तुम्हारी बात बीच में बिल्कुल नहीं कटेगी।", "blessing");
+        await speakPapaReply("नमस्ते बेटा, अब वीडियो का फ्रेम हर साइज़ के हिसाब से अपने-आप एडजस्ट होगा।", "blessing");
     } catch (err) {
         addLogcatEntry("GLITCH", "MEDIA", "Voice Test Failed: " + err.message);
         statusText.innerText = "🚨 Voice Test Error: " + err.message;
