@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Papa Chatbot - Universal AGI, Singing Mode & Steady Mic</title>
+    <title>Papa Chatbot - Universal AGI, Clean Video & E2E Logcat</title>
     <style>
         @keyframes pulseRed {
             0% { opacity: 1; transform: scale(1); }
@@ -13,36 +13,56 @@
         .live-pulse {
             animation: pulseRed 1.4s infinite ease-in-out;
         }
+        .logcat-filter-btn {
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid #45475a;
+            background: #1e1e2e;
+            color: #cdd6f4;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .logcat-filter-btn.active {
+            background: #89b4fa;
+            color: #11111b;
+            border-color: #89b4fa;
+        }
+        .lc-row { margin-bottom: 3px; border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 2px; word-break: break-word; }
+        .lc-E { color: #f38ba8; }
+        .lc-W { color: #f9e2af; }
+        .lc-I { color: #a6e3a1; }
+        .lc-D { color: #89dceb; }
     </style>
 </head>
 <body style="background: #121212; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box;">
 
-<div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 540px; width: 100%; padding: 20px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;">
-    
-    <!-- Portrait Video Avatar Box + LIVE Stream HUD -->
-    <div id="avatar-box" style="margin: 0 auto 14px auto; width: 265px; border-radius: 15px; overflow: hidden; border: 4px solid #0D8ABC; box-shadow: 0 0 15px rgba(13, 138, 188, 0.4); transition: border-color 0.3s, box-shadow 0.3s; position: relative; background: #000;">
-        <video id="avatar-video" width="100%" autoplay loop muted playsinline style="height: auto; display: block; object-fit: contain;"></video>
+<div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 550px; width: 100%; padding: 20px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;">
 
-        <!-- 🔴 LIVE STREAM Indicator Badge (Top-Left) -->
-        <div id="live-stream-badge" class="live-pulse" style="display: none; position: absolute; top: 8px; left: 8px; background: rgba(220, 38, 38, 0.92); color: #fff; font-size: 10px; font-weight: bold; padding: 4px 9px; border-radius: 12px; letter-spacing: 0.6px; box-shadow: 0 2px 8px rgba(0,0,0,0.6);">
+    <!-- ✅ TOP STATUS BAR (Moved OUTSIDE video so zero text overlaps the video!) -->
+    <div id="avatar-top-hud" style="display: flex; justify-content: space-between; align-items: center; max-width: 275px; margin: 0 auto 8px auto; gap: 6px; min-height: 24px;">
+        <div id="live-stream-badge" class="live-pulse" style="visibility: hidden; background: rgba(220, 38, 38, 0.92); color: #fff; font-size: 10px; font-weight: bold; padding: 4px 9px; border-radius: 12px; letter-spacing: 0.6px;">
             🔴 LIVE AGI CALL
         </div>
-
-        <!-- 🎭 Emotion/State Badge (Top-Right) -->
-        <div id="emotion-badge" style="position: absolute; top: 8px; right: 8px; background: rgba(0, 0, 0, 0.65); color: #a6e3a1; font-size: 10px; font-weight: bold; padding: 3px 8px; border-radius: 10px;">
+        <div id="emotion-badge" style="background: #111827; border: 1px solid #334155; color: #a6e3a1; font-size: 11px; font-weight: bold; padding: 3px 10px; border-radius: 12px; margin-left: auto;">
             😊 शांत (Idle)
         </div>
+    </div>
+    
+    <!-- ✅ CLEAN PORTRAIT VIDEO AVATAR BOX (No Text Overlays on Video!) -->
+    <div id="avatar-box" style="margin: 0 auto 10px auto; width: 265px; border-radius: 15px; overflow: hidden; border: 4px solid #0D8ABC; box-shadow: 0 0 15px rgba(13, 138, 188, 0.4); transition: border-color 0.3s, box-shadow 0.3s; position: relative; background: #000;">
+        <video id="avatar-video" width="100%" autoplay loop muted playsinline style="height: auto; display: block; object-fit: contain;"></video>
 
-        <!-- 💬 Live Call Subtitle & Real-Time Speech Preview Overlay -->
-        <div id="live-subtitle-box" style="display: none; position: absolute; bottom: 8px; left: 8px; right: 96px; background: rgba(0, 0, 0, 0.78); color: #ffeb3b; font-size: 11px; padding: 6px 8px; border-radius: 8px; text-align: left; line-height: 1.35; backdrop-filter: blur(3px);">
-            पापा लाइव कॉल पर जुड़े हैं...
-        </div>
-
-        <!-- Live User/Environment Camera PiP Preview (Bottom-Right) -->
-        <div id="cam-preview-box" style="position: absolute; bottom: 8px; right: 8px; width: 82px; height: 108px; border-radius: 10px; overflow: hidden; border: 2px solid #ffeb3b; background: #000; box-shadow: 0 4px 12px rgba(0,0,0,0.7); display: none;">
+        <!-- Live User/Environment Camera PiP Preview (Bottom-Right Corner Only) -->
+        <div id="cam-preview-box" style="position: absolute; bottom: 8px; right: 8px; width: 74px; height: 96px; border-radius: 10px; overflow: hidden; border: 2px solid #ffeb3b; background: #000; box-shadow: 0 4px 12px rgba(0,0,0,0.7); display: none;">
             <video id="camera-video" width="100%" height="100%" autoplay muted playsinline style="object-fit: cover; width: 100%; height: 100%; transform: scaleX(-1);"></video>
             <span id="cam-mode-badge" style="position: absolute; bottom: 2px; left: 4px; font-size: 9px; background: rgba(0,0,0,0.7); color: #ffeb3b; padding: 1px 4px; border-radius: 4px;">Front</span>
         </div>
+    </div>
+
+    <!-- ✅ DEDICATED SUBTITLE BOX (Cleanly BELOW the video — zero text on Papa's face!) -->
+    <div id="live-subtitle-box" style="display: none; max-width: 480px; margin: 0 auto 10px auto; background: #111827; border: 1px solid #334155; color: #ffeb3b; font-size: 13px; padding: 8px 12px; border-radius: 12px; text-align: center; line-height: 1.45;">
+        पापा लाइव कॉल पर जुड़े हैं...
     </div>
 
     <!-- 🎙️ Steady Google-Style Live Speech Transcript Box + Manual "Send Now" Button -->
@@ -68,7 +88,7 @@
     <canvas id="face-thumb-canvas" style="display: none;"></canvas>
     <audio id="papa-tts-player" playsinline style="display: none;"></audio>
 
-    <!-- Camera, Family Face, AGI Memory, Release Videos, Share Link & Bug Radar Controls -->
+    <!-- Camera, Family Face, AGI Memory, Release Videos, Share Link & Universal E2E Logcat Controls -->
     <div style="display: flex; justify-content: center; gap: 5px; margin-bottom: 12px; flex-wrap: wrap;">
         <button id="cam-toggle-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #4caf50; background: #263829; color: #a6e3a1; font-size: 11px; font-weight: bold; cursor: pointer;">
             👁️ Vision: ON
@@ -83,14 +103,40 @@
             🧠 AGI Memory (0)
         </button>
         <button id="release-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #fab387; background: #33221a; color: #fab387; font-size: 11px; font-weight: bold; cursor: pointer;">
-            🎬 7 Videos
+            🎬 5 Videos
         </button>
         <button id="share-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #cba6f7; background: #2a1f3d; color: #cba6f7; font-size: 11px; font-weight: bold; cursor: pointer;">
             🔗 Share
         </button>
-        <button id="bug-radar-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #f38ba8; background: #331a24; color: #f38ba8; font-size: 11px; font-weight: bold; cursor: pointer;">
-            🛠️ Bug Radar (0)
+        <button id="logcat-btn" style="padding: 6px 9px; border-radius: 20px; border: 1px solid #f38ba8; background: #331a24; color: #f38ba8; font-size: 11px; font-weight: bold; cursor: pointer;">
+            📜 E2E Logcat (0)
         </button>
+    </div>
+
+    <!-- 📜 UNIVERSAL END-TO-END LOGCAT CONSOLE (Frontend + Mic + Media + Network + Vercel Backend) -->
+    <div id="logcat-panel" style="display: none; background: #0b0b14; border: 1px solid #f38ba8; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: left;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <span style="font-size: 12px; font-weight: bold; color: #f38ba8;">📜 Universal End-to-End Logcat (Client + Server)</span>
+            <div style="display: flex; gap: 5px;">
+                <button id="logcat-copy-btn" style="background: #89b4fa; color: #111; border: none; border-radius: 6px; padding: 4px 8px; font-size: 10px; font-weight: bold; cursor: pointer;">📋 Copy</button>
+                <button id="logcat-export-btn" style="background: #a6e3a1; color: #111; border: none; border-radius: 6px; padding: 4px 8px; font-size: 10px; font-weight: bold; cursor: pointer;">💾 Export .txt</button>
+                <button id="logcat-clear-btn" style="background: #313244; color: #cdd6f4; border: none; border-radius: 6px; padding: 4px 8px; font-size: 10px; cursor: pointer;">🧹 Clear</button>
+            </div>
+        </div>
+
+        <!-- Logcat Filter Chips + Real-Time Search -->
+        <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;">
+            <button class="logcat-filter-btn active" data-filter="ALL">ALL</button>
+            <button class="logcat-filter-btn" data-filter="E">🚨 ERROR</button>
+            <button class="logcat-filter-btn" data-filter="W">⚠️ WARN</button>
+            <button class="logcat-filter-btn" data-filter="MIC">🎤 MIC</button>
+            <button class="logcat-filter-btn" data-filter="MEDIA">🎬 MEDIA</button>
+            <button class="logcat-filter-btn" data-filter="API">🌐 API</button>
+            <button class="logcat-filter-btn" data-filter="SERVER">🖥️ SERVER</button>
+        </div>
+        <input id="logcat-search" type="text" placeholder="🔍 Filter logs (jaise: 429, error, mic, mp4, REQ-1)..." style="width: 100%; box-sizing: border-box; padding: 5px 8px; border-radius: 6px; border: 1px solid #313244; background: #181825; color: #cdd6f4; font-size: 11px; margin-bottom: 8px; outline: none;" />
+
+        <div id="logcat-output" style="font-family: 'Consolas', 'Courier New', monospace; font-size: 10.5px; color: #cdd6f4; max-height: 210px; overflow-y: auto; background: #07070e; padding: 8px; border-radius: 8px; border: 1px solid #1e1e2e; line-height: 1.45;"></div>
     </div>
 
     <!-- 🧠 Universal AGI Long-Term Memory Drawer -->
@@ -110,25 +156,16 @@
         <div id="saved-memory-list" style="font-size: 11.5px; color: #89dceb; max-height: 110px; overflow-y: auto;"></div>
     </div>
 
-    <!-- 🛠️ Live Glitch, Bug & Telemetry X-Ray Radar Drawer -->
-    <div id="bug-radar-panel" style="display: none; background: #0d0d17; border: 1px solid #f38ba8; border-radius: 14px; padding: 12px; margin-bottom: 14px; text-align: left;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <span style="font-size: 12px; font-weight: bold; color: #f38ba8;">🛠️ Live Glitch & Bug X-Ray Radar:</span>
-            <button id="clear-radar-btn" style="background: #313244; color: #cdd6f4; border: none; border-radius: 6px; padding: 3px 8px; font-size: 10px; cursor: pointer;">Clear Log</button>
-        </div>
-        <div id="bug-radar-log" style="font-family: monospace; font-size: 11px; color: #a6e3a1; max-height: 150px; overflow-y: auto; white-space: pre-wrap; line-height: 1.4;">System X-Ray Active... Koi glitch aane par yahan turant dikhega.</div>
-    </div>
-
-    <!-- 🎬 GitHub Releases (रास्ता A) 1-Click Video Connector Drawer -->
+    <!-- 🎬 GitHub Releases 1-Click Video Connector Drawer -->
     <div id="release-panel" style="display: none; background: #121224; border: 1px solid #fab387; border-radius: 14px; padding: 14px; margin-bottom: 15px; text-align: left;">
         <div style="font-size: 13px; font-weight: bold; color: #fab387; margin-bottom: 6px;">
-            🎬 GitHub Releases (v1.0) Video Link Setup:
+            🎬 GitHub Releases (v1.0) Video Link Setup (5 Extra Videos):
         </div>
         <div style="font-size: 11px; color: #cdd6f4; margin-bottom: 8px; line-height: 1.4;">
-            GitHub Releases me 7 nayi video upload karne ke baad kisi bhi <b>1 video par Right-Click ➔ Copy Link Address</b> karein aur yahan paste kar dein:
+            GitHub Releases me 5 emotion videos (listening, thinking, blessing, happy, laughing) upload karne ke baad kisi bhi <b>1 video par Right-Click ➔ Copy Link Address</b> karein aur yahan paste kar dein:
         </div>
         <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-            <input id="release-url-input" type="text" placeholder="https://github.com/.../releases/download/v1.0/avatar_greeting.mp4" style="flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #45475a; background: #242438; color: #a6e3a1; font-size: 11px;" />
+            <input id="release-url-input" type="text" placeholder="https://github.com/.../releases/download/v1.0/avatar_listening.mp4" style="flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #45475a; background: #242438; color: #a6e3a1; font-size: 11px;" />
             <button id="save-release-btn" style="padding: 8px 12px; border-radius: 8px; border: none; background: #fab387; color: #111; font-size: 12px; font-weight: bold; cursor: pointer;">
                 ✅ Save
             </button>
@@ -214,53 +251,218 @@ if (!sessionPIN) {
 }
 
 // ============================================================================
-// 🛠️ LIVE BUG, GLITCH & TELEMETRY X-RAY RADAR SYSTEM
+// 📜 UNIVERSAL END-TO-END LOGCAT ENGINE (Android-Style Full Stack Debugger)
 // ============================================================================
-const bugRadarBtn = document.getElementById("bug-radar-btn");
-const bugRadarPanel = document.getElementById("bug-radar-panel");
-const bugRadarLog = document.getElementById("bug-radar-log");
-const clearRadarBtn = document.getElementById("clear-radar-btn");
-let glitchCount = 0;
+const logcatBtn = document.getElementById("logcat-btn");
+const logcatPanel = document.getElementById("logcat-panel");
+const logcatOutput = document.getElementById("logcat-output");
+const logcatSearch = document.getElementById("logcat-search");
+const logcatCopyBtn = document.getElementById("logcat-copy-btn");
+const logcatExportBtn = document.getElementById("logcat-export-btn");
+const logcatClearBtn = document.getElementById("logcat-clear-btn");
 
-function logRadarEvent(type, message) {
-    const now = new Date();
-    const timeStr = now.toTimeString().split(" ")[0];
-    const icon = type === "GLITCH" ? "🚨 [GLITCH]" : (type === "WARN" ? "⚠️ [WARN]" : "ℹ️ [INFO]");
-    if (type === "GLITCH" || type === "WARN") {
-        glitchCount++;
-        bugRadarBtn.innerText = "🛠️ Bug Radar (" + glitchCount + ")";
+const origConsoleLog = console.log.bind(console);
+const origConsoleWarn = console.warn.bind(console);
+const origConsoleError = console.error.bind(console);
+
+let e2eReqCounter = 0;
+
+const Logcat = {
+    entries: [],
+    maxEntries: 500,
+    activeFilter: "ALL",
+    searchQuery: "",
+    issueCount: 0,
+
+    getTimestamp() {
+        const d = new Date();
+        const hh = String(d.getHours()).padStart(2, "0");
+        const mm = String(d.getMinutes()).padStart(2, "0");
+        const ss = String(d.getSeconds()).padStart(2, "0");
+        const ms = String(d.getMilliseconds()).padStart(3, "0");
+        return hh + ":" + mm + ":" + ss + "." + ms;
+    },
+
+    nextReqId() {
+        e2eReqCounter++;
+        return "REQ-" + e2eReqCounter;
+    },
+
+    push(level, tag, msg, reqId, customTs) {
+        const lvl = (level || "I").toUpperCase();
+        const tg = (tag || "SYS").toUpperCase();
+        const text = typeof msg === "string" ? msg : JSON.stringify(msg);
+
+        const entry = {
+            ts: customTs || this.getTimestamp(),
+            level: lvl,
+            tag: tg,
+            reqId: reqId || "-",
+            msg: text
+        };
+
+        this.entries.unshift(entry);
+        if (this.entries.length > this.maxEntries) {
+            this.entries.pop();
+        }
+
+        if (lvl === "E" || lvl === "W") {
+            this.issueCount++;
+            logcatBtn.innerText = "📜 E2E Logcat (" + this.issueCount + ")";
+        }
+
+        this.render();
+    },
+
+    ingestServerLogs(serverLogs) {
+        if (!Array.isArray(serverLogs)) return;
+        for (let i = 0; i < serverLogs.length; i++) {
+            const s = serverLogs[i];
+            if (s && s.msg) {
+                this.push(s.level || "D", s.tag || "SERVER", s.msg, s.reqId || "SRV", s.ts);
+            }
+        }
+    },
+
+    formatPlainLine(e) {
+        return "[" + e.ts + "] [" + e.level + "/" + e.tag + "] (" + e.reqId + ") " + e.msg;
+    },
+
+    getFilteredEntries() {
+        const f = this.activeFilter;
+        const q = this.searchQuery.toLowerCase().trim();
+        return this.entries.filter(function(e) {
+            if (f !== "ALL") {
+                if (f === "E" || f === "W") {
+                    if (e.level !== f) return false;
+                } else {
+                    if (e.tag !== f) return false;
+                }
+            }
+            if (q) {
+                const hay = (e.ts + " " + e.level + " " + e.tag + " " + e.reqId + " " + e.msg).toLowerCase();
+                if (hay.indexOf(q) === -1) return false;
+            }
+            return true;
+        });
+    },
+
+    render() {
+        const list = this.getFilteredEntries();
+        if (list.length === 0) {
+            logcatOutput.innerHTML = "<div style='color:#6c7086;'>No matching logs for filter [" + this.activeFilter + "]...</div>";
+            return;
+        }
+        let html = "";
+        const limit = Math.min(list.length, 200);
+        for (let i = 0; i < limit; i++) {
+            const e = list[i];
+            const safeLine = this.formatPlainLine(e)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+            html += "<div class='lc-row lc-" + e.level + "'>" + safeLine + "</div>";
+        }
+        logcatOutput.innerHTML = html;
+    },
+
+    getDumpText() {
+        const header =
+            "=== PAPA CHATBOT UNIVERSAL E2E LOGCAT ===\n" +
+            "UserAgent: " + navigator.userAgent + "\n" +
+            "Online: " + navigator.onLine + " | Total Entries: " + this.entries.length + "\n" +
+            "=========================================\n";
+        const body = this.entries
+            .slice()
+            .reverse()
+            .map((e) => this.formatPlainLine(e))
+            .join("\n");
+        return header + body;
     }
-    const line = "[" + timeStr + "] " + icon + " " + message;
-    console.log(line);
-    if (bugRadarLog.innerText.indexOf("System X-Ray Active...") === 0) {
-        bugRadarLog.innerText = line;
-    } else {
-        bugRadarLog.innerText = line + "\n" + bugRadarLog.innerText;
-    }
-}
+};
+
+// Hook global console & uncaught errors into Universal Logcat
+console.warn = function() {
+    origConsoleWarn.apply(console, arguments);
+    Logcat.push("W", "CONSOLE", Array.from(arguments).join(" "));
+};
+console.error = function() {
+    origConsoleError.apply(console, arguments);
+    Logcat.push("E", "CONSOLE", Array.from(arguments).join(" "));
+};
 
 window.addEventListener("error", function(ev) {
-    logRadarEvent("GLITCH", "JS Error: " + ev.message + " (Line " + ev.lineno + ")");
+    Logcat.push("E", "JS", ev.message + " @ Line " + ev.lineno + ":" + ev.colno);
 });
 
 window.addEventListener("unhandledrejection", function(ev) {
     const reason = ev.reason && ev.reason.message ? ev.reason.message : String(ev.reason);
     if (reason.indexOf("interrupted by a new load request") !== -1) return;
-    logRadarEvent("GLITCH", "Async Glitch: " + reason);
+    Logcat.push("E", "PROMISE", reason);
 });
 
-bugRadarBtn.addEventListener("click", function() {
-    bugRadarPanel.style.display = bugRadarPanel.style.display === "none" ? "block" : "none";
+window.addEventListener("offline", function() {
+    Logcat.push("E", "NET", "Device went OFFLINE! Mic & API calls will fail.");
+});
+window.addEventListener("online", function() {
+    Logcat.push("I", "NET", "Device is back ONLINE.");
 });
 
-clearRadarBtn.addEventListener("click", function() {
-    glitchCount = 0;
-    bugRadarBtn.innerText = "🛠️ Bug Radar (0)";
-    bugRadarLog.innerText = "✅ Log cleared. Monitoring active...";
+// Logcat UI Controls
+logcatBtn.addEventListener("click", function() {
+    logcatPanel.style.display = logcatPanel.style.display === "none" ? "block" : "none";
+    Logcat.render();
 });
+
+document.querySelectorAll(".logcat-filter-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+        document.querySelectorAll(".logcat-filter-btn").forEach(function(b) {
+            b.classList.remove("active");
+        });
+        btn.classList.add("active");
+        Logcat.activeFilter = btn.getAttribute("data-filter");
+        Logcat.render();
+    });
+});
+
+logcatSearch.addEventListener("input", function() {
+    Logcat.searchQuery = logcatSearch.value;
+    Logcat.render();
+});
+
+logcatCopyBtn.addEventListener("click", async function() {
+    const dump = Logcat.getDumpText();
+    try {
+        await navigator.clipboard.writeText(dump);
+        logcatCopyBtn.innerText = "✅ Copied!";
+        setTimeout(function() { logcatCopyBtn.innerText = "📋 Copy"; }, 1500);
+    } catch (e) {
+        alert("Copy failed, use Export .txt button.");
+    }
+});
+
+logcatExportBtn.addEventListener("click", function() {
+    const dump = Logcat.getDumpText();
+    const blob = new Blob([dump], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "papa_e2e_logcat_" + new Date().toISOString().slice(0, 10) + ".txt";
+    a.click();
+    URL.revokeObjectURL(url);
+});
+
+logcatClearBtn.addEventListener("click", function() {
+    Logcat.entries = [];
+    Logcat.issueCount = 0;
+    logcatBtn.innerText = "📜 E2E Logcat (0)";
+    Logcat.push("I", "SYS", "Logcat buffer cleared. End-to-End monitoring active.");
+});
+
+Logcat.push("I", "SYS", "Universal E2E Logcat initialized (Online=" + navigator.onLine + ")");
 
 // ============================================================================
-// 🎬 HYBRID 9-VIDEO SYSTEM (Including Singing State Mapping!)
+// 🎬 CLEAN 7-VIDEO SYSTEM (Removed avatar_greeting & avatar_caring!)
 // ============================================================================
 const BACKEND_API_URL = "/api/papa";
 const RENDER_BASE_URL = "https://papa-voice-cloud.onrender.com";
@@ -285,27 +487,23 @@ releaseBaseUrl = normalizeReleaseUrl(releaseBaseUrl);
 const VIDEO_FILENAMES = {
     idle: "avatar_idle.mp4",
     talking: "avatar_talking.mp4",
-    greeting: "avatar_greeting.mp4",
     listening: "avatar_listening.mp4",
     thinking: "avatar_thinking.mp4",
     blessing: "avatar_blessing.mp4",
     happy: "avatar_talking_happy.mp4",
-    singing: "avatar_talking_happy.mp4", // Uses happy talking video while Papa sings!
-    laughing: "avatar_laughing.mp4",
-    caring: "avatar_caring.mp4"
+    singing: "avatar_talking_happy.mp4",
+    laughing: "avatar_laughing.mp4"
 };
 
 const EMOTION_LABELS = {
     idle: "😊 शांत (Idle)",
     talking: "🗣️ बोल रहे हैं",
-    greeting: "🙏 स्वागत (Greeting)",
     listening: "🎧 ध्यान से सुन रहे हैं",
     thinking: "🤔 सोच रहे हैं...",
     blessing: "🙌 आशीर्वाद (Blessing)",
     happy: "😊 खुश होकर बात",
     singing: "🎵 पापा गाना गा रहे हैं",
-    laughing: "😄 हँसी-खुशी (Laughing)",
-    caring: "❤️ स्नेह और दुलार (Caring)"
+    laughing: "😄 हँसी-खुशी (Laughing)"
 };
 
 // DOM Elements
@@ -370,14 +568,64 @@ let sharedAudioCtx = null;
 let currentVideoState = "";
 let lastResolvedVideoUrl = "";
 
-// 📞 Master State Locks (Fixes Mic ON/OFF Glitch 100%)
+// Master State Locks (Anti-Glitch Mic Control)
 let isLiveCallActive = false;
-let shouldMicBeActive = false;       // True ONLY when we genuinely want the mic open
+let shouldMicBeActive = false;
 let isPapaSpeakingOrThinking = false;
 let isMicCurrentlyListening = false;
 let isSubmittingSpeech = false;
 let conversationHistory = [];
 let activeTimerInterval = null;
+
+// Unified E2E API Fetch Wrapper (Traces Request + Response + Server Logs automatically)
+async function callBackendAPI(payload) {
+    const reqId = Logcat.nextReqId();
+    const actionName = payload.action || "unknown";
+    const startMs = performance.now();
+    const bodyWithReqId = Object.assign({}, payload, { reqId: reqId });
+    const serialized = JSON.stringify(bodyWithReqId);
+
+    Logcat.push(
+        "D",
+        "API",
+        "POST /api/papa action=" + actionName + " payload=" + (serialized.length / 1024).toFixed(1) + "KB",
+        reqId
+    );
+
+    let res;
+    try {
+        res = await fetch(BACKEND_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: serialized
+        });
+    } catch (netErr) {
+        const elapsed = Math.round(performance.now() - startMs);
+        Logcat.push("E", "API", "Network failure after " + elapsed + "ms: " + netErr.message, reqId);
+        throw netErr;
+    }
+
+    const elapsed = Math.round(performance.now() - startMs);
+    let data = {};
+    try {
+        data = await res.json();
+    } catch (parseErr) {
+        Logcat.push("E", "API", "Invalid JSON response (HTTP " + res.status + ") in " + elapsed + "ms", reqId);
+        throw new Error("Server returned invalid JSON (HTTP " + res.status + ")");
+    }
+
+    if (data && Array.isArray(data.serverLogs)) {
+        Logcat.ingestServerLogs(data.serverLogs);
+    }
+
+    if (!res.ok) {
+        Logcat.push("E", "API", "HTTP " + res.status + " (" + elapsed + "ms): " + (data.error || "Unknown error"), reqId);
+    } else {
+        Logcat.push("I", "API", "HTTP 200 OK action=" + actionName + " (" + elapsed + "ms)", reqId);
+    }
+
+    return { res: res, data: data, reqId: reqId };
+}
 
 releaseUrlInput.value = releaseBaseUrl;
 
@@ -390,13 +638,13 @@ saveReleaseBtn.addEventListener("click", function() {
     releaseBaseUrl = normalizeReleaseUrl(releaseUrlInput.value);
     localStorage.setItem("papa_release_base_url", releaseBaseUrl);
     releaseUrlInput.value = releaseBaseUrl;
-    logRadarEvent("INFO", "Release Video URL updated: " + (releaseBaseUrl || "Local Mode"));
+    Logcat.push("I", "MEDIA", "Release Video URL updated: " + (releaseBaseUrl || "Local Mode"));
     statusText.innerText = "✅ GitHub Releases Video Link Save ho gaya!\n" + (releaseBaseUrl || "(Local Folder Mode)");
-    setAvatarVideoState("greeting", false);
+    setAvatarVideoState("idle", false);
 });
 
 // ============================================================================
-// 🎵 WEB AUDIO API HARMONIUM / TANPURA MUSICAL BACKING SYNTHESIZER (For Singing Mode!)
+// 🎵 WEB AUDIO API HARMONIUM / TANPURA MUSICAL BACKING SYNTHESIZER
 // ============================================================================
 let singingMusicNodes = [];
 
@@ -408,11 +656,9 @@ function startSingingHarmoniumDrone() {
         if (!sharedAudioCtx) sharedAudioCtx = new AudioCtx();
         if (sharedAudioCtx.state === "suspended") sharedAudioCtx.resume();
 
-        // Warm Indian Sa - Pa - Sa (C3, G3, C4, E4) soft ambient harmonium/tanpura chord
         const frequencies = [130.81, 196.00, 261.63, 329.63];
         const masterGain = sharedAudioCtx.createGain();
         masterGain.gain.setValueAtTime(0.001, sharedAudioCtx.currentTime);
-        // Very gentle volume (0.045) so Papa's singing voice remains 100% clear in front
         masterGain.gain.linearRampToValueAtTime(0.045, sharedAudioCtx.currentTime + 0.8);
         masterGain.connect(sharedAudioCtx.destination);
 
@@ -431,7 +677,10 @@ function startSingingHarmoniumDrone() {
             singingMusicNodes.push(osc);
         });
         singingMusicNodes.push(masterGain);
-    } catch (e) {}
+        Logcat.push("D", "MEDIA", "Harmonium/Tanpura singing backing started.");
+    } catch (e) {
+        Logcat.push("W", "MEDIA", "Harmonium drone failed: " + e.message);
+    }
 }
 
 function stopSingingHarmoniumDrone() {
@@ -469,7 +718,7 @@ function addNewLongTermMemoryFact(factText) {
     if (!list.includes(clean)) {
         list.push(clean);
         saveLongTermMemoriesList(list);
-        logRadarEvent("INFO", "New AGI Long-Term Memory saved: " + clean);
+        Logcat.push("I", "SYS", "Saved Permanent AGI Memory: " + clean);
     }
 }
 
@@ -514,37 +763,48 @@ saveMemoryBtn.addEventListener("click", function() {
 renderLongTermMemoriesUI();
 
 // ============================================================================
-// 🎬 ZERO-FLICKER SAFE VIDEO SWITCHER
+// 🎬 ZERO-FLICKER SAFE VIDEO SWITCHER (With Logcat Media Tracing)
 // ============================================================================
+avatarVideo.addEventListener("stalled", function() {
+    Logcat.push("W", "MEDIA", "Video stalled while buffering: " + lastResolvedVideoUrl);
+});
+
 function safePlayVideo(videoEl) {
     const playPromise = videoEl.play();
     if (playPromise !== undefined) {
-        playPromise.catch(function() {});
+        playPromise.catch(function(err) {
+            if (err && err.name !== "AbortError") {
+                Logcat.push("W", "MEDIA", "Video play() warning: " + err.message);
+            }
+        });
     }
 }
 
 function setAvatarVideoState(stateKey, isSpeakingState) {
-    const fileName = VIDEO_FILENAMES[stateKey] || (isSpeakingState ? VIDEO_FILENAMES.talking : VIDEO_FILENAMES.idle);
-    emotionBadge.innerText = EMOTION_LABELS[stateKey] || EMOTION_LABELS.idle;
+    const safeKey = VIDEO_FILENAMES[stateKey] ? stateKey : (isSpeakingState ? "talking" : "idle");
+    const fileName = VIDEO_FILENAMES[safeKey];
+    emotionBadge.innerText = EMOTION_LABELS[safeKey] || EMOTION_LABELS.idle;
 
-    const isBaseLocalVideo = (stateKey === "idle" || stateKey === "talking");
+    const isBaseLocalVideo = (safeKey === "idle" || safeKey === "talking");
     const primaryUrl = (!isBaseLocalVideo && releaseBaseUrl)
         ? (releaseBaseUrl + fileName)
         : ("./" + fileName);
     const localCandidateUrl = "./" + fileName;
     const safeFallbackUrl = isSpeakingState ? "./avatar_talking.mp4" : "./avatar_idle.mp4";
 
-    if (currentVideoState === stateKey && lastResolvedVideoUrl === primaryUrl && !avatarVideo.paused) {
+    if (currentVideoState === safeKey && lastResolvedVideoUrl === primaryUrl && !avatarVideo.paused) {
         return;
     }
-    currentVideoState = stateKey;
+    currentVideoState = safeKey;
     lastResolvedVideoUrl = primaryUrl;
+    Logcat.push("D", "MEDIA", "Avatar video -> [" + safeKey + "] (" + primaryUrl + ")");
 
     let triedLocalFallback = false;
 
     avatarVideo.onerror = function() {
         if (!triedLocalFallback && primaryUrl !== localCandidateUrl) {
             triedLocalFallback = true;
+            Logcat.push("W", "MEDIA", "Release video failed (" + fileName + "), trying local ./");
             lastResolvedVideoUrl = localCandidateUrl;
             avatarVideo.src = localCandidateUrl;
             safePlayVideo(avatarVideo);
@@ -552,6 +812,7 @@ function setAvatarVideoState(stateKey, isSpeakingState) {
         }
         avatarVideo.onerror = null;
         if (lastResolvedVideoUrl !== safeFallbackUrl) {
+            Logcat.push("W", "MEDIA", "Video missing (" + fileName + ") -> Fallback to " + safeFallbackUrl);
             lastResolvedVideoUrl = safeFallbackUrl;
             avatarVideo.src = safeFallbackUrl;
             safePlayVideo(avatarVideo);
@@ -562,37 +823,27 @@ function setAvatarVideoState(stateKey, isSpeakingState) {
     safePlayVideo(avatarVideo);
 }
 
+// Start cleanly on avatar_idle.mp4 (avatar_greeting removed)
 setAvatarVideoState("idle", false);
 
-// Verify PIN with Backend on startup
-fetch(BACKEND_API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "verify_pin", pin: sessionPIN })
-})
-.then(function(res) {
-    if (res.status === 401) {
+// Verify PIN with Backend on startup via E2E Logcat API Wrapper
+callBackendAPI({ action: "verify_pin", pin: sessionPIN })
+.then(function(result) {
+    if (result.res.status === 401) {
         document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:20%'>Access Denied. Wrong PIN.</h2>";
         throw new Error("Wrong PIN");
     }
-    return res.json();
-})
-.then(function(data) {
+    const data = result.data;
     if (data && data.releaseBaseUrl) {
         releaseBaseUrl = normalizeReleaseUrl(data.releaseBaseUrl);
         localStorage.setItem("papa_release_base_url", releaseBaseUrl);
         releaseUrlInput.value = releaseBaseUrl;
     }
     if (data && data.autoDiscoveredModels) {
-        logRadarEvent("INFO", "Auto-Discovered Gemini Models: " + data.autoDiscoveredModels.join(", "));
+        Logcat.push("I", "SYS", "Active Gemini Models: " + data.autoDiscoveredModels.join(", "));
     }
-    setAvatarVideoState("greeting", false);
-    setTimeout(function() {
-        if (currentVideoState === "greeting" && !isPapaSpeakingOrThinking && !shouldMicBeActive) {
-            setAvatarVideoState("idle", false);
-        }
-    }, 4200);
-    statusText.innerText = "✅ Universal Papa AGI Ready! (Steady Mic + Singing Mode + Live Call ON)\n'📞 Start Live Call' ya '🎵 गाना सुनें' dabayen!";
+    setAvatarVideoState("idle", false);
+    statusText.innerText = "✅ Universal Papa AGI Ready! (Clean Video + E2E Logcat + Steady Mic ON)\n'📞 Start Live Call' ya '🎵 गाना सुनें' dabayen!";
 })
 .catch(function(err) {
     if (err.message !== "Wrong PIN") {
@@ -776,6 +1027,7 @@ saveFaceBtn.addEventListener("click", function() {
 
     saveFamilyFacesList(faces);
     familyNameInput.value = "";
+    Logcat.push("I", "SYS", "Saved Family Face: " + memberName);
     statusText.innerText = "✅ Papa ne \"" + memberName + "\" ka chehra yaad kar liya hai!";
 });
 
@@ -788,6 +1040,7 @@ async function startCamera(facingMode) {
     const mode = facingMode || "user";
     stopCamera();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        Logcat.push("W", "MEDIA", "getUserMedia not available in this browser.");
         return;
     }
 
@@ -805,7 +1058,7 @@ async function startCamera(facingMode) {
             activeCameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         } catch (fallbackErr) {
             isVisionEnabled = false;
-            logRadarEvent("WARN", "Camera permission denied or unavailable.");
+            Logcat.push("W", "MEDIA", "Camera unavailable/denied: " + fallbackErr.message);
             updateCameraUI();
             return;
         }
@@ -814,6 +1067,7 @@ async function startCamera(facingMode) {
     cameraVideo.srcObject = activeCameraStream;
     currentFacingMode = mode;
     cameraVideo.style.transform = currentFacingMode === "user" ? "scaleX(-1)" : "scaleX(1)";
+    Logcat.push("I", "MEDIA", "Camera started (" + mode + ")");
     updateCameraUI();
 }
 
@@ -858,6 +1112,7 @@ camToggleBtn.addEventListener("click", async function() {
     } else {
         stopCamera();
         updateCameraUI();
+        Logcat.push("I", "MEDIA", "Camera vision turned OFF by user.");
     }
 });
 
@@ -883,12 +1138,12 @@ function captureCameraFrameBase64() {
 startCamera("user");
 
 // ============================================================================
-// 🎤 ANTI-GLITCH STEADY FULL-SPEECH LISTENER (Never turns ON/OFF randomly!)
+// 🎤 ANTI-GLITCH STEADY FULL-SPEECH LISTENER (Full Logcat Mic Tracing)
 // ============================================================================
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (!SpeechRecognition) {
     statusText.innerText = "🚨 Aapka browser Speech Recognition support nahi karta. Kripya Google Chrome use karein.";
-    logRadarEvent("GLITCH", "Web Speech API not supported in this browser.");
+    Logcat.push("E", "MIC", "Web Speech API unsupported in this browser.");
 }
 
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
@@ -899,8 +1154,8 @@ if (recognition) {
     recognition.maxAlternatives = 1;
 }
 
-const SILENCE_WAIT_MS = 2600; // Waits 2.6 seconds after last spoken word before sending
-let sessionConfirmedText = ""; // Persists across internal browser SpeechRecognition restarts!
+const SILENCE_WAIT_MS = 2600;
+let sessionConfirmedText = "";
 let currentInterimText = "";
 let silenceDebounceTimer = null;
 
@@ -913,7 +1168,7 @@ function clearSilenceTimer() {
     }
 }
 
-function stopMicCompletely() {
+function stopMicCompletely(reason) {
     shouldMicBeActive = false;
     clearSilenceTimer();
     liveTranscriptBar.style.display = "none";
@@ -922,12 +1177,12 @@ function stopMicCompletely() {
     try {
         if (recognition && isMicCurrentlyListening) {
             recognition.stop();
+            Logcat.push("D", "MIC", "Mic stopped cleanly (" + (reason || "manual/lock") + ")");
         }
     } catch (e) {}
     isMicCurrentlyListening = false;
 }
 
-// Opens the mic & keeps it steady without resetting buffers or flickering UI
 function activateSteadyMicSession(isFreshTurn) {
     if (!recognition || isPapaSpeakingOrThinking || isSubmittingSpeech) return;
 
@@ -950,6 +1205,7 @@ function activateSteadyMicSession(isFreshTurn) {
     avatarBox.style.borderColor = "#ffeb3b";
 
     if (isLiveCallActive) {
+        liveSubtitleBox.style.display = "block";
         liveSubtitleBox.innerText = "🎤 आप बोलिए, पापा आपकी पूरी बात ध्यान से सुन रहे हैं...";
         statusText.innerText = "🔴 [LIVE AGI CALL] 🎤 Aap aaram se puri baat boliye...";
     } else {
@@ -960,7 +1216,10 @@ function activateSteadyMicSession(isFreshTurn) {
         try {
             recognition.start();
             isMicCurrentlyListening = true;
-        } catch (e) {}
+            Logcat.push("I", "MIC", "Mic listening started (freshTurn=" + Boolean(isFreshTurn) + ")");
+        } catch (e) {
+            Logcat.push("W", "MIC", "recognition.start() skipped: " + e.message);
+        }
     }
 }
 
@@ -968,8 +1227,7 @@ async function submitQueryToPapaAGI(queryText) {
     const cleanText = String(queryText || "").replace(/\s+/g, " ").trim();
     if (!cleanText) return;
 
-    // Immediately lock mic OFF so it never turns back on while Papa thinks or speaks!
-    stopMicCompletely();
+    stopMicCompletely("submitting speech");
     isSubmittingSpeech = true;
     sessionConfirmedText = "";
     currentInterimText = "";
@@ -977,7 +1235,7 @@ async function submitQueryToPapaAGI(queryText) {
     const cameraFrameBase64 = captureCameraFrameBase64();
     const visionTag = cameraFrameBase64 ? (" (👁️ " + (currentFacingMode === "user" ? "Chehra Pehchan" : "Back Cam") + " ON)") : "";
     statusText.innerText = "Tum: \"" + cleanText + "\"\n🤔 Papa AGI soch rahe hain" + visionTag + "...";
-    logRadarEvent("INFO", "Full user speech sent (" + cleanText.length + " chars): \"" + cleanText + "\"");
+    Logcat.push("I", "MIC", "Speech finalized (" + cleanText.length + " chars): \"" + cleanText + "\"");
 
     try {
         await processSpeechTurbo(cleanText, cameraFrameBase64);
@@ -987,7 +1245,7 @@ async function submitQueryToPapaAGI(queryText) {
         setAvatarVideoState("idle", false);
         avatarBox.style.borderColor = "#0D8ABC";
         statusText.innerText = "🚨 Error: " + error.message;
-        logRadarEvent("GLITCH", "AGI Pipeline Error: " + error.message);
+        Logcat.push("E", "API", "AGI Pipeline failed: " + error.message);
         if (isLiveCallActive) {
             setTimeout(function() {
                 isSubmittingSpeech = false;
@@ -1012,7 +1270,6 @@ finishSpeechBtn.addEventListener("click", function() {
     finalizeAndSubmitUserSpeech();
 });
 
-// ⌨️ Universal AGI Direct Text Command Submission
 agiSendBtn.addEventListener("click", function() {
     unlockBrowserAudio();
     const textVal = agiCommandInput.value.trim();
@@ -1030,7 +1287,7 @@ agiCommandInput.addEventListener("keydown", function(ev) {
     }
 });
 
-// 🎵 1-Click "गाना सुनें (Sing Song)" Button
+// 🎵 1-Click "गाना सुनें" Button
 const SONG_REQUEST_PROMPTS = [
     "पापा मुझे अपने अंदाज़ में एक बहुत प्यारा पुराना हिंदी गाना या भजन गाकर सुनाओ",
     "पापा मुझे आशीर्वाद देते हुए एक सुरीला भजन गाकर सुनाओ",
@@ -1057,19 +1314,20 @@ liveCallBtn.addEventListener("click", function() {
         liveCallBtn.innerText = "📴 End Live Call";
         liveCallBtn.style.background = "#4caf50";
         liveCallBtn.style.borderColor = "#a6e3a1";
-        liveStreamBadge.style.display = "block";
+        liveStreamBadge.style.visibility = "visible";
         liveSubtitleBox.style.display = "block";
         liveSubtitleBox.innerText = "पापा जुड़ रहे हैं: 'हाँ बेटा बोल...'";
         avatarBox.style.boxShadow = "0 0 25px rgba(255, 82, 82, 0.7)";
 
-        stopMicCompletely();
+        stopMicCompletely("live call start");
         isPapaSpeakingOrThinking = true;
-        setAvatarVideoState("greeting", true);
+        setAvatarVideoState("talking", true);
         avatarBox.style.borderColor = "#4caf50";
         statusText.innerText = "🔴 [LIVE AGI CALL STARTED] Papa bol rahe hain...";
-        logRadarEvent("INFO", "Live AGI Call mode started.");
+        Logcat.push("I", "SYS", "Live AGI Call mode STARTED.");
 
-        haBetaBolAudio.play().catch(function() {
+        haBetaBolAudio.play().catch(function(err) {
+            Logcat.push("W", "MEDIA", "ha_beta_bol.mp3 play fallback: " + err.message);
             isPapaSpeakingOrThinking = false;
             activateSteadyMicSession(true);
         });
@@ -1078,32 +1336,31 @@ liveCallBtn.addEventListener("click", function() {
         isPapaSpeakingOrThinking = false;
         isSubmittingSpeech = false;
         stopSingingHarmoniumDrone();
-        stopMicCompletely();
+        stopMicCompletely("live call ended");
         liveCallBtn.innerText = "📞 Start Live Call";
         liveCallBtn.style.background = "#b71c1c";
         liveCallBtn.style.borderColor = "#ff5252";
-        liveStreamBadge.style.display = "none";
+        liveStreamBadge.style.visibility = "hidden";
         liveSubtitleBox.style.display = "none";
         setAvatarVideoState("idle", false);
         avatarBox.style.borderColor = "#0D8ABC";
         avatarBox.style.boxShadow = "0 0 15px rgba(13, 138, 188, 0.4)";
         try { papaTtsPlayer.pause(); } catch (e) {}
-        logRadarEvent("INFO", "Live Call mode ended by user.");
+        Logcat.push("I", "SYS", "Live Call mode ENDED by user.");
         statusText.innerText = "📴 Live Call band kar di gayi hai.\nDubara baat karne ke liye '📞 Start Live Call' ya '🎤 Baat Karo' dabayen.";
     }
 });
 
-// 🎤 Single-Turn Manual Mic Button (Acts as Steady Start / Finish Toggle!)
+// 🎤 Single-Turn Manual Mic Button
 micBtn.addEventListener("click", function() {
     unlockBrowserAudio();
 
-    // If mic is already listening, clicking it again finishes speech or stops mic cleanly
     if (shouldMicBeActive) {
         const spokenSoFar = (sessionConfirmedText + " " + currentInterimText).trim();
         if (spokenSoFar) {
             finalizeAndSubmitUserSpeech();
         } else {
-            stopMicCompletely();
+            stopMicCompletely("user cancelled mic");
             setAvatarVideoState("idle", false);
             avatarBox.style.borderColor = "#0D8ABC";
             statusText.innerText = "✅ Mic band kar diya gaya hai. Jab chahein '🎤 Baat Karo' dabayen.";
@@ -1111,7 +1368,6 @@ micBtn.addEventListener("click", function() {
         return;
     }
 
-    // Stop any ongoing TTS or singing music if user barges in
     stopSingingHarmoniumDrone();
     try { papaTtsPlayer.pause(); } catch (e) {}
 
@@ -1138,7 +1394,6 @@ if (recognition) {
         let newFinalPieces = "";
         let latestInterim = "";
 
-        // Use event.resultIndex so earlier confirmed words are NEVER lost or duplicated!
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const piece = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
@@ -1158,10 +1413,10 @@ if (recognition) {
             liveTranscriptBar.style.display = "flex";
             liveTranscriptText.innerText = "🗣️ तुम: \"" + combinedPreview + "\"";
             if (isLiveCallActive) {
+                liveSubtitleBox.style.display = "block";
                 liveSubtitleBox.innerText = "🗣️ तुम बोल रहे हो: \"" + combinedPreview + "\"";
             }
 
-            // Reset 2.6s silence wait timer on every new word spoken
             clearSilenceTimer();
             silenceDebounceTimer = setTimeout(function() {
                 finalizeAndSubmitUserSpeech();
@@ -1172,16 +1427,16 @@ if (recognition) {
     recognition.onend = function() {
         isMicCurrentlyListening = false;
 
-        // ANTI-GLITCH SILENT KEEP-ALIVE:
-        // If Chrome's SpeechRecognition timed out on silence while `shouldMicBeActive` is still true,
-        // silently restart it in 50ms WITHOUT clearing `sessionConfirmedText` or flickering UI!
         if (shouldMicBeActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech) {
+            Logcat.push("D", "MIC", "Browser auto-ended mic; running 50ms silent keep-alive...");
             setTimeout(function() {
                 if (shouldMicBeActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech && !isMicCurrentlyListening) {
                     try {
                         recognition.start();
                         isMicCurrentlyListening = true;
-                    } catch (e) {}
+                    } catch (e) {
+                        Logcat.push("W", "MIC", "Keep-alive restart failed: " + e.message);
+                    }
                 }
             }, 50);
             return;
@@ -1199,12 +1454,12 @@ if (recognition) {
     recognition.onerror = function(event) {
         isMicCurrentlyListening = false;
 
-        // Ignore harmless 'no-speech' or 'aborted' events so mic never glitches off
         if (event.error === "no-speech" || event.error === "aborted") {
+            Logcat.push("D", "MIC", "Ignored benign mic event: " + event.error);
             return;
         }
 
-        logRadarEvent("WARN", "Mic Recognition Warning: " + event.error);
+        Logcat.push("E", "MIC", "Mic error: " + event.error);
         if (event.error === "not-allowed" || event.error === "service-not-allowed") {
             shouldMicBeActive = false;
             statusText.innerText = "🚨 Mic Permission Blocked! Browser me Mic Allow karein.";
@@ -1213,7 +1468,7 @@ if (recognition) {
 }
 
 // ============================================================================
-// 🔊 Shared Audio Playback Helper (Plays Emotion Video + Singing Harmonium Backing!)
+// 🔊 Shared Audio Playback Helper (Clean Below-Video Subtitles + Harmonium Drone)
 // ============================================================================
 function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey) {
     const arrayBuffer = base64ToArrayBuffer(audioBase64);
@@ -1224,23 +1479,22 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
     return new Promise(function(resolve) {
         function startAvatarTalking() {
             isPapaSpeakingOrThinking = true;
-            stopMicCompletely();
+            stopMicCompletely("papa speaking");
 
-            // 🎵 If Papa is singing, start soft Harmonium/Tanpura background music!
             if (activeEmotion === "singing") {
                 startSingingHarmoniumDrone();
             } else {
                 stopSingingHarmoniumDrone();
             }
 
-            if (isLiveCallActive) {
-                liveSubtitleBox.innerText = (activeEmotion === "singing" ? "🎵 पापा गा रहे हैं: " : "पापा: ") + aiText;
-            }
+            liveSubtitleBox.style.display = "block";
+            liveSubtitleBox.innerText = (activeEmotion === "singing" ? "🎵 पापा गा रहे हैं: " : "पापा: ") + aiText;
             statusText.innerText =
                 (activeEmotion === "singing" ? "🎵 Papa gaana ga rahe hain [" : "✅ Papa bol rahe hain [") +
-                engineLabel + "]:\n\"" + aiText + "\"";
+                engineLabel + "]";
             setAvatarVideoState(activeEmotion, true);
             avatarBox.style.borderColor = activeEmotion === "singing" ? "#f472b6" : "#4caf50";
+            Logcat.push("I", "MEDIA", "Audio playback started (emotion=" + activeEmotion + ")");
         }
 
         function stopAvatarTalking() {
@@ -1249,6 +1503,7 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
             setAvatarVideoState("idle", false);
             avatarBox.style.borderColor = isLiveCallActive ? "#ff5252" : "#0D8ABC";
             URL.revokeObjectURL(audioUrl);
+            Logcat.push("D", "MEDIA", "Audio playback completed.");
             resolve();
 
             if (isLiveCallActive) {
@@ -1265,7 +1520,7 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
         papaTtsPlayer.onplay = startAvatarTalking;
         papaTtsPlayer.onended = stopAvatarTalking;
         papaTtsPlayer.onerror = async function() {
-            logRadarEvent("WARN", "HTML5 Audio fallback -> Using WebAudio API decoder.");
+            Logcat.push("W", "MEDIA", "HTML5 Audio error -> Switching to WebAudio API decoder.");
             try {
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
                 if (!sharedAudioCtx) sharedAudioCtx = new AudioCtx();
@@ -1279,7 +1534,7 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
                 source.onended = stopAvatarTalking;
                 source.start(0);
             } catch (webAudioErr) {
-                logRadarEvent("GLITCH", "WebAudio Playback Error: " + webAudioErr.message);
+                Logcat.push("E", "MEDIA", "WebAudio Playback Error: " + webAudioErr.message);
                 stopAvatarTalking();
             }
         };
@@ -1292,13 +1547,14 @@ function playAudioBase64WithAvatar(audioBase64, aiText, engineLabel, emotionKey)
 }
 
 // ============================================================================
-// ⏰ LIVE TIMER / ALARM HANDLER (When user says "Papa 5 minute ka timer laga do")
+// ⏰ LIVE TIMER / ALARM HANDLER
 // ============================================================================
 function startPapaLiveTimer(secondsTotal, labelText) {
     if (activeTimerInterval) clearInterval(activeTimerInterval);
     let remaining = secondsTotal;
     agiActionCard.style.display = "flex";
     agiActionLink.style.display = "none";
+    Logcat.push("I", "SYS", "Live timer started: " + secondsTotal + "s");
 
     activeTimerInterval = setInterval(function() {
         remaining--;
@@ -1316,11 +1572,11 @@ function startPapaLiveTimer(secondsTotal, labelText) {
 }
 
 // ============================================================================
-// 🚀 1. UNIVERSAL AGI TURBO SINGLE-HOP PIPELINE (Vision + Search + Singing + Actions)
+// 🚀 1. UNIVERSAL AGI TURBO SINGLE-HOP PIPELINE
 // ============================================================================
 async function processSpeechTurbo(userText, base64Frame) {
     isPapaSpeakingOrThinking = true;
-    stopMicCompletely();
+    stopMicCompletely("thinking");
     setAvatarVideoState("thinking", false);
     avatarBox.style.borderColor = "#cba6f7";
     agiActionCard.style.display = "none";
@@ -1329,38 +1585,31 @@ async function processSpeechTurbo(userText, base64Frame) {
     const savedFaces = getSavedFamilyFaces();
     const longTermMemory = getSavedLongTermMemories();
 
-    if (isLiveCallActive) {
-        liveSubtitleBox.innerText = "तुम: " + userText + "\n🤔 पापा सोच रहे हैं...";
-    }
+    liveSubtitleBox.style.display = "block";
+    liveSubtitleBox.innerText = "तुम: " + userText + "\n🤔 पापा सोच रहे हैं...";
 
-    const res = await fetch(BACKEND_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            action: "chat_and_tts",
-            pin: sessionPIN,
-            userText: userText,
-            base64Frame: base64Frame,
-            currentFacingMode: currentFacingMode,
-            savedFaces: savedFaces,
-            chatHistory: conversationHistory.slice(-6),
-            longTermMemory: longTermMemory
-        })
+    const result = await callBackendAPI({
+        action: "chat_and_tts",
+        pin: sessionPIN,
+        userText: userText,
+        base64Frame: base64Frame,
+        currentFacingMode: currentFacingMode,
+        savedFaces: savedFaces,
+        chatHistory: conversationHistory.slice(-6),
+        longTermMemory: longTermMemory
     });
 
-    const data = await res.json();
-    if (!res.ok || !data.audioBase64) {
+    const data = result.data;
+    if (!result.res.ok || !data.audioBase64) {
         isPapaSpeakingOrThinking = false;
         setAvatarVideoState("idle", false);
-        throw new Error(data.error || ("Server HTTP " + res.status));
+        throw new Error(data.error || ("Server HTTP " + result.res.status));
     }
 
-    // 1. Save any new permanent family memory
     if (data.newMemoryFact) {
         addNewLongTermMemoryFact(data.newMemoryFact);
     }
 
-    // 2. Execute Autonomous AGI Actions (Timer, YouTube, Maps, WhatsApp, Search)
     if (data.agiAction) {
         if (data.agiAction.type === "SET_TIMER" && data.agiAction.seconds) {
             startPapaLiveTimer(data.agiAction.seconds, data.agiAction.label);
@@ -1369,18 +1618,6 @@ async function processSpeechTurbo(userText, base64Frame) {
             agiActionLink.style.display = "inline-block";
             agiActionText.innerText = data.agiAction.label || "⚡ पापा ने लिंक तैयार किया है:";
             agiActionLink.href = data.agiAction.url;
-        }
-    }
-
-    // 3. Log speed and skipped attempts in Bug Radar
-    if (data.telemetry) {
-        const t = data.telemetry;
-        logRadarEvent(
-            "INFO",
-            "AGI Reply OK in " + t.totalMs + "ms (Brain: " + t.geminiMs + "ms, Voice: " + t.ttsMs + "ms) via " + data.modelUsed
-        );
-        if (t.skippedAttempts && t.skippedAttempts.length > 0) {
-            logRadarEvent("WARN", "Auto-Skipped Models/Keys: " + t.skippedAttempts.join(" | "));
         }
     }
 
@@ -1399,25 +1636,23 @@ async function processSpeechTurbo(userText, base64Frame) {
 }
 
 // ============================================================================
-// 🎙️ 2. Standalone TTS Helper (Used for 1-Click Voice Test & Timer Alert)
+// 🎙️ 2. Standalone TTS Helper
 // ============================================================================
 async function speakPapaReply(aiText, forceEmotion) {
     setAvatarVideoState("thinking", false);
-    statusText.innerText = "Papa: " + aiText + "\n🔄 Awaaz ban rahi hai...";
+    statusText.innerText = "🔄 Awaaz ban rahi hai...";
+    liveSubtitleBox.style.display = "block";
+    liveSubtitleBox.innerText = "पापा: " + aiText;
 
-    const res = await fetch(BACKEND_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            action: "tts",
-            pin: sessionPIN,
-            text: aiText,
-            forceEmotion: forceEmotion || null
-        })
+    const result = await callBackendAPI({
+        action: "tts",
+        pin: sessionPIN,
+        text: aiText,
+        forceEmotion: forceEmotion || null
     });
 
-    const data = await res.json();
-    if (!res.ok || !data.audioBase64) {
+    const data = result.data;
+    if (!result.res.ok || !data.audioBase64) {
         setAvatarVideoState("idle", false);
         throw new Error(data.error || "TTS Server Error");
     }
@@ -1435,9 +1670,9 @@ testVoiceBtn.addEventListener("click", async function() {
     unlockBrowserAudio();
     testVoiceBtn.disabled = true;
     try {
-        await speakPapaReply("नमस्ते बेटा, अब माइक बिल्कुल स्थिर है और मैं तुम्हारे लिए गाना और भजन भी गा सकता हूँ।");
+        await speakPapaReply("नमस्ते बेटा, अब वीडियो के ऊपर कोई अक्षर नहीं आएगा और लॉगकैट हर गड़बड़ी को तुरंत पकड़ लेगा।");
     } catch (err) {
-        logRadarEvent("GLITCH", "Voice Test Failed: " + err.message);
+        Logcat.push("E", "API", "Voice Test Failed: " + err.message);
         statusText.innerText = "🚨 Voice Test Error: " + err.message;
     } finally {
         testVoiceBtn.disabled = false;
@@ -1452,12 +1687,8 @@ diagCartesiaBtn.addEventListener("click", async function() {
     diagCartesiaBtn.disabled = true;
 
     try {
-        const res = await fetch(BACKEND_API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "diag", pin: sessionPIN })
-        });
-        const data = await res.json();
+        const result = await callBackendAPI({ action: "diag", pin: sessionPIN });
+        const data = result.data;
         if (data.logs) {
             diagBox.innerText = data.logs.join("\n");
         }
@@ -1473,7 +1704,7 @@ diagCartesiaBtn.addEventListener("click", async function() {
             papaTtsPlayer.play().catch(function() {});
         }
     } catch (err) {
-        logRadarEvent("GLITCH", "Diagnostic Error: " + err.message);
+        Logcat.push("E", "API", "Diagnostic Error: " + err.message);
         diagBox.innerText += "\n🚨 Error: " + err.message;
     } finally {
         diagCartesiaBtn.disabled = false;
