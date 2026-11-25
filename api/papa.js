@@ -1,12 +1,11 @@
 /**
- * Papa Chatbot - Universal End-to-End AGI + Singing Mode Backend (Nov 2026 Edition)
+ * Papa Chatbot - Universal End-to-End AGI + Singing Mode + E2E Logcat Telemetry Backend (Nov 2026)
  * Features:
- *  1. SINGING & BHAJAN MODE: Detects song/bhajan/lori requests and formats lyrics with musical
- *     Devanagari prosody (आऽऽ..., होऽऽ..., लयबद्ध विराम) so Cartesia Sonic-Latest sings naturally!
- *  2. UNIVERSAL SUPER-AGENT: Live Web Search Grounding, Timer/Alarm Setter, WhatsApp/YouTube/Maps/Search
- *     actions, Camera Prescription/Bill Reader, and Permanent Long-Term Memory.
- *  3. AUTO-UPDATING GEMINI MODEL ENGINE: Queries `/v1beta/models` so future Gemini 4.x/5.x models work forever.
- *  4. 4 Cartesia Voice IDs + 20 API Keys Smart Auto-Pairing & Ping-Pong Rotation (1->20 then 20->1).
+ *  1. Request-Scoped Server Logcat Tracer (Returns detailed timestamped serverLogs on every response/error)
+ *  2. Cleaned Emotion Engine (Removed 'caring' & 'greeting'; Active: talking, happy, blessing, laughing, singing)
+ *  3. SINGING & BHAJAN MODE with musical Devanagari prosody for Cartesia Sonic-Latest
+ *  4. AUTO-UPDATING GEMINI MODEL ENGINE via `/v1beta/models` + Live Google Search Grounding
+ *  5. 4 Cartesia Voice IDs + 20 API Keys Smart Auto-Pairing & Ping-Pong Rotation (1->20 then 20->1)
  */
 
 let geminiKeyIdx = 0;
@@ -40,6 +39,21 @@ const FATHER_AGI_PROMPT =
     "4. LONG-TERM MEMORY & CONTINUITY: Use the provided LONG-TERM FAMILY MEMORIES and RECENT CONVERSATION HISTORY naturally.\n" +
     "5. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your spoken reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak complete sentences ending with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete.";
 
+// Request-scoped Logcat helper (Zero cross-request pollution in Serverless)
+function createServerLogger(reqId) {
+    const logs = [];
+    const push = (level, tag, msg) => {
+        logs.push({
+            ts: new Date().toISOString().split("T")[1].slice(0, 12),
+            level,
+            tag,
+            reqId,
+            msg: String(msg)
+        });
+    };
+    return { logs, push };
+}
+
 function ensureCompleteHindiSentence(rawText) {
     if (!rawText) return "हाँ बेटा, मैं तुम्हारी बात ध्यान से सुन रहा हूँ।";
     let text = String(rawText)
@@ -68,7 +82,6 @@ function getNormalizedReleaseBaseUrl() {
     return raw.endsWith("/") ? raw : raw + "/";
 }
 
-// 🎵 Checks if the user is asking Papa to sing a song, bhajan, lori, or aarti
 function isSingingRequest(userText) {
     if (!userText) return false;
     return /गाना गा|गाकर|गा कर|गाओ|सुनाओ.*गाना|गाना.*सुनाओ|भजन सुना|भजन गा|लोरी|गुनगुना|गीत सुना|गीत गा|आरती गा|sing a song|papa sing|gana gao|gana sunao|bhajan gao/.test(
@@ -76,6 +89,7 @@ function isSingingRequest(userText) {
     );
 }
 
+// Cleaned Emotion Detector (Removed 'caring' & 'greeting')
 function detectPapaEmotion(userText, aiText) {
     const combined = `${userText || ""} ${aiText || ""}`.toLowerCase();
 
@@ -96,14 +110,6 @@ function detectPapaEmotion(userText, aiText) {
     }
 
     if (
-        /तबीयत|खाना खाया|दवा|आराम|ध्यान रख|चिंता|परेशान|रो मत|हिम्मत|थक|नींद|बुखार|दर्द|ख्याल/.test(
-            combined
-        )
-    ) {
-        return "caring";
-    }
-
-    if (
         /शाबाश|बधाई|गर्व|बहुत बढ़िया|बहुत अच्छा|खुशी|मुस्कुरा|प्यार|सुंदर|अच्छा लग|वाह/.test(
             combined
         )
@@ -121,14 +127,12 @@ function needsLiveWebSearch(userText) {
     );
 }
 
-// ⚡ Universal Super-Agent Action & Permanent Memory Extractor
 function detectAgiActionAndMemory(userText) {
     const text = String(userText || "").trim();
     const lower = text.toLowerCase();
     let agiAction = null;
     let newMemoryFact = null;
 
-    // 1. Permanent Memory Extraction ("पापा याद रखना...")
     if (/याद रख|याद कर|भूलना मत|याद रहे|remember that|note kar/.test(lower)) {
         const cleanedFact = text
             .replace(/^(पापा|papa)?\s*(मेरी एक बात|यह बात|ये बात)?\s*(हमेशा)?\s*(याद रखना|याद रखो|याद कर लो|भूलना मत)\s*(कि|की)?\s*/i, "")
@@ -138,7 +142,6 @@ function detectAgiActionAndMemory(userText) {
         }
     }
 
-    // 2. Timer / Alarm / Reminder Extraction ("पापा 5 मिनट का टाइमर लगा दो")
     const timerMatch = lower.match(/(\d+)\s*(मिनट|सेकंड|minute|min|sec|second)/);
     if (timerMatch && /टाइमर|अलार्म|याद दिला|timer|alarm|remind/.test(lower)) {
         const amount = parseInt(timerMatch[1], 10) || 1;
@@ -149,42 +152,36 @@ function detectAgiActionAndMemory(userText) {
             seconds: secondsTotal,
             label: `⏰ टाइमर चालू: ${amount} ${isSeconds ? "सेकंड" : "मिनट"}`
         };
-    }
-    // 3. WhatsApp Action ("व्हाट्सएप खोलो" / "व्हाट्सएप पर मैसेज भेजो")
-    else if (/व्हाट्सएप|whatsapp/.test(lower)) {
+    } else if (/व्हाट्सएप|whatsapp/.test(lower)) {
         agiAction = {
             type: "OPEN_WHATSAPP",
             label: "📲 WhatsApp खोलें",
             url: "https://wa.me/"
         };
-    }
-    // 4. YouTube Action (Only when user explicitly asks to open YouTube or play video, not when asking Papa to sing himself)
-    else if (
+    } else if (
         !isSingingRequest(text) &&
         /youtube|यूट्यूब|वीडियो चला|वीडियो दिखा|चैनल खोल/.test(lower)
     ) {
-        const query = text
-            .replace(/पापा|papa|मुझे|कोई|अच्छा सा|चला दो|दिखा दो|यूट्यूब पर|youtube par/gi, "")
-            .trim() || "हिंदी भजन";
+        const query =
+            text
+                .replace(/पापा|papa|मुझे|कोई|अच्छा सा|चला दो|दिखा दो|यूट्यूब पर|youtube par/gi, "")
+                .trim() || "हिंदी भजन";
         agiAction = {
             type: "OPEN_YOUTUBE",
             label: `▶️ YouTube पर देखें: "${query}"`,
             url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
         };
-    }
-    // 5. Google Maps / Navigation Action
-    else if (/रास्ता|कहाँ है|लोकेशन|location|map|मैप|दिशा|दूरी|कैसे जाएँ/.test(lower)) {
-        const place = text
-            .replace(/पापा|papa|मुझे|का रास्ता|बताओ|दिखाओ|कहाँ है|मैप पर/gi, "")
-            .trim() || "Indore";
+    } else if (/रास्ता|कहाँ है|लोकेशन|location|map|मैप|दिशा|दूरी|कैसे जाएँ/.test(lower)) {
+        const place =
+            text
+                .replace(/पापा|papa|मुझे|का रास्ता|बताओ|दिखाओ|कहाँ है|मैप पर/gi, "")
+                .trim() || "Indore";
         agiAction = {
             type: "OPEN_MAPS",
             label: `📍 Google Maps खोलें: "${place}"`,
             url: `https://www.google.com/maps/search/${encodeURIComponent(place)}`
         };
-    }
-    // 6. Direct Google Search Action
-    else if (/गूगल पर खोज|google search|सर्च करो|वेबसाइट खोल/.test(lower)) {
+    } else if (/गूगल पर खोज|google search|सर्च करो|वेबसाइट खोल/.test(lower)) {
         const q = text.replace(/पापा|papa|गूगल पर|सर्च करो|खोजो/gi, "").trim() || text;
         agiAction = {
             type: "OPEN_GOOGLE",
@@ -227,9 +224,6 @@ function getGeminiKeysFromEnv() {
     return keys;
 }
 
-// ============================================================================
-// 🔄 SELF-UPDATING GEMINI MODEL AUTO-DISCOVERY ENGINE
-// ============================================================================
 function scoreGeminiModelForChat(modelId) {
     const id = modelId.toLowerCase();
     if (
@@ -254,7 +248,7 @@ function scoreGeminiModelForChat(modelId) {
     return score;
 }
 
-async function getAutoUpdatedGeminiModelsList(apiKey) {
+async function getAutoUpdatedGeminiModelsList(apiKey, logger) {
     const SIX_HOURS = 6 * 60 * 60 * 1000;
     if (cachedDiscoveredModels && Date.now() - lastModelDiscoveryTime < SIX_HOURS) {
         return cachedDiscoveredModels;
@@ -300,19 +294,20 @@ async function getAutoUpdatedGeminiModelsList(apiKey) {
             if (finalMerged.length > 0) {
                 cachedDiscoveredModels = finalMerged.slice(0, 8);
                 lastModelDiscoveryTime = Date.now();
+                if (logger) {
+                    logger.push("I", "SERVER", `Auto-discovered ${discoveredIds.length} Gemini models; Top: ${cachedDiscoveredModels.slice(0, 3).join(", ")}`);
+                }
                 return cachedDiscoveredModels;
             }
         }
-    } catch (_) {
+    } catch (err) {
         clearTimeout(timer);
+        if (logger) logger.push("W", "SERVER", `Model auto-discovery skipped (${err.message}); using seed list.`);
     }
 
     return NOV_2026_ACTIVE_MODELS;
 }
 
-// ============================================================================
-// 🎙️ 4 VOICE IDs + 20 CARTESIA KEYS PARSER & SMART AUTO-PAIRING POOL
-// ============================================================================
 function getAllCartesiaVoicesFromEnv() {
     const voices = [];
     const addVoice = (rawId) => {
@@ -591,7 +586,8 @@ async function generateFreeBackupReply(
     savedFaces,
     chatHistory,
     longTermMemory,
-    singingMode
+    singingMode,
+    logger
 ) {
     let familyHint = "";
     if (currentFacingMode === "user" && Array.isArray(savedFaces) && savedFaces.length > 0) {
@@ -607,6 +603,7 @@ async function generateFreeBackupReply(
 
     if (process.env.GROQ_API_KEY) {
         try {
+            logger.push("W", "SERVER", "Falling back to Groq Llama-3.3...");
             const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
                 headers: {
@@ -626,13 +623,16 @@ async function generateFreeBackupReply(
             const groqData = await groqRes.json();
             const text = groqData?.choices?.[0]?.message?.content;
             if (groqRes.ok && text) {
+                logger.push("I", "SERVER", "Groq Llama-3.3 backup succeeded.");
                 return {
                     aiText: ensureCompleteHindiSentence(text),
                     geminiKeyUsed: "Backup",
                     modelUsed: "Groq-Llama-3.3"
                 };
             }
-        } catch (_) {}
+        } catch (err) {
+            logger.push("E", "SERVER", `Groq backup failed: ${err.message}`);
+        }
     }
 
     const userContent = [
@@ -651,6 +651,7 @@ async function generateFreeBackupReply(
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 9000);
     try {
+        logger.push("W", "SERVER", "Falling back to Pollinations Free Multimodal AI...");
         const freeRes = await fetch("https://text.pollinations.ai/openai", {
             method: "POST",
             signal: controller.signal,
@@ -669,6 +670,7 @@ async function generateFreeBackupReply(
             const freeData = await freeRes.json();
             const reply = freeData?.choices?.[0]?.message?.content;
             if (reply && reply.trim()) {
+                logger.push("I", "SERVER", "Pollinations Free AI fallback succeeded.");
                 return {
                     aiText: ensureCompleteHindiSentence(reply),
                     geminiKeyUsed: "Auto-Backup",
@@ -676,14 +678,15 @@ async function generateFreeBackupReply(
                 };
             }
         }
-    } catch (_) {
+    } catch (err) {
         clearTimeout(timer);
+        logger.push("E", "SERVER", `Pollinations fallback error: ${err.message}`);
     }
 
     return null;
 }
 
-async function generateGeminiReplyInternal(body) {
+async function generateGeminiReplyInternal(body, logger) {
     const geminiKeys = getGeminiKeysFromEnv();
     const userText = body.userText || "नमस्ते पापा";
     const base64Frame = body.base64Frame || null;
@@ -691,11 +694,16 @@ async function generateGeminiReplyInternal(body) {
     const savedFaces = Array.isArray(body.savedFaces) ? body.savedFaces : [];
     const chatHistory = Array.isArray(body.chatHistory) ? body.chatHistory : [];
     const longTermMemory = Array.isArray(body.longTermMemory) ? body.longTermMemory : [];
-    const skippedTelemetry = [];
 
     const singingMode = isSingingRequest(userText);
     const { agiAction, newMemoryFact } = detectAgiActionAndMemory(userText);
     const useWebSearch = needsLiveWebSearch(userText);
+
+    logger.push(
+        "I",
+        "SERVER",
+        `Gemini stage start | keys=${geminiKeys.length}, vision=${Boolean(base64Frame)}, webSearch=${useWebSearch}, singing=${singingMode}`
+    );
 
     const userParts = [];
     if (base64Frame && currentFacingMode === "user" && savedFaces.length > 0) {
@@ -733,7 +741,7 @@ async function generateGeminiReplyInternal(body) {
     if (geminiKeys.length > 0) {
         if (geminiKeyIdx >= geminiKeys.length) geminiKeyIdx = 0;
 
-        const modelsToTry = await getAutoUpdatedGeminiModelsList(geminiKeys[geminiKeyIdx]);
+        const modelsToTry = await getAutoUpdatedGeminiModelsList(geminiKeys[geminiKeyIdx], logger);
 
         for (let attempt = 0; attempt < geminiKeys.length; attempt++) {
             const activeKey = geminiKeys[geminiKeyIdx];
@@ -782,23 +790,29 @@ async function generateGeminiReplyInternal(body) {
 
                         if (gRes.ok && combinedText) {
                             const finalReply = ensureCompleteHindiSentence(combinedText);
+                            const finalEmotion = singingMode ? "singing" : detectPapaEmotion(userText, finalReply);
+                            logger.push(
+                                "I",
+                                "SERVER",
+                                `Gemini OK via G-Key#${keyNum} (${modelName}${withSearchTool ? "+WebSearch" : ""}) | emotion=${finalEmotion}`
+                            );
                             return {
                                 aiText: finalReply,
-                                emotion: singingMode ? "singing" : detectPapaEmotion(userText, finalReply),
+                                emotion: finalEmotion,
                                 geminiKeyUsed: keyNum,
                                 modelUsed: withSearchTool ? `${modelName}+WebSearch` : modelName,
                                 agiAction,
-                                newMemoryFact,
-                                skippedTelemetry
+                                newMemoryFact
                             };
                         }
 
                         if (withSearchTool && gRes.status === 400) {
+                            logger.push("W", "SERVER", `${modelName} rejected WebSearch tool (400), retrying standard mode.`);
                             continue;
                         }
 
                         lastError = data?.error?.message || `HTTP ${gRes.status} on ${modelName}`;
-                        skippedTelemetry.push(`G-Key#${keyNum} ${modelName} -> HTTP ${gRes.status}`);
+                        logger.push("W", "SERVER", `Skip G-Key#${keyNum} ${modelName} -> HTTP ${gRes.status}`);
 
                         if (gRes.status === 404) {
                             exhaustedModelCache.set(cacheKey, Date.now() + 6 * 60 * 60 * 1000);
@@ -814,7 +828,7 @@ async function generateGeminiReplyInternal(body) {
                     } catch (err) {
                         clearTimeout(timer);
                         lastError = err.message;
-                        skippedTelemetry.push(`G-Key#${keyNum} ${modelName} -> ${err.message}`);
+                        logger.push("E", "SERVER", `Fetch fail G-Key#${keyNum} ${modelName}: ${err.message}`);
                         break;
                     }
                 }
@@ -833,21 +847,20 @@ async function generateGeminiReplyInternal(body) {
         savedFaces,
         chatHistory,
         longTermMemory,
-        singingMode
+        singingMode,
+        logger
     );
     if (backupReply) {
         backupReply.emotion = singingMode ? "singing" : detectPapaEmotion(userText, backupReply.aiText);
         backupReply.agiAction = agiAction;
         backupReply.newMemoryFact = newMemoryFact;
-        backupReply.skippedTelemetry = skippedTelemetry;
         return backupReply;
     }
 
     throw new Error(`Gemini API Error (${geminiKeys.length} keys tried): ${lastError}`);
 }
 
-async function generateTtsAudioInternal(rawText) {
-    // Strip any stray musical emoji symbols so TTS doesn't read emoji names aloud
+async function generateTtsAudioInternal(rawText, logger) {
     const cleanedForVoice = String(rawText || "").replace(/[🎵🎶🎼🎤✨]/g, "");
     const text = ensureCompleteHindiSentence(cleanedForVoice);
     const { pool: cartesiaPool } = getCartesiaPoolFromEnv();
@@ -863,6 +876,11 @@ async function generateTtsAudioInternal(rawText) {
 
             const result = await tryKeyAcrossAllVoices(entry, text);
             if (result.ok) {
+                logger.push(
+                    "I",
+                    "SERVER",
+                    `TTS OK via Cartesia Key#${keyNum}/${cartesiaPool.length} (V#${result.voiceNum}, ${result.modelUsed})`
+                );
                 return {
                     audioBase64: result.audioBase64,
                     engineLabel: `Cartesia Key #${keyNum}/${cartesiaPool.length} (Voice #${result.voiceNum} - ${result.modelUsed})`
@@ -870,6 +888,7 @@ async function generateTtsAudioInternal(rawText) {
             }
 
             lastCartesiaError = `Key #${keyNum} V#${result.voiceNum || 1} [${result.status}]: ${result.error}`;
+            logger.push("W", "SERVER", `Skip Cartesia ${lastCartesiaError}`);
 
             const shifted = shiftPingPongIndex(cartesiaKeyIdx, cartesiaKeyDir, cartesiaPool.length);
             cartesiaKeyIdx = shifted.idx;
@@ -877,6 +896,7 @@ async function generateTtsAudioInternal(rawText) {
         }
     }
 
+    logger.push("W", "SERVER", "All Cartesia keys failed; falling back to Render Piper TTS...");
     const rRes = await fetch(renderUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -886,6 +906,7 @@ async function generateTtsAudioInternal(rawText) {
     if (rRes.ok) {
         const rawWav = await rRes.arrayBuffer();
         const cleanWav = buildWavBufferFromPcm(rawWav, 22050);
+        logger.push("I", "SERVER", "Render Cloud Piper TTS fallback succeeded.");
         return {
             audioBase64: cleanWav.toString("base64"),
             engineLabel: "Render Cloud Piper TTS"
@@ -903,35 +924,44 @@ export default async function handler(req, res) {
     const startTimeMs = Date.now();
     const body = req.body || {};
     const action = body.action || "";
+    const reqId = body.reqId || `SRV-${startTimeMs.toString().slice(-4)}`;
+    const logger = createServerLogger(reqId);
     const requiredPin = (process.env.APP_PIN || "1234").trim();
 
     if (action === "verify_pin") {
         const enteredPin = String(body.pin || "").trim();
         if (enteredPin === requiredPin) {
             const gKeys = getGeminiKeysFromEnv();
-            const discovered = gKeys.length > 0 ? await getAutoUpdatedGeminiModelsList(gKeys[0]) : NOV_2026_ACTIVE_MODELS;
+            const discovered =
+                gKeys.length > 0 ? await getAutoUpdatedGeminiModelsList(gKeys[0], logger) : NOV_2026_ACTIVE_MODELS;
+            logger.push("I", "SERVER", `PIN verified OK (${Date.now() - startTimeMs}ms)`);
             return res.status(200).json({
                 ok: true,
                 releaseBaseUrl: getNormalizedReleaseBaseUrl(),
-                autoDiscoveredModels: discovered.slice(0, 5)
+                autoDiscoveredModels: discovered.slice(0, 5),
+                serverLogs: logger.logs
             });
         }
-        return res.status(401).json({ ok: false, error: "Wrong PIN" });
+        logger.push("E", "SERVER", "PIN verification failed (401)");
+        return res.status(401).json({ ok: false, error: "Wrong PIN", serverLogs: logger.logs });
     }
 
     if (String(body.pin || "").trim() !== requiredPin) {
-        return res.status(401).json({ error: "Unauthorized PIN" });
+        return res.status(401).json({ error: "Unauthorized PIN", serverLogs: logger.logs });
     }
 
     if (action === "chat_and_tts") {
         try {
             const t0 = Date.now();
-            const chatResult = await generateGeminiReplyInternal(body);
+            const chatResult = await generateGeminiReplyInternal(body, logger);
             const geminiMs = Date.now() - t0;
 
             const t1 = Date.now();
-            const ttsResult = await generateTtsAudioInternal(chatResult.aiText);
+            const ttsResult = await generateTtsAudioInternal(chatResult.aiText, logger);
             const ttsMs = Date.now() - t1;
+
+            const totalMs = Date.now() - startTimeMs;
+            logger.push("I", "SERVER", `Pipeline complete in ${totalMs}ms (AI=${geminiMs}ms, TTS=${ttsMs}ms)`);
 
             return res.status(200).json({
                 aiText: chatResult.aiText,
@@ -942,40 +972,40 @@ export default async function handler(req, res) {
                 newMemoryFact: chatResult.newMemoryFact || null,
                 audioBase64: ttsResult.audioBase64,
                 engineLabel: `G-Key #${chatResult.geminiKeyUsed} (${chatResult.modelUsed}) | ${ttsResult.engineLabel}`,
-                telemetry: {
-                    totalMs: Date.now() - startTimeMs,
-                    geminiMs,
-                    ttsMs,
-                    skippedAttempts: chatResult.skippedTelemetry || []
-                }
+                telemetry: { totalMs, geminiMs, ttsMs },
+                serverLogs: logger.logs
             });
         } catch (err) {
-            return res.status(500).json({ error: err.message });
+            logger.push("E", "SERVER", `chat_and_tts fatal error: ${err.message}`);
+            return res.status(500).json({ error: err.message, serverLogs: logger.logs });
         }
     }
 
     if (action === "chat") {
         try {
-            const chatResult = await generateGeminiReplyInternal(body);
-            return res.status(200).json(chatResult);
+            const chatResult = await generateGeminiReplyInternal(body, logger);
+            return res.status(200).json({ ...chatResult, serverLogs: logger.logs });
         } catch (err) {
-            return res.status(500).json({ error: err.message });
+            logger.push("E", "SERVER", `chat error: ${err.message}`);
+            return res.status(500).json({ error: err.message, serverLogs: logger.logs });
         }
     }
 
     if (action === "tts") {
         const text = (body.text || "").trim();
         if (!text) {
-            return res.status(400).json({ error: "Empty text for TTS" });
+            return res.status(400).json({ error: "Empty text for TTS", serverLogs: logger.logs });
         }
         try {
-            const ttsResult = await generateTtsAudioInternal(text);
+            const ttsResult = await generateTtsAudioInternal(text, logger);
             return res.status(200).json({
                 ...ttsResult,
-                emotion: body.forceEmotion || detectPapaEmotion("", text)
+                emotion: body.forceEmotion || detectPapaEmotion("", text),
+                serverLogs: logger.logs
             });
         } catch (err) {
-            return res.status(502).json({ error: err.message });
+            logger.push("E", "SERVER", `tts error: ${err.message}`);
+            return res.status(502).json({ error: err.message, serverLogs: logger.logs });
         }
     }
 
@@ -986,9 +1016,10 @@ export default async function handler(req, res) {
         let firstSuccessAudio = null;
         let activeKeyLabel = null;
 
-        const liveModels = geminiKeys.length > 0
-            ? await getAutoUpdatedGeminiModelsList(geminiKeys[0])
-            : NOV_2026_ACTIVE_MODELS;
+        const liveModels =
+            geminiKeys.length > 0
+                ? await getAutoUpdatedGeminiModelsList(geminiKeys[0], logger)
+                : NOV_2026_ACTIVE_MODELS;
 
         logs.push(`🔄 AUTO-DISCOVERED LIVE GEMINI MODELS: ${liveModels.slice(0, 5).join(", ")}`);
         logs.push(`🧠 GEMINI KEYS FOUND: ${geminiKeys.length}`);
@@ -1047,13 +1078,15 @@ export default async function handler(req, res) {
             }
         }
 
+        logger.push("I", "SERVER", `Diagnostics completed (${Date.now() - startTimeMs}ms)`);
         return res.status(200).json({
             logs,
             foundWorking: Boolean(firstSuccessAudio),
             activeKeyLabel,
-            audioBase64: firstSuccessAudio
+            audioBase64: firstSuccessAudio,
+            serverLogs: logger.logs
         });
     }
 
-    return res.status(400).json({ error: "Invalid action" });
+    return res.status(400).json({ error: "Invalid action", serverLogs: logger.logs });
 }
