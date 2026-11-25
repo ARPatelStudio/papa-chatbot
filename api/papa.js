@@ -1,13 +1,12 @@
 /**
- * Papa Chatbot - Universal End-to-End Agentic AGI Backend (Nov 2026 Edition)
+ * Papa Chatbot - Universal End-to-End AGI + Singing Mode Backend (Nov 2026 Edition)
  * Features:
- *  1. UNIVERSAL AGI BRAIN: Combines loving Father persona with Universal Expert Intelligence
- *     (Doctor/Prescription Reader, Engineer, Financial/Life Advisor, Real-Time World Knowledge).
- *  2. LIVE GOOGLE SEARCH GROUNDING: Automatically enables `google_search` tool for live news,
- *     weather, prices, scores, and facts with automatic fallback if a lite model doesn't support tools.
- *  3. AUTONOMOUS ACTION ENGINE: Detects intents for YouTube, Google Maps, Web Search & Auto-Memory saving.
- *  4. AUTO-UPDATING GEMINI MODEL ENGINE: Queries `/v1beta/models` so future Gemini 4.x/5.x models work forever.
- *  5. 4 Cartesia Voice IDs + 20 API Keys Smart Auto-Pairing & Ping-Pong Rotation (1->20 then 20->1).
+ *  1. SINGING & BHAJAN MODE: Detects song/bhajan/lori requests and formats lyrics with musical
+ *     Devanagari prosody (आऽऽ..., होऽऽ..., लयबद्ध विराम) so Cartesia Sonic-Latest sings naturally!
+ *  2. UNIVERSAL SUPER-AGENT: Live Web Search Grounding, Timer/Alarm Setter, WhatsApp/YouTube/Maps/Search
+ *     actions, Camera Prescription/Bill Reader, and Permanent Long-Term Memory.
+ *  3. AUTO-UPDATING GEMINI MODEL ENGINE: Queries `/v1beta/models` so future Gemini 4.x/5.x models work forever.
+ *  4. 4 Cartesia Voice IDs + 20 API Keys Smart Auto-Pairing & Ping-Pong Rotation (1->20 then 20->1).
  */
 
 let geminiKeyIdx = 0;
@@ -34,11 +33,12 @@ const NOV_2026_ACTIVE_MODELS = [
 ];
 
 const FATHER_AGI_PROMPT =
-    "You are 'Papa AGI' — a loving, wise Indian father talking on a live video call with your family, equipped with Universal AGI-level knowledge and real-time intelligence.\n" +
+    "You are 'Papa AGI' — a loving, wise Indian father talking on a live video call with your family, equipped with Universal AGI-level knowledge, real-time intelligence, and the ability to sing songs/bhajans affectionately.\n" +
     "1. FAMILY RECOGNITION: If reference photos of family members are provided, compare the person in the 'CURRENT LIVE CAMERA VIEW' with those reference photos and address them warmly by name/relation.\n" +
-    "2. UNIVERSAL CAMERA & EXPERT INTELLIGENCE: Observe faces, expressions, clothes, medicines, bills, documents, books, or objects shown on the Front/Back camera. Whether your child asks about daily life, health/medicine, coding, business, news, math, or career, answer with accurate expert wisdom in a warm fatherly tone.\n" +
-    "3. LONG-TERM MEMORY & CONTINUITY: Use the provided LONG-TERM FAMILY MEMORIES and RECENT CONVERSATION HISTORY naturally.\n" +
-    "4. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your spoken reply strictly in Devanagari Hindi script (देवनागरी हिंदी) — even numbers and English terms should be written phonetically in Devanagari so the Hindi voice clone pronounces every word clearly. Speak 1 to 3 complete sentences (20 to 45 words) ending with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete.";
+    "2. UNIVERSAL CAMERA & EXPERT INTELLIGENCE: Observe faces, expressions, clothes, medicines, bills, documents, books, or objects shown on the Front/Back camera. Answer any question (health, coding, business, math, news, daily life, stories, jokes, shayari) with accurate wisdom in a warm fatherly tone.\n" +
+    "3. SINGING CAPABILITY (गाना और भजन): When asked to sing a song, bhajan, aarti, ghazal, or lori, DO NOT refuse! Happily sing 4 to 6 melodic lines in Devanagari Hindi using musical vowel stretches (like आऽऽ..., होऽऽ..., हम्मऽऽ...) and gentle pauses (...) so your voice sounds like real singing.\n" +
+    "4. LONG-TERM MEMORY & CONTINUITY: Use the provided LONG-TERM FAMILY MEMORIES and RECENT CONVERSATION HISTORY naturally.\n" +
+    "5. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your spoken reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak complete sentences ending with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete.";
 
 function ensureCompleteHindiSentence(rawText) {
     if (!rawText) return "हाँ बेटा, मैं तुम्हारी बात ध्यान से सुन रहा हूँ।";
@@ -68,8 +68,20 @@ function getNormalizedReleaseBaseUrl() {
     return raw.endsWith("/") ? raw : raw + "/";
 }
 
+// 🎵 Checks if the user is asking Papa to sing a song, bhajan, lori, or aarti
+function isSingingRequest(userText) {
+    if (!userText) return false;
+    return /गाना गा|गाकर|गा कर|गाओ|सुनाओ.*गाना|गाना.*सुनाओ|भजन सुना|भजन गा|लोरी|गुनगुना|गीत सुना|गीत गा|आरती गा|sing a song|papa sing|gana gao|gana sunao|bhajan gao/.test(
+        userText.toLowerCase()
+    );
+}
+
 function detectPapaEmotion(userText, aiText) {
     const combined = `${userText || ""} ${aiText || ""}`.toLowerCase();
+
+    if (isSingingRequest(userText) || /🎵|🎶|आऽऽ|होऽऽ|ला ला ला/.test(aiText || "")) {
+        return "singing";
+    }
 
     if (
         /प्रणाम|नमस्ते|चरण|पैर लागू|आशीर्वाद|खुश रहो|जीते रहो|सदा सुखी|भगवान|तरक्की|सफल|pranam|namaste|ashirwad|bless/.test(
@@ -102,22 +114,21 @@ function detectPapaEmotion(userText, aiText) {
     return "talking";
 }
 
-// 🌐 Checks if the user's question benefits from real-time Google Search Grounding
 function needsLiveWebSearch(userText) {
-    if (!userText) return false;
+    if (!userText || isSingingRequest(userText)) return false;
     return /आज|अभी|ताजा|खबर|न्यूज़|news|मौसम|weather|भाव|कीमत|price|rate|स्कोर|score|match|मैच|कौन है|कब है|2025|2026|प्रधानमंत्री|मुख्यमंत्री|योजना|शेयर|stock|gold|सोना|चांदी|पेट्रोल|train|ट्रेन|समय|तारीख/.test(
         userText.toLowerCase()
     );
 }
 
-// ⚡ Autonomous AGI Action & Permanent Memory Extractor
+// ⚡ Universal Super-Agent Action & Permanent Memory Extractor
 function detectAgiActionAndMemory(userText) {
     const text = String(userText || "").trim();
     const lower = text.toLowerCase();
     let agiAction = null;
     let newMemoryFact = null;
 
-    // 1. Check if user asked Papa to remember something permanently
+    // 1. Permanent Memory Extraction ("पापा याद रखना...")
     if (/याद रख|याद कर|भूलना मत|याद रहे|remember that|note kar/.test(lower)) {
         const cleanedFact = text
             .replace(/^(पापा|papa)?\s*(मेरी एक बात|यह बात|ये बात)?\s*(हमेशा)?\s*(याद रखना|याद रखो|याद कर लो|भूलना मत)\s*(कि|की)?\s*/i, "")
@@ -127,18 +138,41 @@ function detectAgiActionAndMemory(userText) {
         }
     }
 
-    // 2. Check for YouTube / Bhajan / Song / Video request
-    if (/भजन|गाना|सोंग|song|youtube|यूट्यूब|वीडियो चला|सुनाओ|बजाओ|आरती|हनुमान चालीसा/.test(lower)) {
+    // 2. Timer / Alarm / Reminder Extraction ("पापा 5 मिनट का टाइमर लगा दो")
+    const timerMatch = lower.match(/(\d+)\s*(मिनट|सेकंड|minute|min|sec|second)/);
+    if (timerMatch && /टाइमर|अलार्म|याद दिला|timer|alarm|remind/.test(lower)) {
+        const amount = parseInt(timerMatch[1], 10) || 1;
+        const isSeconds = /सेकंड|sec/.test(timerMatch[2]);
+        const secondsTotal = isSeconds ? amount : amount * 60;
+        agiAction = {
+            type: "SET_TIMER",
+            seconds: secondsTotal,
+            label: `⏰ टाइमर चालू: ${amount} ${isSeconds ? "सेकंड" : "मिनट"}`
+        };
+    }
+    // 3. WhatsApp Action ("व्हाट्सएप खोलो" / "व्हाट्सएप पर मैसेज भेजो")
+    else if (/व्हाट्सएप|whatsapp/.test(lower)) {
+        agiAction = {
+            type: "OPEN_WHATSAPP",
+            label: "📲 WhatsApp खोलें",
+            url: "https://wa.me/"
+        };
+    }
+    // 4. YouTube Action (Only when user explicitly asks to open YouTube or play video, not when asking Papa to sing himself)
+    else if (
+        !isSingingRequest(text) &&
+        /youtube|यूट्यूब|वीडियो चला|वीडियो दिखा|चैनल खोल/.test(lower)
+    ) {
         const query = text
-            .replace(/पापा|papa|मुझे|कोई|अच्छा सा|चला दो|सुना दो|बजा दो|दिखा दो|यूट्यूब पर|youtube par/gi, "")
+            .replace(/पापा|papa|मुझे|कोई|अच्छा सा|चला दो|दिखा दो|यूट्यूब पर|youtube par/gi, "")
             .trim() || "हिंदी भजन";
         agiAction = {
             type: "OPEN_YOUTUBE",
-            label: `▶️ YouTube पर चलाएँ: "${query}"`,
+            label: `▶️ YouTube पर देखें: "${query}"`,
             url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
         };
     }
-    // 3. Check for Google Maps / Location / Route request
+    // 5. Google Maps / Navigation Action
     else if (/रास्ता|कहाँ है|लोकेशन|location|map|मैप|दिशा|दूरी|कैसे जाएँ/.test(lower)) {
         const place = text
             .replace(/पापा|papa|मुझे|का रास्ता|बताओ|दिखाओ|कहाँ है|मैप पर/gi, "")
@@ -149,7 +183,7 @@ function detectAgiActionAndMemory(userText) {
             url: `https://www.google.com/maps/search/${encodeURIComponent(place)}`
         };
     }
-    // 4. Check for explicit Google Search / Website open request
+    // 6. Direct Google Search Action
     else if (/गूगल पर खोज|google search|सर्च करो|वेबसाइट खोल/.test(lower)) {
         const q = text.replace(/पापा|papa|गूगल पर|सर्च करो|खोजो/gi, "").trim() || text;
         agiAction = {
@@ -434,7 +468,7 @@ async function callSingleCartesiaTTS(apiKey, voiceId, text) {
 
     for (const modelId of models) {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 9500);
+        const timer = setTimeout(() => controller.abort(), 10500);
         try {
             const res = await fetch("https://api.cartesia.ai/tts/bytes", {
                 method: "POST",
@@ -524,7 +558,6 @@ async function tryKeyAcrossAllVoices(entry, text) {
 function formatHistoryAndMemoryContext(chatHistory, longTermMemory) {
     let contextBlock = "";
 
-    // 1. Inject current India date & time so Papa AGI has real-time temporal awareness
     const istDateStr = new Date().toLocaleString("en-IN", {
         timeZone: "Asia/Kolkata",
         dateStyle: "full",
@@ -532,7 +565,6 @@ function formatHistoryAndMemoryContext(chatHistory, longTermMemory) {
     });
     contextBlock += `CURRENT REAL-TIME DATE & TIME (IST): ${istDateStr}\n`;
 
-    // 2. Inject Permanent Long-Term Family Memories
     if (Array.isArray(longTermMemory) && longTermMemory.length > 0) {
         contextBlock +=
             "PERMANENT LONG-TERM FAMILY MEMORIES (Always remember these facts about the family):\n" +
@@ -540,7 +572,6 @@ function formatHistoryAndMemoryContext(chatHistory, longTermMemory) {
             "\n\n";
     }
 
-    // 3. Inject Recent Conversation History
     if (Array.isArray(chatHistory) && chatHistory.length > 0) {
         const recent = chatHistory.slice(-6);
         const lines = recent.map((turn) => {
@@ -559,13 +590,18 @@ async function generateFreeBackupReply(
     currentFacingMode,
     savedFaces,
     chatHistory,
-    longTermMemory
+    longTermMemory,
+    singingMode
 ) {
     let familyHint = "";
     if (currentFacingMode === "user" && Array.isArray(savedFaces) && savedFaces.length > 0) {
         const names = savedFaces.map((f) => f.name).join(", ");
         familyHint = `\nRegistered family members in household: ${names}.`;
     }
+
+    const singingInstruction = singingMode
+        ? "\n(IMPORTANT: The family member wants you to SING! Write 4-6 melodic Hindi lines of the requested song/bhajan/lori with musical stretches like आऽऽ..., होऽऽ..., and commas/ellipses '...' so the voice clone sings it melodiously!)"
+        : "\n(Reply warmly as Papa AGI in 1-3 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)";
 
     const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
 
@@ -581,10 +617,10 @@ async function generateFreeBackupReply(
                     model: "llama-3.3-70b-versatile",
                     messages: [
                         { role: "system", content: FATHER_AGI_PROMPT + familyHint },
-                        { role: "user", content: contextText + `Family member said: "${userText}"` }
+                        { role: "user", content: contextText + `Family member said: "${userText}"` + singingInstruction }
                     ],
-                    max_tokens: 300,
-                    temperature: 0.65
+                    max_tokens: 340,
+                    temperature: 0.7
                 })
             });
             const groqData = await groqRes.json();
@@ -602,9 +638,7 @@ async function generateFreeBackupReply(
     const userContent = [
         {
             type: "text",
-            text:
-                contextText +
-                `Family member now said: "${userText}"\n(Reply warmly as Papa AGI in 1-3 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)`
+            text: contextText + `Family member now said: "${userText}"` + singingInstruction
         }
     ];
     if (base64Frame) {
@@ -659,6 +693,7 @@ async function generateGeminiReplyInternal(body) {
     const longTermMemory = Array.isArray(body.longTermMemory) ? body.longTermMemory : [];
     const skippedTelemetry = [];
 
+    const singingMode = isSingingRequest(userText);
     const { agiAction, newMemoryFact } = detectAgiActionAndMemory(userText);
     const useWebSearch = needsLiveWebSearch(userText);
 
@@ -685,10 +720,12 @@ async function generateGeminiReplyInternal(body) {
     }
 
     const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
+    const modePromptSuffix = singingMode
+        ? `\n(🎵 SINGING MODE ACTIVE: आपका बच्चा आपसे गाना/भजन/लोरी सुनना चाहता है! मना बिल्कुल मत करें। प्यार से एक छोटी लाइन बोलकर तुरंत 4 से 6 लाइनों का सुरीला हिंदी गीत/भजन देवनागरी में गाकर सुनाएँ। गाने के शब्दों में सुर खींचने के लिए 'आऽऽ...', 'होऽऽ...', और '...' का प्रयोग करें ताकि आवाज़ बिल्कुल असली गायकी जैसी लगे।)`
+        : `\n(अपना जवाब हमेशा 1 से 3 पूरे देवनागरी हिंदी वाक्यों में लिखें और वाक्य को अधूरा न छोड़ें।)`;
+
     userParts.push({
-        text:
-            contextText +
-            `Family member now said: "${userText}"\n(अपना जवाब हमेशा 1 से 3 पूरे देवनागरी हिंदी वाक्यों में लिखें और वाक्य को अधूरा न छोड़ें।)`
+        text: contextText + `Family member now said: "${userText}"` + modePromptSuffix
     });
 
     let lastError = "No Gemini keys configured";
@@ -709,7 +746,6 @@ async function generateGeminiReplyInternal(body) {
                     continue;
                 }
 
-                // If query needs live web search, try with google_search grounding first, then fallback cleanly if unsupported
                 const toolModes = useWebSearch ? [true, false] : [false];
 
                 for (const withSearchTool of toolModes) {
@@ -721,8 +757,8 @@ async function generateGeminiReplyInternal(body) {
                             contents: [{ role: "user", parts: userParts }],
                             systemInstruction: { parts: [{ text: FATHER_AGI_PROMPT }] },
                             generationConfig: {
-                                maxOutputTokens: 380,
-                                temperature: 0.65
+                                maxOutputTokens: 420,
+                                temperature: singingMode ? 0.78 : 0.65
                             }
                         };
                         if (withSearchTool) {
@@ -748,7 +784,7 @@ async function generateGeminiReplyInternal(body) {
                             const finalReply = ensureCompleteHindiSentence(combinedText);
                             return {
                                 aiText: finalReply,
-                                emotion: detectPapaEmotion(userText, finalReply),
+                                emotion: singingMode ? "singing" : detectPapaEmotion(userText, finalReply),
                                 geminiKeyUsed: keyNum,
                                 modelUsed: withSearchTool ? `${modelName}+WebSearch` : modelName,
                                 agiAction,
@@ -757,7 +793,6 @@ async function generateGeminiReplyInternal(body) {
                             };
                         }
 
-                        // If 400 when using google_search tool, retry immediately without tool on the SAME model!
                         if (withSearchTool && gRes.status === 400) {
                             continue;
                         }
@@ -797,10 +832,11 @@ async function generateGeminiReplyInternal(body) {
         currentFacingMode,
         savedFaces,
         chatHistory,
-        longTermMemory
+        longTermMemory,
+        singingMode
     );
     if (backupReply) {
-        backupReply.emotion = detectPapaEmotion(userText, backupReply.aiText);
+        backupReply.emotion = singingMode ? "singing" : detectPapaEmotion(userText, backupReply.aiText);
         backupReply.agiAction = agiAction;
         backupReply.newMemoryFact = newMemoryFact;
         backupReply.skippedTelemetry = skippedTelemetry;
@@ -811,7 +847,9 @@ async function generateGeminiReplyInternal(body) {
 }
 
 async function generateTtsAudioInternal(rawText) {
-    const text = ensureCompleteHindiSentence(rawText);
+    // Strip any stray musical emoji symbols so TTS doesn't read emoji names aloud
+    const cleanedForVoice = String(rawText || "").replace(/[🎵🎶🎼🎤✨]/g, "");
+    const text = ensureCompleteHindiSentence(cleanedForVoice);
     const { pool: cartesiaPool } = getCartesiaPoolFromEnv();
     const renderUrl = (process.env.RENDER_TTS_URL || "https://papa-voice-cloud.onrender.com/api/tts").trim();
     let lastCartesiaError = "No Cartesia keys configured";
@@ -934,7 +972,7 @@ export default async function handler(req, res) {
             const ttsResult = await generateTtsAudioInternal(text);
             return res.status(200).json({
                 ...ttsResult,
-                emotion: detectPapaEmotion("", text)
+                emotion: body.forceEmotion || detectPapaEmotion("", text)
             });
         } catch (err) {
             return res.status(502).json({ error: err.message });
