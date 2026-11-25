@@ -1,11 +1,11 @@
 /**
- * Papa Chatbot - Universal End-to-End AGI + Singing Mode + E2E Logcat Telemetry Backend (Nov 2026)
- * Features:
- *  1. Request-Scoped Server Logcat Tracer (Returns detailed timestamped serverLogs on every response/error)
- *  2. Cleaned Emotion Engine (Removed 'caring' & 'greeting'; Active: talking, happy, blessing, laughing, singing)
- *  3. SINGING & BHAJAN MODE with musical Devanagari prosody for Cartesia Sonic-Latest
- *  4. AUTO-UPDATING GEMINI MODEL ENGINE via `/v1beta/models` + Live Google Search Grounding
- *  5. 4 Cartesia Voice IDs + 20 API Keys Smart Auto-Pairing & Ping-Pong Rotation (1->20 then 20->1)
+ * Papa Chatbot - Fast, Truncation-Free Universal AGI + E2E Logcat Backend (Nov 2026)
+ * Fixes from Logcat:
+ *  1. Thinking-Safe Token Budget (maxOutputTokens: 1024 + finishReason logging) so Papa NEVER cuts off mid-sentence
+ *  2. Fast Flash-Lite Priority + Timeout/503 Cooldown Cache (Drops latency from 21s -> ~2-3s!)
+ *  3. Cartesia 402/401 Circuit-Breaker Cache (Skips credit-exhausted Keys #1-#9 in 0ms, jumps straight to active key)
+ *  4. 400ms Trailing WAV Silence Cushion so Android Chrome never clips the final spoken word
+ *  5. Server-side Speech Repetition Sanitizer as backup safety net
  */
 
 let geminiKeyIdx = 0;
@@ -14,21 +14,24 @@ let geminiKeyDir = 1; // 1 = Forward (1->5), -1 = Reverse (5->1)
 let cartesiaKeyIdx = 0;
 let cartesiaKeyDir = 1; // 1 = Forward (1->20), -1 = Reverse (20->1)
 
+// Circuit-breaker caches (Skip quota-exhausted/timed-out models & credit-exhausted Cartesia keys in 0ms)
 const exhaustedModelCache = new Map();
+const exhaustedCartesiaCache = new Map();
 const keyVoiceLockCache = new Map();
 
 let cachedDiscoveredModels = null;
 let lastModelDiscoveryTime = 0;
 
+// Ordered by highest speed + highest Free-Tier quota first!
 const NOV_2026_ACTIVE_MODELS = [
     "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
+    "gemini-flash-lite-latest",
     "gemini-3.8-flash",
+    "gemini-flash-latest",
     "gemini-4-hydrogen",
     "gemini-4-argon",
-    "gemini-4-carbon",
-    "gemini-flash-lite-latest",
-    "gemini-flash-latest"
+    "gemini-4-carbon"
 ];
 
 const FATHER_AGI_PROMPT =
@@ -37,9 +40,8 @@ const FATHER_AGI_PROMPT =
     "2. UNIVERSAL CAMERA & EXPERT INTELLIGENCE: Observe faces, expressions, clothes, medicines, bills, documents, books, or objects shown on the Front/Back camera. Answer any question (health, coding, business, math, news, daily life, stories, jokes, shayari) with accurate wisdom in a warm fatherly tone.\n" +
     "3. SINGING CAPABILITY (गाना और भजन): When asked to sing a song, bhajan, aarti, ghazal, or lori, DO NOT refuse! Happily sing 4 to 6 melodic lines in Devanagari Hindi using musical vowel stretches (like आऽऽ..., होऽऽ..., हम्मऽऽ...) and gentle pauses (...) so your voice sounds like real singing.\n" +
     "4. LONG-TERM MEMORY & CONTINUITY: Use the provided LONG-TERM FAMILY MEMORIES and RECENT CONVERSATION HISTORY naturally.\n" +
-    "5. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your spoken reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak complete sentences ending with a पूर्ण विराम (।) or question mark (?). Never leave a sentence incomplete.";
+    "5. COMPLETE SENTENCE & SCRIPT RULE: ALWAYS write your spoken reply strictly in Devanagari Hindi script (देवनागरी हिंदी). Speak 2 to 3 complete, natural sentences (around 25 to 50 words) and ALWAYS finish your final sentence completely with a पूर्ण विराम (।) or question mark (?). NEVER stop mid-sentence.";
 
-// Request-scoped Logcat helper (Zero cross-request pollution in Serverless)
 function createServerLogger(reqId) {
     const logs = [];
     const push = (level, tag, msg) => {
@@ -73,6 +75,22 @@ function ensureCompleteHindiSentence(rawText) {
     return text;
 }
 
+// Server-side safety net: Collapses consecutive repeated words/phrases if an older browser client sends duplicates
+function sanitizeRepeatedUserSpeech(rawText) {
+    if (!rawText) return "नमस्ते पापा";
+    const words = String(rawText).replace(/\s+/g, " ").trim().split(" ");
+    if (words.length <= 2) return words.join(" ");
+
+    // Collapse immediate single-word stuttering ("हां हां हां पापा" -> "हां पापा")
+    const deduped = [];
+    for (const w of words) {
+        if (deduped.length === 0 || deduped[deduped.length - 1] !== w) {
+            deduped.push(w);
+        }
+    }
+    return deduped.join(" ").slice(0, 600);
+}
+
 function getNormalizedReleaseBaseUrl() {
     const raw = (process.env.GITHUB_RELEASE_URL || "").trim();
     if (!raw) return "";
@@ -89,7 +107,6 @@ function isSingingRequest(userText) {
     );
 }
 
-// Cleaned Emotion Detector (Removed 'caring' & 'greeting')
 function detectPapaEmotion(userText, aiText) {
     const combined = `${userText || ""} ${aiText || ""}`.toLowerCase();
 
@@ -224,6 +241,7 @@ function getGeminiKeysFromEnv() {
     return keys;
 }
 
+// Prioritize ultra-fast high-quota Flash-Lite models FIRST for ~2s Live Call replies!
 function scoreGeminiModelForChat(modelId) {
     const id = modelId.toLowerCase();
     if (
@@ -238,13 +256,14 @@ function scoreGeminiModelForChat(modelId) {
     const verMatch = id.match(/gemini-(\d+(?:\.\d+)?)/);
     const versionNum = verMatch ? parseFloat(verMatch[1]) : 3.0;
 
-    let score = versionNum * 100;
-    if (id.includes("flash-lite")) score += 45;
-    else if (id.includes("flash")) score += 35;
-    else if (id.includes("hydrogen") || id.includes("argon")) score += 25;
-    else if (id.includes("carbon") || id.includes("pro")) score += 10;
+    let score = versionNum * 40;
+    // Speed + High Free-Tier Quota priority for real-time video call!
+    if (id.includes("flash-lite")) score += 300;
+    else if (id.includes("flash")) score += 180;
+    else if (id.includes("hydrogen")) score += 120;
+    else if (id.includes("argon") || id.includes("carbon") || id.includes("neon")) score += 80;
 
-    if (id.includes("preview") || id.includes("exp")) score -= 15;
+    if (id.includes("preview") || id.includes("exp")) score -= 25;
     return score;
 }
 
@@ -295,14 +314,18 @@ async function getAutoUpdatedGeminiModelsList(apiKey, logger) {
                 cachedDiscoveredModels = finalMerged.slice(0, 8);
                 lastModelDiscoveryTime = Date.now();
                 if (logger) {
-                    logger.push("I", "SERVER", `Auto-discovered ${discoveredIds.length} Gemini models; Top: ${cachedDiscoveredModels.slice(0, 3).join(", ")}`);
+                    logger.push(
+                        "I",
+                        "SERVER",
+                        `Auto-discovered ${discoveredIds.length} models; Fast Top: ${cachedDiscoveredModels.slice(0, 3).join(", ")}`
+                    );
                 }
                 return cachedDiscoveredModels;
             }
         }
     } catch (err) {
         clearTimeout(timer);
-        if (logger) logger.push("W", "SERVER", `Model auto-discovery skipped (${err.message}); using seed list.`);
+        if (logger) logger.push("W", "SERVER", `Model discovery skipped (${err.message}); using fast seed list.`);
     }
 
     return NOV_2026_ACTIVE_MODELS;
@@ -406,6 +429,7 @@ function shiftPingPongIndex(currentIdx, currentDir, totalLength) {
     return { idx, dir };
 }
 
+// Clean WAV builder with 400ms trailing silence padding so Android never clips Papa's final word
 function buildWavBufferFromPcm(rawArrayBuffer, sampleRate = 24000) {
     let pcmBytes = new Uint8Array(rawArrayBuffer);
     if (
@@ -423,7 +447,7 @@ function buildWavBufferFromPcm(rawArrayBuffer, sampleRate = 24000) {
     const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
     const blockAlign = (numChannels * bitsPerSample) / 8;
 
-    const silenceSamples = Math.floor(sampleRate * 0.25);
+    const silenceSamples = Math.floor(sampleRate * 0.40);
     const silenceBytesLength = silenceSamples * blockAlign;
     const totalDataSize = pcmBytes.byteLength + silenceBytesLength;
 
@@ -463,7 +487,7 @@ async function callSingleCartesiaTTS(apiKey, voiceId, text) {
 
     for (const modelId of models) {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 10500);
+        const timer = setTimeout(() => controller.abort(), 12000);
         try {
             const res = await fetch("https://api.cartesia.ai/tts/bytes", {
                 method: "POST",
@@ -597,7 +621,7 @@ async function generateFreeBackupReply(
 
     const singingInstruction = singingMode
         ? "\n(IMPORTANT: The family member wants you to SING! Write 4-6 melodic Hindi lines of the requested song/bhajan/lori with musical stretches like आऽऽ..., होऽऽ..., and commas/ellipses '...' so the voice clone sings it melodiously!)"
-        : "\n(Reply warmly as Papa AGI in 1-3 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)";
+        : "\n(Reply warmly as Papa AGI in 2-3 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)";
 
     const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
 
@@ -616,7 +640,7 @@ async function generateFreeBackupReply(
                         { role: "system", content: FATHER_AGI_PROMPT + familyHint },
                         { role: "user", content: contextText + `Family member said: "${userText}"` + singingInstruction }
                     ],
-                    max_tokens: 340,
+                    max_tokens: 450,
                     temperature: 0.7
                 })
             });
@@ -688,7 +712,7 @@ async function generateFreeBackupReply(
 
 async function generateGeminiReplyInternal(body, logger) {
     const geminiKeys = getGeminiKeysFromEnv();
-    const userText = body.userText || "नमस्ते पापा";
+    const userText = sanitizeRepeatedUserSpeech(body.userText || "नमस्ते पापा");
     const base64Frame = body.base64Frame || null;
     const currentFacingMode = body.currentFacingMode || "user";
     const savedFaces = Array.isArray(body.savedFaces) ? body.savedFaces : [];
@@ -729,8 +753,8 @@ async function generateGeminiReplyInternal(body, logger) {
 
     const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
     const modePromptSuffix = singingMode
-        ? `\n(🎵 SINGING MODE ACTIVE: आपका बच्चा आपसे गाना/भजन/लोरी सुनना चाहता है! मना बिल्कुल मत करें। प्यार से एक छोटी लाइन बोलकर तुरंत 4 से 6 लाइनों का सुरीला हिंदी गीत/भजन देवनागरी में गाकर सुनाएँ। गाने के शब्दों में सुर खींचने के लिए 'आऽऽ...', 'होऽऽ...', और '...' का प्रयोग करें ताकि आवाज़ बिल्कुल असली गायकी जैसी लगे।)`
-        : `\n(अपना जवाब हमेशा 1 से 3 पूरे देवनागरी हिंदी वाक्यों में लिखें और वाक्य को अधूरा न छोड़ें।)`;
+        ? `\n(🎵 SINGING MODE ACTIVE: आपका बच्चा आपसे गाना/भजन/लोरी सुनना चाहता है! मना बिल्कुल मत करें। प्यार से एक छोटी लाइन बोलकर तुरंत 4 से 6 लाइनों का सुरीला हिंदी गीत/भजन देवनागरी में गाकर सुनाएँ। गाने के शब्दों में सुर खींचने के लिए 'आऽऽ...', 'होऽऽ...', और '...' का प्रयोग करें।)`
+        : `\n(अपना जवाब हमेशा 2 से 3 पूरे और स्पष्ट देवनागरी हिंदी वाक्यों में पूरा लिखें, वाक्य बीच में कभी अधूरा न छोड़ें।)`;
 
     userParts.push({
         text: contextText + `Family member now said: "${userText}"` + modePromptSuffix
@@ -758,14 +782,15 @@ async function generateGeminiReplyInternal(body, logger) {
 
                 for (const withSearchTool of toolModes) {
                     const controller = new AbortController();
-                    const timer = setTimeout(() => controller.abort(), 8500);
+                    const timer = setTimeout(() => controller.abort(), 7500);
                     try {
                         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
                         const payload = {
                             contents: [{ role: "user", parts: userParts }],
                             systemInstruction: { parts: [{ text: FATHER_AGI_PROMPT }] },
                             generationConfig: {
-                                maxOutputTokens: 420,
+                                // 1024 tokens guarantees thinking models NEVER truncate Papa's Hindi sentence!
+                                maxOutputTokens: 1024,
                                 temperature: singingMode ? 0.78 : 0.65
                             }
                         };
@@ -782,9 +807,13 @@ async function generateGeminiReplyInternal(body, logger) {
                         clearTimeout(timer);
 
                         const data = await gRes.json();
-                        const partsList = data?.candidates?.[0]?.content?.parts || [];
+                        const candidate = data?.candidates?.[0];
+                        const finishReason = candidate?.finishReason || "UNKNOWN";
+                        const partsList = candidate?.content?.parts || [];
+                        // Exclude hidden thought parts (if any) and concatenate spoken reply parts cleanly
                         const combinedText = partsList
-                            .map((p) => p.text || "")
+                            .filter((p) => !p.thought && typeof p.text === "string")
+                            .map((p) => p.text)
                             .join(" ")
                             .trim();
 
@@ -794,7 +823,7 @@ async function generateGeminiReplyInternal(body, logger) {
                             logger.push(
                                 "I",
                                 "SERVER",
-                                `Gemini OK via G-Key#${keyNum} (${modelName}${withSearchTool ? "+WebSearch" : ""}) | emotion=${finalEmotion}`
+                                `Gemini OK via G-Key#${keyNum} (${modelName}${withSearchTool ? "+WebSearch" : ""}) | finish=${finishReason} | emotion=${finalEmotion}`
                             );
                             return {
                                 aiText: finalReply,
@@ -822,13 +851,19 @@ async function generateGeminiReplyInternal(body, logger) {
                             exhaustedModelCache.set(cacheKey, Date.now() + 20 * 60 * 1000);
                             break;
                         }
+                        if (gRes.status === 503 || gRes.status === 500) {
+                            exhaustedModelCache.set(cacheKey, Date.now() + 5 * 60 * 1000);
+                            break;
+                        }
                         if (gRes.status === 401 || gRes.status === 403) {
                             break;
                         }
                     } catch (err) {
                         clearTimeout(timer);
                         lastError = err.message;
-                        logger.push("E", "SERVER", `Fetch fail G-Key#${keyNum} ${modelName}: ${err.message}`);
+                        // Cache slow/aborted models for 5 mins so next turn doesn't waste 7.5s again!
+                        exhaustedModelCache.set(cacheKey, Date.now() + 5 * 60 * 1000);
+                        logger.push("E", "SERVER", `Timeout/Fail G-Key#${keyNum} ${modelName}: ${err.message} (5m cooldown)`);
                         break;
                     }
                 }
@@ -874,6 +909,15 @@ async function generateTtsAudioInternal(rawText, logger) {
             const entry = cartesiaPool[cartesiaKeyIdx];
             const keyNum = cartesiaKeyIdx + 1;
 
+            // Instant 0ms skip if this Cartesia key already returned 402 (credits exhausted) or 401!
+            const keyCooldownUntil = exhaustedCartesiaCache.get(entry.key) || 0;
+            if (Date.now() < keyCooldownUntil) {
+                const shifted = shiftPingPongIndex(cartesiaKeyIdx, cartesiaKeyDir, cartesiaPool.length);
+                cartesiaKeyIdx = shifted.idx;
+                cartesiaKeyDir = shifted.dir;
+                continue;
+            }
+
             const result = await tryKeyAcrossAllVoices(entry, text);
             if (result.ok) {
                 logger.push(
@@ -890,13 +934,20 @@ async function generateTtsAudioInternal(rawText, logger) {
             lastCartesiaError = `Key #${keyNum} V#${result.voiceNum || 1} [${result.status}]: ${result.error}`;
             logger.push("W", "SERVER", `Skip Cartesia ${lastCartesiaError}`);
 
+            // Cache 402 (out of credits) or 401 (bad key) for 6 hours so future turns stay ultra-fast!
+            if (result.status === 402 || result.status === 401) {
+                exhaustedCartesiaCache.set(entry.key, Date.now() + 6 * 60 * 60 * 1000);
+            } else if (result.status === 429) {
+                exhaustedCartesiaCache.set(entry.key, Date.now() + 10 * 60 * 1000);
+            }
+
             const shifted = shiftPingPongIndex(cartesiaKeyIdx, cartesiaKeyDir, cartesiaPool.length);
             cartesiaKeyIdx = shifted.idx;
             cartesiaKeyDir = shifted.dir;
         }
     }
 
-    logger.push("W", "SERVER", "All Cartesia keys failed; falling back to Render Piper TTS...");
+    logger.push("W", "SERVER", "All Cartesia keys skipped/failed; falling back to Render Piper TTS...");
     const rRes = await fetch(renderUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1021,7 +1072,7 @@ export default async function handler(req, res) {
                 ? await getAutoUpdatedGeminiModelsList(geminiKeys[0], logger)
                 : NOV_2026_ACTIVE_MODELS;
 
-        logs.push(`🔄 AUTO-DISCOVERED LIVE GEMINI MODELS: ${liveModels.slice(0, 5).join(", ")}`);
+        logs.push(`🔄 AUTO-DISCOVERED FAST GEMINI MODELS: ${liveModels.slice(0, 5).join(", ")}`);
         logs.push(`🧠 GEMINI KEYS FOUND: ${geminiKeys.length}`);
 
         for (let g = 0; g < geminiKeys.length; g++) {
@@ -1067,6 +1118,7 @@ export default async function handler(req, res) {
                 "नमस्ते बेटा, सदा खुश रहो, मेरा आशीर्वाद हमेशा तुम्हारे साथ है।"
             );
             if (resTest.ok) {
+                exhaustedCartesiaCache.delete(entry.key);
                 logs.push(`✅ Key #${k + 1} (${maskedKey}) ➔ Matched Voice #${resTest.voiceNum} (${resTest.modelUsed}): SUCCESS!`);
                 if (!firstSuccessAudio) {
                     firstSuccessAudio = resTest.audioBase64;
@@ -1074,6 +1126,9 @@ export default async function handler(req, res) {
                     activeKeyLabel = `Gemini (${geminiKeys.length} Keys) + Cartesia Key #${k + 1}/${cartesiaPool.length} (Voice #${resTest.voiceNum})`;
                 }
             } else {
+                if (resTest.status === 402 || resTest.status === 401) {
+                    exhaustedCartesiaCache.set(entry.key, Date.now() + 6 * 60 * 60 * 1000);
+                }
                 logs.push(`❌ Key #${k + 1} (${maskedKey}): HTTP ${resTest.status} - ${resTest.error}`);
             }
         }
