@@ -1,11 +1,11 @@
 /**
- * Papa Chatbot - Fast, Truncation-Free Universal AGI + E2E Logcat Backend (Nov 2026)
+ * Papa Chatbot - Fault-Isolated Universal AGI + E2E Logcat Backend (Nov 2026)
  * Fixes from Logcat:
- *  1. Thinking-Safe Token Budget (maxOutputTokens: 1024 + finishReason logging) so Papa NEVER cuts off mid-sentence
- *  2. Fast Flash-Lite Priority + Timeout/503 Cooldown Cache (Drops latency from 21s -> ~2-3s!)
- *  3. Cartesia 402/401 Circuit-Breaker Cache (Skips credit-exhausted Keys #1-#9 in 0ms, jumps straight to active key)
- *  4. 400ms Trailing WAV Silence Cushion so Android Chrome never clips the final spoken word
- *  5. Server-side Speech Repetition Sanitizer as backup safety net
+ *  1. Fault-Isolated Google Search Tool (A 429/400 on google_search NEVER blacklists base Gemini keys/models!)
+ *  2. Tightened WebSearch Intent Regex (Casual words like "आज" won't trigger search grounding)
+ *  3. Two-Pass Circuit-Breaker Bypass + Short 90s/45s Cooldowns (Eliminates false "No Gemini keys configured" 500s)
+ *  4. Excludes zero-quota `gemini-omni-*` models from auto-discovery
+ *  5. Text-Safe Pollinations Backup (Prevents 31KB base64 image rejection) with detailed Logcat reporting
  */
 
 let geminiKeyIdx = 0;
@@ -14,7 +14,7 @@ let geminiKeyDir = 1; // 1 = Forward (1->5), -1 = Reverse (5->1)
 let cartesiaKeyIdx = 0;
 let cartesiaKeyDir = 1; // 1 = Forward (1->20), -1 = Reverse (20->1)
 
-// Circuit-breaker caches (Skip quota-exhausted/timed-out models & credit-exhausted Cartesia keys in 0ms)
+// Circuit-breaker caches
 const exhaustedModelCache = new Map();
 const exhaustedCartesiaCache = new Map();
 const keyVoiceLockCache = new Map();
@@ -22,11 +22,11 @@ const keyVoiceLockCache = new Map();
 let cachedDiscoveredModels = null;
 let lastModelDiscoveryTime = 0;
 
-// Ordered by highest speed + highest Free-Tier quota first!
+// Ordered by highest speed + highest Free-Tier quota first
 const NOV_2026_ACTIVE_MODELS = [
     "gemini-3.5-flash-lite",
-    "gemini-3.1-flash-lite",
     "gemini-flash-lite-latest",
+    "gemini-3.1-flash-lite",
     "gemini-3.8-flash",
     "gemini-flash-latest",
     "gemini-4-hydrogen",
@@ -75,13 +75,11 @@ function ensureCompleteHindiSentence(rawText) {
     return text;
 }
 
-// Server-side safety net: Collapses consecutive repeated words/phrases if an older browser client sends duplicates
 function sanitizeRepeatedUserSpeech(rawText) {
     if (!rawText) return "नमस्ते पापा";
     const words = String(rawText).replace(/\s+/g, " ").trim().split(" ");
     if (words.length <= 2) return words.join(" ");
 
-    // Collapse immediate single-word stuttering ("हां हां हां पापा" -> "हां पापा")
     const deduped = [];
     for (const w of words) {
         if (deduped.length === 0 || deduped[deduped.length - 1] !== w) {
@@ -137,9 +135,10 @@ function detectPapaEmotion(userText, aiText) {
     return "talking";
 }
 
+// Strict Live Web Search Trigger: Only fires on real-time news, weather, rates, or scores (NOT casual "आज")
 function needsLiveWebSearch(userText) {
     if (!userText || isSingingRequest(userText)) return false;
-    return /आज|अभी|ताजा|खबर|न्यूज़|news|मौसम|weather|भाव|कीमत|price|rate|स्कोर|score|match|मैच|कौन है|कब है|2025|2026|प्रधानमंत्री|मुख्यमंत्री|योजना|शेयर|stock|gold|सोना|चांदी|पेट्रोल|train|ट्रेन|समय|तारीख/.test(
+    return /(मौसम|weather|ताजा खबर|ताज़ा खबर|न्यूज़|news|पेट्रोल.*भाव|डीजल.*भाव|सोना.*भाव|सोने का भाव|चांदी.*भाव|मंडी भाव|शेयर बाजार|stock price|क्रिकेट स्कोर|live score|मैच स्कोर|आईपीएल|ट्रेन स्टेटस|train status|आज की खबर|आज का मौसम|आज का भाव|gold rate|petrol price|diesel price|google search|गूगल सर्च)/.test(
         userText.toLowerCase()
     );
 }
@@ -241,11 +240,11 @@ function getGeminiKeysFromEnv() {
     return keys;
 }
 
-// Prioritize ultra-fast high-quota Flash-Lite models FIRST for ~2s Live Call replies!
+// Excludes zero-quota `omni` and non-chat models; prioritizes fast Flash-Lite models first
 function scoreGeminiModelForChat(modelId) {
     const id = modelId.toLowerCase();
     if (
-        /embedding|imagen|veo|tts|transcribe|live|decision|cyber|banana|image|audio|aqa|bison|gecko|gemma|1\.0|1\.5|2\.0|2\.5|3\.5-flash$|3\.7-flash/.test(
+        /embedding|imagen|veo|tts|transcribe|live|decision|cyber|banana|image|audio|aqa|bison|gecko|gemma|omni|1\.0|1\.5|2\.0|2\.5|3\.5-flash$|3\.7-flash/.test(
             id
         )
     ) {
@@ -257,13 +256,12 @@ function scoreGeminiModelForChat(modelId) {
     const versionNum = verMatch ? parseFloat(verMatch[1]) : 3.0;
 
     let score = versionNum * 40;
-    // Speed + High Free-Tier Quota priority for real-time video call!
     if (id.includes("flash-lite")) score += 300;
     else if (id.includes("flash")) score += 180;
     else if (id.includes("hydrogen")) score += 120;
     else if (id.includes("argon") || id.includes("carbon") || id.includes("neon")) score += 80;
 
-    if (id.includes("preview") || id.includes("exp")) score -= 25;
+    if (id.includes("preview") || id.includes("exp")) score -= 40;
     return score;
 }
 
@@ -311,7 +309,7 @@ async function getAutoUpdatedGeminiModelsList(apiKey, logger) {
             }
 
             if (finalMerged.length > 0) {
-                cachedDiscoveredModels = finalMerged.slice(0, 8);
+                cachedDiscoveredModels = finalMerged.slice(0, 7);
                 lastModelDiscoveryTime = Date.now();
                 if (logger) {
                     logger.push(
@@ -429,7 +427,6 @@ function shiftPingPongIndex(currentIdx, currentDir, totalLength) {
     return { idx, dir };
 }
 
-// Clean WAV builder with 400ms trailing silence padding so Android never clips Papa's final word
 function buildWavBufferFromPcm(rawArrayBuffer, sampleRate = 24000) {
     let pcmBytes = new Uint8Array(rawArrayBuffer);
     if (
@@ -605,7 +602,6 @@ function formatHistoryAndMemoryContext(chatHistory, longTermMemory) {
 
 async function generateFreeBackupReply(
     userText,
-    base64Frame,
     currentFacingMode,
     savedFaces,
     chatHistory,
@@ -620,10 +616,11 @@ async function generateFreeBackupReply(
     }
 
     const singingInstruction = singingMode
-        ? "\n(IMPORTANT: The family member wants you to SING! Write 4-6 melodic Hindi lines of the requested song/bhajan/lori with musical stretches like आऽऽ..., होऽऽ..., and commas/ellipses '...' so the voice clone sings it melodiously!)"
+        ? "\n(IMPORTANT: The family member wants you to SING! Write 4-6 melodic Hindi lines of the requested song/bhajan/lori with musical stretches like आऽऽ..., होऽऽ..., and commas/ellipses '...'.)"
         : "\n(Reply warmly as Papa AGI in 2-3 complete Devanagari Hindi sentences ending with पूर्ण विराम ।)";
 
     const contextText = formatHistoryAndMemoryContext(chatHistory, longTermMemory);
+    const promptBody = contextText + `Family member now said: "${userText}"` + singingInstruction;
 
     if (process.env.GROQ_API_KEY) {
         try {
@@ -638,7 +635,7 @@ async function generateFreeBackupReply(
                     model: "llama-3.3-70b-versatile",
                     messages: [
                         { role: "system", content: FATHER_AGI_PROMPT + familyHint },
-                        { role: "user", content: contextText + `Family member said: "${userText}"` + singingInstruction }
+                        { role: "user", content: promptBody }
                     ],
                     max_tokens: 450,
                     temperature: 0.7
@@ -654,28 +651,17 @@ async function generateFreeBackupReply(
                     modelUsed: "Groq-Llama-3.3"
                 };
             }
+            logger.push("W", "SERVER", `Groq backup returned HTTP ${groqRes.status}`);
         } catch (err) {
             logger.push("E", "SERVER", `Groq backup failed: ${err.message}`);
         }
     }
 
-    const userContent = [
-        {
-            type: "text",
-            text: contextText + `Family member now said: "${userText}"` + singingInstruction
-        }
-    ];
-    if (base64Frame) {
-        userContent.push({
-            type: "image_url",
-            image_url: { url: `data:image/jpeg;base64,${base64Frame}` }
-        });
-    }
-
+    // Text-only Pollinations request (avoids 31KB image_url rejections on Free endpoint!)
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 9000);
+    const timer = setTimeout(() => controller.abort(), 8500);
     try {
-        logger.push("W", "SERVER", "Falling back to Pollinations Free Multimodal AI...");
+        logger.push("W", "SERVER", "Falling back to Pollinations Free Text AI...");
         const freeRes = await fetch("https://text.pollinations.ai/openai", {
             method: "POST",
             signal: controller.signal,
@@ -684,7 +670,7 @@ async function generateFreeBackupReply(
                 model: "openai",
                 messages: [
                     { role: "system", content: FATHER_AGI_PROMPT + familyHint },
-                    { role: "user", content: userContent }
+                    { role: "user", content: promptBody }
                 ]
             })
         });
@@ -701,6 +687,8 @@ async function generateFreeBackupReply(
                     modelUsed: "Free-AGI-Fallback"
                 };
             }
+        } else {
+            logger.push("W", "SERVER", `Pollinations returned HTTP ${freeRes.status}`);
         }
     } catch (err) {
         clearTimeout(timer);
@@ -760,124 +748,149 @@ async function generateGeminiReplyInternal(body, logger) {
         text: contextText + `Family member now said: "${userText}"` + modePromptSuffix
     });
 
-    let lastError = "No Gemini keys configured";
+    let lastError =
+        geminiKeys.length > 0
+            ? "All Gemini keys/models temporarily busy or quota reached"
+            : "No Gemini keys configured";
 
     if (geminiKeys.length > 0) {
         if (geminiKeyIdx >= geminiKeys.length) geminiKeyIdx = 0;
 
         const modelsToTry = await getAutoUpdatedGeminiModelsList(geminiKeys[geminiKeyIdx], logger);
 
-        for (let attempt = 0; attempt < geminiKeys.length; attempt++) {
-            const activeKey = geminiKeys[geminiKeyIdx];
-            const keyNum = geminiKeyIdx + 1;
+        // Pass 0: Respect circuit-breaker cache; Pass 1: Emergency Bypass if Pass 0 skipped every single key/model!
+        let attemptedAnyCall = false;
 
-            for (const modelName of modelsToTry) {
-                const cacheKey = `${activeKey.slice(-6)}:${modelName}`;
-                const exhaustedUntil = exhaustedModelCache.get(cacheKey) || 0;
-                if (Date.now() < exhaustedUntil) {
-                    continue;
-                }
-
-                const toolModes = useWebSearch ? [true, false] : [false];
-
-                for (const withSearchTool of toolModes) {
-                    const controller = new AbortController();
-                    const timer = setTimeout(() => controller.abort(), 7500);
-                    try {
-                        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
-                        const payload = {
-                            contents: [{ role: "user", parts: userParts }],
-                            systemInstruction: { parts: [{ text: FATHER_AGI_PROMPT }] },
-                            generationConfig: {
-                                // 1024 tokens guarantees thinking models NEVER truncate Papa's Hindi sentence!
-                                maxOutputTokens: 1024,
-                                temperature: singingMode ? 0.78 : 0.65
-                            }
-                        };
-                        if (withSearchTool) {
-                            payload.tools = [{ google_search: {} }];
-                        }
-
-                        const gRes = await fetch(url, {
-                            method: "POST",
-                            signal: controller.signal,
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(payload)
-                        });
-                        clearTimeout(timer);
-
-                        const data = await gRes.json();
-                        const candidate = data?.candidates?.[0];
-                        const finishReason = candidate?.finishReason || "UNKNOWN";
-                        const partsList = candidate?.content?.parts || [];
-                        // Exclude hidden thought parts (if any) and concatenate spoken reply parts cleanly
-                        const combinedText = partsList
-                            .filter((p) => !p.thought && typeof p.text === "string")
-                            .map((p) => p.text)
-                            .join(" ")
-                            .trim();
-
-                        if (gRes.ok && combinedText) {
-                            const finalReply = ensureCompleteHindiSentence(combinedText);
-                            const finalEmotion = singingMode ? "singing" : detectPapaEmotion(userText, finalReply);
-                            logger.push(
-                                "I",
-                                "SERVER",
-                                `Gemini OK via G-Key#${keyNum} (${modelName}${withSearchTool ? "+WebSearch" : ""}) | finish=${finishReason} | emotion=${finalEmotion}`
-                            );
-                            return {
-                                aiText: finalReply,
-                                emotion: finalEmotion,
-                                geminiKeyUsed: keyNum,
-                                modelUsed: withSearchTool ? `${modelName}+WebSearch` : modelName,
-                                agiAction,
-                                newMemoryFact
-                            };
-                        }
-
-                        if (withSearchTool && gRes.status === 400) {
-                            logger.push("W", "SERVER", `${modelName} rejected WebSearch tool (400), retrying standard mode.`);
-                            continue;
-                        }
-
-                        lastError = data?.error?.message || `HTTP ${gRes.status} on ${modelName}`;
-                        logger.push("W", "SERVER", `Skip G-Key#${keyNum} ${modelName} -> HTTP ${gRes.status}`);
-
-                        if (gRes.status === 404) {
-                            exhaustedModelCache.set(cacheKey, Date.now() + 6 * 60 * 60 * 1000);
-                            break;
-                        }
-                        if (gRes.status === 429 || gRes.status === 400) {
-                            exhaustedModelCache.set(cacheKey, Date.now() + 20 * 60 * 1000);
-                            break;
-                        }
-                        if (gRes.status === 503 || gRes.status === 500) {
-                            exhaustedModelCache.set(cacheKey, Date.now() + 5 * 60 * 1000);
-                            break;
-                        }
-                        if (gRes.status === 401 || gRes.status === 403) {
-                            break;
-                        }
-                    } catch (err) {
-                        clearTimeout(timer);
-                        lastError = err.message;
-                        // Cache slow/aborted models for 5 mins so next turn doesn't waste 7.5s again!
-                        exhaustedModelCache.set(cacheKey, Date.now() + 5 * 60 * 1000);
-                        logger.push("E", "SERVER", `Timeout/Fail G-Key#${keyNum} ${modelName}: ${err.message} (5m cooldown)`);
-                        break;
-                    }
-                }
+        for (let pass = 0; pass < 2; pass++) {
+            if (pass === 1) {
+                if (attemptedAnyCall) break; // Pass 0 already made live attempts
+                logger.push("W", "SERVER", "All models were in cooldown cache -> Running Emergency Fresh Bypass!");
+                exhaustedModelCache.clear();
             }
 
-            const shifted = shiftPingPongIndex(geminiKeyIdx, geminiKeyDir, geminiKeys.length);
-            geminiKeyIdx = shifted.idx;
-            geminiKeyDir = shifted.dir;
+            const modelsForThisPass = pass === 0 ? modelsToTry : modelsToTry.slice(0, 3);
+
+            for (let attempt = 0; attempt < geminiKeys.length; attempt++) {
+                const activeKey = geminiKeys[geminiKeyIdx];
+                const keyNum = geminiKeyIdx + 1;
+
+                for (const modelName of modelsForThisPass) {
+                    const cacheKey = `${activeKey.slice(-6)}:${modelName}`;
+                    const exhaustedUntil = exhaustedModelCache.get(cacheKey) || 0;
+                    if (pass === 0 && Date.now() < exhaustedUntil) {
+                        continue;
+                    }
+
+                    attemptedAnyCall = true;
+                    const toolModes = useWebSearch ? [true, false] : [false];
+
+                    for (const withSearchTool of toolModes) {
+                        const controller = new AbortController();
+                        const timer = setTimeout(() => controller.abort(), 7500);
+                        try {
+                            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
+                            const payload = {
+                                contents: [{ role: "user", parts: userParts }],
+                                systemInstruction: { parts: [{ text: FATHER_AGI_PROMPT }] },
+                                generationConfig: {
+                                    maxOutputTokens: 1024,
+                                    temperature: singingMode ? 0.78 : 0.65
+                                }
+                            };
+                            if (withSearchTool) {
+                                payload.tools = [{ google_search: {} }];
+                            }
+
+                            const gRes = await fetch(url, {
+                                method: "POST",
+                                signal: controller.signal,
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload)
+                            });
+                            clearTimeout(timer);
+
+                            const data = await gRes.json();
+                            const candidate = data?.candidates?.[0];
+                            const finishReason = candidate?.finishReason || "UNKNOWN";
+                            const partsList = candidate?.content?.parts || [];
+                            const combinedText = partsList
+                                .filter((p) => !p.thought && typeof p.text === "string")
+                                .map((p) => p.text)
+                                .join(" ")
+                                .trim();
+
+                            if (gRes.ok && combinedText) {
+                                const finalReply = ensureCompleteHindiSentence(combinedText);
+                                const finalEmotion = singingMode ? "singing" : detectPapaEmotion(userText, finalReply);
+                                logger.push(
+                                    "I",
+                                    "SERVER",
+                                    `Gemini OK via G-Key#${keyNum} (${modelName}${withSearchTool ? "+WebSearch" : ""}) | finish=${finishReason} | emotion=${finalEmotion}`
+                                );
+                                return {
+                                    aiText: finalReply,
+                                    emotion: finalEmotion,
+                                    geminiKeyUsed: keyNum,
+                                    modelUsed: withSearchTool ? `${modelName}+WebSearch` : modelName,
+                                    agiAction,
+                                    newMemoryFact
+                                };
+                            }
+
+                            // CRITICAL FIX: Fault-isolate WebSearch tool failures!
+                            // If google_search returned ANY error (400/403/429/503), DO NOT blacklist the model —
+                            // immediately retry standard generateContent on the SAME model!
+                            if (withSearchTool) {
+                                logger.push(
+                                    "W",
+                                    "SERVER",
+                                    `${modelName} WebSearch failed (HTTP ${gRes.status}); retrying standard mode immediately.`
+                                );
+                                continue;
+                            }
+
+                            lastError = data?.error?.message || `HTTP ${gRes.status} on ${modelName}`;
+                            logger.push("W", "SERVER", `Skip G-Key#${keyNum} ${modelName} -> HTTP ${gRes.status}`);
+
+                            if (gRes.status === 404) {
+                                exhaustedModelCache.set(cacheKey, Date.now() + 6 * 60 * 60 * 1000);
+                                break;
+                            }
+                            if (gRes.status === 429) {
+                                // Short 90s cooldown so RPM limits recover automatically without locking out keys!
+                                exhaustedModelCache.set(cacheKey, Date.now() + 90 * 1000);
+                                break;
+                            }
+                            if (gRes.status === 503 || gRes.status === 500 || gRes.status === 400) {
+                                exhaustedModelCache.set(cacheKey, Date.now() + 45 * 1000);
+                                break;
+                            }
+                            if (gRes.status === 401 || gRes.status === 403) {
+                                break;
+                            }
+                        } catch (err) {
+                            clearTimeout(timer);
+                            if (withSearchTool) {
+                                logger.push("W", "SERVER", `${modelName} WebSearch timed out; retrying standard mode.`);
+                                continue;
+                            }
+                            lastError = err.message;
+                            exhaustedModelCache.set(cacheKey, Date.now() + 45 * 1000);
+                            logger.push("E", "SERVER", `Timeout/Fail G-Key#${keyNum} ${modelName}: ${err.message} (45s cooldown)`);
+                            break;
+                        }
+                    }
+                }
+
+                const shifted = shiftPingPongIndex(geminiKeyIdx, geminiKeyDir, geminiKeys.length);
+                geminiKeyIdx = shifted.idx;
+                geminiKeyDir = shifted.dir;
+            }
         }
     }
 
     const backupReply = await generateFreeBackupReply(
         userText,
-        base64Frame,
         currentFacingMode,
         savedFaces,
         chatHistory,
@@ -909,7 +922,6 @@ async function generateTtsAudioInternal(rawText, logger) {
             const entry = cartesiaPool[cartesiaKeyIdx];
             const keyNum = cartesiaKeyIdx + 1;
 
-            // Instant 0ms skip if this Cartesia key already returned 402 (credits exhausted) or 401!
             const keyCooldownUntil = exhaustedCartesiaCache.get(entry.key) || 0;
             if (Date.now() < keyCooldownUntil) {
                 const shifted = shiftPingPongIndex(cartesiaKeyIdx, cartesiaKeyDir, cartesiaPool.length);
@@ -934,7 +946,6 @@ async function generateTtsAudioInternal(rawText, logger) {
             lastCartesiaError = `Key #${keyNum} V#${result.voiceNum || 1} [${result.status}]: ${result.error}`;
             logger.push("W", "SERVER", `Skip Cartesia ${lastCartesiaError}`);
 
-            // Cache 402 (out of credits) or 401 (bad key) for 6 hours so future turns stay ultra-fast!
             if (result.status === 402 || result.status === 401) {
                 exhaustedCartesiaCache.set(entry.key, Date.now() + 6 * 60 * 60 * 1000);
             } else if (result.status === 429) {
@@ -1061,6 +1072,8 @@ export default async function handler(req, res) {
     }
 
     if (action === "diag") {
+        // Clear cooldown caches when user manually runs Check Keys
+        exhaustedModelCache.clear();
         const geminiKeys = getGeminiKeysFromEnv();
         const { pool: cartesiaPool, allVoices } = getCartesiaPoolFromEnv();
         const logs = [];
