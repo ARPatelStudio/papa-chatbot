@@ -39,7 +39,7 @@
 
 <div id="chatbot-container" style="text-align: center; font-family: 'Segoe UI', sans-serif; max-width: 550px; width: 100%; padding: 20px; background: #1a1a2e; color: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;">
 
-    <!-- TOP STATUS BAR (Outside video — zero text on Papa's video!) -->
+    <!-- TOP STATUS BAR (Outside video — zero text on video!) -->
     <div id="avatar-top-hud" style="display: flex; justify-content: space-between; align-items: center; max-width: 275px; margin: 0 auto 8px auto; gap: 6px; min-height: 24px;">
         <div id="live-stream-badge" class="live-pulse" style="visibility: hidden; background: rgba(220, 38, 38, 0.92); color: #fff; font-size: 10px; font-weight: bold; padding: 4px 9px; border-radius: 12px; letter-spacing: 0.6px;">
             🔴 LIVE AGI CALL
@@ -155,16 +155,16 @@
         <div id="saved-memory-list" style="font-size: 11.5px; color: #89dceb; max-height: 110px; overflow-y: auto;"></div>
     </div>
 
-    <!-- GitHub Releases / Direct Video Folder Connector Drawer -->
+    <!-- Extra Video URL Setup Drawer -->
     <div id="release-panel" style="display: none; background: #121224; border: 1px solid #fab387; border-radius: 14px; padding: 14px; margin-bottom: 15px; text-align: left;">
         <div style="font-size: 13px; font-weight: bold; color: #fab387; margin-bottom: 6px;">
             🎬 Extra 5 Emotion Videos URL Setup:
         </div>
         <div style="font-size: 11px; color: #cdd6f4; margin-bottom: 8px; line-height: 1.4;">
-            Agar 5 emotion videos (listening, thinking, blessing, happy, laughing) kisi direct URL par hain to yahan paste karein, ya <b>khali chhod kar Save</b> karein agar aapne unhe compress karke GitHub main folder me daal diya hai:
+            App ab sabse pehle aapke fast local folder (<code>./</code>) se videos chalata hai. Backup CDN/Release URL optional hai:
         </div>
         <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-            <input id="release-url-input" type="text" placeholder="Optional direct video folder URL (or leave blank for root ./)" style="flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #45475a; background: #242438; color: #a6e3a1; font-size: 11px;" />
+            <input id="release-url-input" type="text" placeholder="Optional backup video URL (leave blank for local ./)" style="flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid #45475a; background: #242438; color: #a6e3a1; font-size: 11px;" />
             <button id="save-release-btn" style="padding: 8px 12px; border-radius: 8px; border: none; background: #fab387; color: #111; font-size: 12px; font-weight: bold; cursor: pointer;">
                 ✅ Save
             </button>
@@ -459,7 +459,7 @@ const isAndroidDevice = /Android/i.test(navigator.userAgent);
 Logcat.push("I", "SYS", "Universal E2E Logcat ready (AndroidMode=" + isAndroidDevice + ", Online=" + navigator.onLine + ")");
 
 // ============================================================================
-// 🎬 CLEAN 7-VIDEO SYSTEM (With Failed URL Negative Cache to Stop Flicker/Spam)
+// 🎬 LOCAL-FIRST 7-VIDEO SYSTEM (Zero GitHub Release 700ms Delay!)
 // ============================================================================
 const BACKEND_API_URL = "/api/papa";
 const RENDER_BASE_URL = "https://papa-voice-cloud.onrender.com";
@@ -574,7 +574,6 @@ let isSubmittingSpeech = false;
 let conversationHistory = [];
 let activeTimerInterval = null;
 
-// Unified E2E API Fetch Wrapper
 async function callBackendAPI(payload) {
     const reqId = Logcat.nextReqId();
     const actionName = payload.action || "unknown";
@@ -758,7 +757,7 @@ saveMemoryBtn.addEventListener("click", function() {
 renderLongTermMemoriesUI();
 
 // ============================================================================
-// 🎬 ZERO-FLICKER SAFE VIDEO SWITCHER (Skips Previously Failed URLs Instantly)
+// 🎬 LOCAL-FIRST ZERO-FLICKER VIDEO SWITCHER (Checks ./ FIRST for Instant Load!)
 // ============================================================================
 function safePlayVideo(videoEl) {
     const playPromise = videoEl.play();
@@ -777,21 +776,19 @@ function setAvatarVideoState(stateKey, isSpeakingState) {
     const localCandidateUrl = "./" + fileName;
     const releaseCandidateUrl = (!isBaseLocalVideo && releaseBaseUrl) ? (releaseBaseUrl + fileName) : null;
 
-    // Build ordered candidate list, automatically excluding any URL that already failed once this session
+    // Local-First Priority: Try fast ./ first, then optional Release URL, then safe base video!
     const candidates = [];
-    if (releaseCandidateUrl && !failedVideoUrls.has(releaseCandidateUrl)) {
-        candidates.push(releaseCandidateUrl);
-    }
-    if (!failedVideoUrls.has(localCandidateUrl) && candidates.indexOf(localCandidateUrl) === -1) {
+    if (!failedVideoUrls.has(localCandidateUrl)) {
         candidates.push(localCandidateUrl);
+    }
+    if (releaseCandidateUrl && !failedVideoUrls.has(releaseCandidateUrl) && candidates.indexOf(releaseCandidateUrl) === -1) {
+        candidates.push(releaseCandidateUrl);
     }
     if (candidates.indexOf(safeFallbackUrl) === -1) {
         candidates.push(safeFallbackUrl);
     }
 
-    let candidateIdx = 0;
     const chosenUrl = candidates[0];
-
     if (lastResolvedVideoUrl === chosenUrl && !avatarVideo.paused) {
         currentVideoState = safeKey;
         return;
@@ -809,7 +806,7 @@ function setAvatarVideoState(stateKey, isSpeakingState) {
             failedVideoUrls.add(urlToTry);
             const nextIdx = idx + 1;
             if (nextIdx < candidates.length) {
-                Logcat.push("W", "MEDIA", "Video unavailable (" + urlToTry + ") -> Cached skip, using " + candidates[nextIdx]);
+                Logcat.push("W", "MEDIA", "Video unavailable (" + urlToTry + ") -> Using " + candidates[nextIdx]);
                 loadCandidate(nextIdx);
             } else {
                 avatarVideo.onerror = null;
@@ -820,7 +817,7 @@ function setAvatarVideoState(stateKey, isSpeakingState) {
         safePlayVideo(avatarVideo);
     }
 
-    loadCandidate(candidateIdx);
+    loadCandidate(0);
 }
 
 setAvatarVideoState("idle", false);
@@ -841,7 +838,7 @@ callBackendAPI({ action: "verify_pin", pin: sessionPIN })
         Logcat.push("I", "SYS", "Active Fast Gemini Models: " + data.autoDiscoveredModels.join(", "));
     }
     setAvatarVideoState("idle", false);
-    statusText.innerText = "✅ Papa AGI Ready! (Anti-Repeat Mic + Fast Reply + Full Sentence ON)\n'📞 Start Live Call' ya '🎤 Baat Karo' dabayen!";
+    statusText.innerText = "✅ Papa AGI Ready! (Zero-Lockout AI + Anti-Repeat Mic + Local-First Videos)\n'📞 Start Live Call' ya '🎤 Baat Karo' dabayen!";
 })
 .catch(function(err) {
     if (err.message !== "Wrong PIN") {
@@ -1136,7 +1133,7 @@ function captureCameraFrameBase64() {
 startCamera("user");
 
 // ============================================================================
-// 🎤 ANDROID-SAFE ANTI-REPEAT FULL-SPEECH LISTENER (Fixes Repeat & Early Cutoff!)
+// 🎤 ANDROID-SAFE ANTI-REPEAT FULL-SPEECH LISTENER
 // ============================================================================
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (!SpeechRecognition) {
@@ -1147,14 +1144,11 @@ if (!SpeechRecognition) {
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 if (recognition) {
     recognition.lang = "hi-IN";
-    // CRITICAL ANDROID FIX: continuous=false on Android prevents Chrome from duplicating every prefix as isFinal!
-    // Our silent keep-alive + sessionConfirmedText buffer still lets you speak long multi-sentence thoughts seamlessly.
     recognition.continuous = !isAndroidDevice;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 }
 
-// Smart Progressive Prefix & Overlap Merger (Kills 100% of Android/Chrome speech repetition!)
 function smartMergeSpeech(baseText, incomingText) {
     const a = String(baseText || "").replace(/\s+/g, " ").trim();
     const b = String(incomingText || "").replace(/\s+/g, " ").trim();
@@ -1168,7 +1162,6 @@ function smartMergeSpeech(baseText, incomingText) {
     const aWords = a.split(" ");
     const bWords = b.split(" ");
 
-    // 1. Progressive expansion with minor Android Hindi autocorrect (e.g., "आ रही की" -> "आ रही कि नहीं")
     if (bWords.length >= aWords.length && aWords[0] === bWords[0]) {
         let sameCount = 0;
         for (let i = 0; i < aWords.length; i++) {
@@ -1179,7 +1172,6 @@ function smartMergeSpeech(baseText, incomingText) {
         }
     }
 
-    // 2. Suffix-to-prefix overlap removal (e.g., "पापा मेरी बात" + "मेरी बात सुनो" -> "पापा मेरी बात सुनो")
     const maxOverlap = Math.min(aWords.length, bWords.length);
     for (let overlap = maxOverlap; overlap >= 1; overlap--) {
         let matched = true;
@@ -1197,10 +1189,9 @@ function smartMergeSpeech(baseText, incomingText) {
     return a + " " + b;
 }
 
-// Comfortable 3.8s silence buffer on Android (3.0s on Desktop) so user finishes full thought without cutoff
 const SILENCE_WAIT_MS = isAndroidDevice ? 3800 : 3000;
-let sessionConfirmedText = ""; // Confirmed text from earlier runs in this turn
-let currentRunText = "";       // Deduplicated text from the currently active recognition run
+let sessionConfirmedText = "";
+let currentRunText = "";
 let silenceDebounceTimer = null;
 
 const haBetaBolAudio = new Audio("./ha_beta_bol.mp3");
@@ -1443,7 +1434,6 @@ if (recognition) {
     recognition.onresult = function(event) {
         if (!shouldMicBeActive || isPapaSpeakingOrThinking || isSubmittingSpeech) return;
 
-        // Rebuild THIS recognition run cleanly from index 0 with smart prefix deduplication!
         let runFinal = "";
         let runInterim = "";
 
@@ -1468,7 +1458,6 @@ if (recognition) {
                 liveSubtitleBox.innerText = "🗣️ तुम बोल रहे हो: \"" + combinedPreview + "\"";
             }
 
-            // Reset full silence timer on every new spoken word
             scheduleSpeechSubmissionTimer(SILENCE_WAIT_MS);
         }
     };
@@ -1476,14 +1465,12 @@ if (recognition) {
     recognition.onend = function() {
         isMicCurrentlyListening = false;
 
-        // Commit deduplicated text from the finished run into sessionConfirmedText
         if (currentRunText) {
             sessionConfirmedText = smartMergeSpeech(sessionConfirmedText, currentRunText);
             currentRunText = "";
         }
 
         if (shouldMicBeActive && !isPapaSpeakingOrThinking && !isSubmittingSpeech) {
-            // If user already started speaking, refresh the silence timer so Android mic restart delay never cuts them off!
             if (sessionConfirmedText) {
                 scheduleSpeechSubmissionTimer(SILENCE_WAIT_MS);
             }
